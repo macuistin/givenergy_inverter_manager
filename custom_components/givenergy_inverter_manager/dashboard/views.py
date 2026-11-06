@@ -104,6 +104,7 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, CARD_MOD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
+    OFFLINE_CARD_CSS,
     RUN_LIMIT_BANNER_TEXT,
     ChargerNow,
     DayTotals,
@@ -637,11 +638,12 @@ class Builder:
 
     def _charger_story(self) -> dict[str, Any] | None:
         """The charger in a sentence with the reason it is not charging, for the main page."""
-        return markdown_card(
+        state = self.ev("ev_charger_state")
+        card = markdown_card(
             ev_story_template(
                 ChargerNow(
                     self.ev_power(),
-                    self.ev("ev_charger_state"),
+                    state,
                     self.ev("ev_charging_source"),
                     self.ev("ev_solar_surplus_available"),
                     self.ev("ev_protection_reason"),
@@ -649,6 +651,10 @@ class Builder:
                 )
             )
         )
+        if state and self.cards.installed(CARD_MOD):
+            # Red while the charger is not responding. Without card-mod the sentence says it.
+            return styled(card, OFFLINE_CARD_CSS.format(entity=state))
+        return card
 
     def _charger_controls(self) -> list[dict[str, Any] | None]:
         """Charge now and Pause, to every user and only while a car is plugged in."""
@@ -656,7 +662,11 @@ class Builder:
         if not state:
             return []
         gate = [
-            {"condition": "state", "entity": state, "state_not": ["disconnected", "unknown"]},
+            {
+                "condition": "state",
+                "entity": state,
+                "state_not": ["disconnected", "unknown", "offline"],
+            },
         ]
         return [
             with_visibility(switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), gate),

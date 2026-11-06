@@ -16,6 +16,12 @@ def _options_of(state: object) -> tuple[str, ...] | None:
     return tuple(str(option) for option in options)
 
 
+def _is_unavailable(get_state: Callable[[str], Any], entity_id: str | None) -> bool:
+    """True when the entity exists and Home Assistant calls it unavailable."""
+    state = get_state(entity_id) if entity_id else None
+    return state is not None and state.state == "unavailable"
+
+
 def update_charger_state(  # noqa: C901
     get_state: Callable[[str], Any],
     charger: EVCharger,
@@ -53,6 +59,10 @@ def update_charger_state(  # noqa: C901
     raw = _read_state(charger.status_entity)
     if raw is not None:
         charger.state = charger.normalise_state(raw)
+    elif _is_unavailable(get_state, charger.status_entity):
+        # Without this the last state would stay, so a charger that lost its power would
+        # keep reading as disconnected.
+        charger.state = EVChargerState.OFFLINE
 
     charger.power_w = _read_float(charger.power_entity)
     charger.session_kwh = _read_float(charger.session_energy_entity)

@@ -417,6 +417,16 @@ class TestTheOtherSentences:
         values["s.now"] = "on"
         assert "Charge now" not in self._ev_text(ev, values)
 
+    def test_the_ev_sentence_reports_a_charger_that_is_not_responding(self):
+        ev = ChargerNow("s.power", "s.state", "s.source", "s.surplus", None, "s.now")
+        values = {"s.power": "0", "s.state": "offline", "s.source": "Solar", "s.surplus": "Yes", "s.now": "off"}
+        text = _render(ev_story_template(ev), values.get)
+        assert text == (
+            "**Charger not responding.** It may have no power or have lost its connection. "
+            "Check its supply and its network."
+        )
+        assert "disconnected" not in text
+
     def test_the_bill_saving_is_what_solar_and_the_battery_took_off(self):
         text = _render(saved_template("s.paid", "s.without", "€"), {"s.paid": "40", "s.without": "65.5"}.get)
         assert text == (
@@ -452,6 +462,13 @@ class TestCardMod:
             "Each day": {"ha-markdown $": TABLE_CSS, **inner},
             "Last bill": {"ha-markdown $": TABLE_CSS + TOTAL_CSS, **inner},
         }
+
+    def test_the_charger_sentence_turns_red_when_the_charger_is_offline(self):
+        cards = [c for c in _styled(dashboard_dict(resources=CARD_MOD)) if "Charger not responding" in c.get("content", "")]
+        assert len(cards) == 1
+        style = cards[0]["card_mod"]["style"]
+        assert "is_state('sensor.ev_charger_state', 'offline')" in style or "'offline'" in style
+        assert "var(--error-color)" in style
 
     def test_with_card_mod_only_tables_and_the_titled_charts_change(self):
         """Without the resource the same cards are there, unstyled."""
