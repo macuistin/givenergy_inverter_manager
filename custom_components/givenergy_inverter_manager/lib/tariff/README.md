@@ -71,7 +71,10 @@ bill in `Decimal` and returns the tree with an amount on every node (`Line`), so
 be checked. A credit is a negative amount. Each node rounds to the currency's smallest unit, halves
 upward, unless it says `round: none`. `verify_checks(definition)` prices each worked bill in the
 document and raises `CheckFailed` if one gives another total. The engine reads band totals, not
-slots. `tests/lib/tariff/test_engine.py` reproduces a worked October bill (187.35).
+slots. `bands.import_by_band(days, definition, is_holiday)` turns stored slots into those totals:
+each slot takes the band in force at its start on the definition's clock, the zone of highest
+priority winning (`band_at` gives one moment's band). A zone past midnight belongs to the day it
+began. Whether a date is a public holiday is passed in, because the package has no calendar. `tests/lib/tariff/test_engine.py` reproduces a worked October bill (187.35).
 
 ## Allowed dependencies
 
