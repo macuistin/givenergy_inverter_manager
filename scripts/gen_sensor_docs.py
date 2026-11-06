@@ -661,7 +661,7 @@ DESCRIPTIONS: dict[str, str] = {
         "the charger and the car together. The charger wins when it says connected. Attributes: "
         "`source` (charger, car, charger_and_car or none), `confidence`, `conflict` (the two "
         "disagree) and `car_matches` (false when the charger is connected but the car is away, "
-        "so it is probably another car). A car reading older than 30 minutes is ignored."
+        "so it is probably another car). A car reading older than an hour is ignored."
     ),
     "car_battery_level": "The car's charge in percent, from the battery sensor you picked.",
     "car_charging_power": (
