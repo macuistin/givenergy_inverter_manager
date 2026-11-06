@@ -137,6 +137,12 @@ FORM_ONLY_NAMES = {
     "rate",
     "start",
     "end",
+    # The car form fields are stored inside the `cars` list, which has its own row.
+    "car_name",
+    "car_battery_level_entity",
+    "car_plug_entity",
+    "car_tracker_entity",
+    "car_battery_capacity_kwh",
 }
 
 
