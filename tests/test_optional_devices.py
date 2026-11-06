@@ -31,6 +31,7 @@ SENSOR = Device.IMMERSION_SENSOR
 LOWER = Device.IMMERSION_LOWER_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
 OIL = Device.ALTERNATIVE_HEAT
+CAR = Device.CAR
 
 
 def _needing(device: Device) -> set[str]:
@@ -272,6 +273,7 @@ class TestRemovingOrphans:
             | _needing(LOWER)
             | _needing(THERMOSTAT)
             | _needing(OIL)
+            | _needing(CAR)
         )
 
     def test_the_entities_of_a_device_still_present_stay(self):

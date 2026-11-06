@@ -871,6 +871,18 @@
       "is_clipping": {
         "name": "Inverter Clipping"
       },
+      "car_plug_status": {
+        "name": "Plug Status"
+      },
+      "car_battery_level": {
+        "name": "Battery Level"
+      },
+      "car_charging_power": {
+        "name": "Charging Power"
+      },
+      "car_at_home": {
+        "name": "Location"
+      },
       "ev_charger_state": {
         "name": "State"
       },

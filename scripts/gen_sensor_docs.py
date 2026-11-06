@@ -72,6 +72,11 @@ GROUPS: dict[str, str] = {
         "discovery first finds one. The ones marked `EV charger needed` are unavailable "
         "while the charger is not reporting."
     ),
+    "Car": (
+        "These sensors exist only while a car is set up under Configure, EV charger. They read "
+        "the car's own entities and only report. Nothing here changes the charge plan yet. They "
+        "show as unavailable until the first car reading."
+    ),
     "Solar forecast": "Needs a forecast sensor in the options to be meaningful.",
     "Carbon intensity": "Needs a carbon intensity sensor in the options.",
     "Yesterday": (
@@ -254,6 +259,15 @@ KEY_GROUPS: dict[str, str] = {
             "ev_solar_surplus_available",
         ),
         "EV charger",
+    ),
+    **dict.fromkeys(
+        (
+            "car_plug_status",
+            "car_battery_level",
+            "car_charging_power",
+            "car_at_home",
+        ),
+        "Car",
     ),
     **dict.fromkeys(
         (
@@ -642,6 +656,22 @@ DESCRIPTIONS: dict[str, str] = {
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
         "Charging and boosting need the charger to be drawing power."
     ),
+    "car_plug_status": (
+        "plugged_in, not_plugged_in or unknown: whether a car is plugged in at home, decided from "
+        "the charger and the car together. The charger wins when it says connected. Attributes: "
+        "`source` (charger, car, charger_and_car or none), `confidence`, `conflict` (the two "
+        "disagree) and `car_matches` (false when the charger is connected but the car is away, "
+        "so it is probably another car). A car reading older than 30 minutes is ignored."
+    ),
+    "car_battery_level": "The car's charge in percent, from the battery sensor you picked.",
+    "car_charging_power": (
+        "The charger's power while this car is plugged in at home, else 0 W. Few cars report "
+        "their own charge power, so the charger's reading is used."
+    ),
+    "car_at_home": (
+        "home, away or unknown, from the car's device tracker. Only the state is read, never "
+        "the position."
+    ),
     "ev_power": "EV charger power.",
     "ev_session_energy": "Energy of the current session, as reported by the charger.",
     "ev_session_cost": (
@@ -721,6 +751,7 @@ DESCRIPTIONS: dict[str, str] = {
 # What a sensor needs in order to exist, from `requires=` in its description.
 REQUIRES_NOTES: dict[str, str] = {
     "EV_CHARGER": "Created only with an EV charger.",
+    "CAR": "Created only with a car set up in the options.",
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
     "IMMERSION_LOWER_SENSOR": "Created only with a lower immersion temperature sensor.",

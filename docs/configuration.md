@@ -286,7 +286,7 @@ The car is optional. Pick the entities your car's own integration provides, and 
 | Car location | `car_tracker_entity` | A device tracker. Only whether it is at home is read, never its position |
 | Car battery size (kWh) | `car_battery_capacity_kwh` | Usable size, 10 to 200. Empty if you do not know it |
 
-The integration only reads these entities and never wakes the car. The choices are saved as the `cars` option, a list with one car, so more cars can be added later. Saving a change to the car reloads the integration. This release stores the car; sensors and charge planning that use it follow.
+The integration only reads these entities and never wakes the car. The choices are saved as the `cars` option, a list with one car, so more cars can be added later. Saving a change to the car reloads the integration. A car set up here gets its own **Car** device with four sensors: **Plug Status**, **Battery Level**, **Charging Power** and **Location**. See [Sensors](sensors.md#car). The charge plan does not use the car yet.
 
 ## Controls
 

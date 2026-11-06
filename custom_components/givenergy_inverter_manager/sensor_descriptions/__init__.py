@@ -10,6 +10,7 @@ from __future__ import annotations
 from . import (
     battery,
     bill,
+    car,
     decisions,
     diagnostics,
     forecast,
@@ -36,6 +37,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     *battery.DESCRIPTIONS,
     *decisions.DESCRIPTIONS,
     *loads.DESCRIPTIONS,
+    *car.DESCRIPTIONS,
     *diagnostics.DESCRIPTIONS,
     *today_breakdown.DESCRIPTIONS,
     *forecast.DESCRIPTIONS,
