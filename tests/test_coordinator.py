@@ -42,6 +42,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.core import engine
 from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import HeldTriggers
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
@@ -1578,7 +1579,9 @@ class TestDryRunLastSkippedSurvivesCycles:
         assert coord.data.dry_run_last_skipped == recorded
 
     @pytest.mark.asyncio
-    async def test_ev_skip_survives_a_cycle(self):
+    async def test_ev_skip_survives_a_cycle(self, monkeypatch):
+        # Outside the charge hours, whatever the time the suite runs at.
+        monkeypatch.setattr(engine, "_in_ev_charge_hours", lambda cycle: False)
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
         coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
@@ -1592,7 +1595,9 @@ class TestDryRunLastSkippedSurvivesCycles:
         assert coord.data.dry_run_last_skipped == recorded
 
     @pytest.mark.asyncio
-    async def test_newest_skip_replaces_the_previous_one(self):
+    async def test_newest_skip_replaces_the_previous_one(self, monkeypatch):
+        # Outside the charge hours, whatever the time the suite runs at.
+        monkeypatch.setattr(engine, "_in_ev_charge_hours", lambda cycle: False)
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
         coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
