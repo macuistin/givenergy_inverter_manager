@@ -256,6 +256,42 @@ class TestUpdateChargerState:
         assert ch.session_kwh == pytest.approx(12.5)
         assert ch.charge_mode == "Fast"
 
+    def test_an_unavailable_status_entity_reads_as_offline_not_the_last_state(self):
+        ch = _make_zappi("99")
+        ch.state = EVChargerState.DISCONNECTED
+        all_states = _states({"sensor.myenergi_zappi_99_plug_status": "unavailable"})
+        update_charger_state(all_states.get, ch, battery_power_w=0)
+        assert ch.state == EVChargerState.OFFLINE
+        assert not ch.is_plugged_in
+
+    def test_a_status_entity_that_stopped_reporting_reads_as_offline(self):
+        from datetime import UTC, datetime, timedelta
+
+        now = datetime(2026, 11, 6, 8, 0, tzinfo=UTC)
+        ch = _make_zappi("99")
+        entity = "sensor.myenergi_zappi_99_plug_status"
+        stale = _FakeState(entity, "EV Disconnected")
+        stale.last_reported = now - timedelta(minutes=45)
+        update_charger_state({entity: stale}.get, ch, battery_power_w=0, now=now)
+        assert ch.state == EVChargerState.OFFLINE
+        fresh = _FakeState(entity, "EV Disconnected")
+        fresh.last_reported = now - timedelta(minutes=2)
+        update_charger_state({entity: fresh}.get, ch, battery_power_w=0, now=now)
+        assert ch.state == EVChargerState.DISCONNECTED
+
+    def test_a_missing_status_entity_keeps_the_last_state(self):
+        ch = _make_zappi("99")
+        ch.state = EVChargerState.CONNECTED
+        update_charger_state(_states({}).get, ch, battery_power_w=0)
+        assert ch.state == EVChargerState.CONNECTED
+
+    def test_the_charger_recovers_when_the_status_returns(self):
+        ch = _make_zappi("99")
+        ch.state = EVChargerState.OFFLINE
+        all_states = _states({"sensor.myenergi_zappi_99_plug_status": "EV Connected"})
+        update_charger_state(all_states.get, ch, battery_power_w=0)
+        assert ch.state == EVChargerState.CONNECTED
+
     def test_battery_drain_detected_when_charging_and_battery_discharging(self):
         ch = _make_zappi("99")
         ch.state = EVChargerState.CHARGING
@@ -298,7 +334,7 @@ class TestUpdateChargerState:
         update_charger_state(all_states.get, ch, battery_power_w=-3000)
         assert ch.is_draining_battery is False
 
-    def test_unavailable_state_does_not_crash(self):
+    def test_unavailable_state_reads_as_offline(self):
         ch = _make_zappi("99")
         all_states = _states(
             {
@@ -306,7 +342,7 @@ class TestUpdateChargerState:
             }
         )
         update_charger_state(all_states.get, ch, battery_power_w=0)
-        assert ch.state == EVChargerState.UNKNOWN
+        assert ch.state == EVChargerState.OFFLINE
 
 
 # ── decide_ev_charger_action ──────────────────────────────────────────────────
@@ -337,13 +373,19 @@ class TestDecideEVChargerAction:
         )
         assert target is None
 
-    def test_no_action_when_not_plugged_in(self):
+    def test_unplugged_charger_is_stopped(self):
         ch = self._zappi(mode="Fast", state=EVChargerState.DISCONNECTED)
         target, reason = decide_ev_charger_action(
             ch,
             battery_soc=10.0,
             solar_surplus_w=0,
         )
+        assert target == "Stopped"
+        assert "not connected" in reason.lower()
+
+    def test_no_action_when_not_plugged_in_and_already_stopped(self):
+        ch = self._zappi(mode="Stopped", state=EVChargerState.DISCONNECTED)
+        target, reason = decide_ev_charger_action(ch, battery_soc=10.0, solar_surplus_w=0)
         assert target is None
         assert "not connected" in reason.lower()
 

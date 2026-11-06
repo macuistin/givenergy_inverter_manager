@@ -44,6 +44,13 @@ Issues raised:
     ends or the rate drops. Dismissing it keeps it dismissed until then. The decision lives
     in core/ev_base_rate.py. An install with no charger never reaches it.
 
+  ev_charger_offline
+    The charger's status sensor has been unavailable for about five minutes, or has not
+    reported for 30 minutes. The usual cause is no power (a tripped breaker or a switched-off
+    supply) or a lost network connection. Not fixable: the cause is at the charger. Error
+    severity, since no charge can happen. The decision lives in core/ev_offline.py. It clears
+    when the charger reports again, and on unload.
+
   write_not_confirmed
     A charge setting was written to GivTCP and every read-back still showed the old value, so
     the inverter did not take it. The usual causes are GivTCP's Real Time Control being off
@@ -141,6 +148,7 @@ ISSUE_TARIFF_REVIEW_DUE = "tariff_review_due"
 ISSUE_BATTERY_COST_NOT_SET = "battery_cost_not_set"
 ISSUE_EV_BASE_RATE_CHARGING = "ev_charging_at_base_rate"
 ISSUE_WRITE_NOT_CONFIRMED = "write_not_confirmed"
+ISSUE_EV_CHARGER_OFFLINE = "ev_charger_offline"
 ISSUE_GIVTCP_FEED_FROZEN = "givtcp_feed_frozen"
 ISSUE_GIVTCP_NOT_ANSWERING = "givtcp_not_answering"
 ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
@@ -161,6 +169,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_TARIFF_REVIEW_DUE: f"{TROUBLESHOOTING_URL}#the-tariff-has-not-been-reviewed",
     ISSUE_BATTERY_COST_NOT_SET: f"{TROUBLESHOOTING_URL}#battery-cost-is-not-set",
     ISSUE_EV_BASE_RATE_CHARGING: f"{TROUBLESHOOTING_URL}#ev-is-charging-at-the-base-rate",
+    ISSUE_EV_CHARGER_OFFLINE: f"{TROUBLESHOOTING_URL}#the-ev-charger-is-not-responding",
     ISSUE_WRITE_NOT_CONFIRMED: f"{TROUBLESHOOTING_URL}#writes-to-the-inverter-are-not-confirmed",
     ISSUE_GIVTCP_FEED_FROZEN: f"{TROUBLESHOOTING_URL}#givtcp-data-is-frozen",
     ISSUE_GIVTCP_NOT_ANSWERING: (
@@ -313,6 +322,25 @@ def async_create_ev_base_rate_issue(
 def async_delete_ev_base_rate_issue(hass: HomeAssistant) -> None:
     """Clear the base-rate charging repair issue once the session ends or the rate drops."""
     async_delete_issue(hass, DOMAIN, ISSUE_EV_BASE_RATE_CHARGING)
+
+
+def async_create_ev_charger_offline_issue(hass: HomeAssistant, charger: str) -> None:
+    """Surface a repair issue while the EV charger is not responding."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_EV_CHARGER_OFFLINE,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_EV_CHARGER_OFFLINE],
+        severity=IssueSeverity.ERROR,
+        translation_key=ISSUE_EV_CHARGER_OFFLINE,
+        translation_placeholders={"charger": charger},
+    )
+
+
+def async_delete_ev_charger_offline_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once the charger reports again, or on unload."""
+    async_delete_issue(hass, DOMAIN, ISSUE_EV_CHARGER_OFFLINE)
 
 
 def async_create_write_not_confirmed_issue(hass: HomeAssistant, settings: str) -> None:

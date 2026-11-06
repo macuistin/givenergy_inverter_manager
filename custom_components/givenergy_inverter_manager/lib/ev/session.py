@@ -5,7 +5,8 @@ A session starts on the first cycle the charger reads plugged in and ends on the
 reads unplugged. That is the span the charger's own session energy counts: a Zappi's charge
 added this session and a GivEnergy charger's session energy both start from zero at plug-in.
 A drop in that counter is not used as a boundary, because an unavailable counter reads zero.
-A charger state of unknown says nothing about the plug, so it neither starts nor ends a session.
+A charger state of unknown or offline says nothing about the plug, so it neither starts nor
+ends a session.
 
 Each cycle adds the EV energy and EV cost that today's EV totals counted for the same step
 (core/engine.py), so a session that crosses midnight costs exactly what the two days' EV cost
@@ -111,7 +112,7 @@ class EVSessionStep:
 
 def track_session(log: EVSessionLog, step: EVSessionStep) -> None:
     """Start, add to or end the session for one cycle. Mutates log."""
-    if step.charger_state is EVChargerState.UNKNOWN:
+    if step.charger_state in (EVChargerState.UNKNOWN, EVChargerState.OFFLINE):
         _add_step(log, step)
         return
     plugged_in = step.charger_state is not EVChargerState.DISCONNECTED

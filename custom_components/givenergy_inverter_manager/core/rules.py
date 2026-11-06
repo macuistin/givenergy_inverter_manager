@@ -1301,8 +1301,8 @@ class EVRequest:
     on_cheap_rate: a rate period cheaper than the base rate is running.
     charge_now: the owner's Charge Now switch, which asks for the grid mode at any rate.
     pause: the owner's Pause switch, which asks for the stop mode and wins over the others.
-    mode_held: this rule put the charger in its grid or stop mode, so a charger the owner put
-    there by hand is left alone when the reason for it ends.
+    mode_held: this rule put the charger in its stop mode, so a charger the owner stopped by
+    hand is left alone when the reason for it ends. The grid mode is never held this way.
     """
 
     on_cheap_rate: bool = False
@@ -1320,7 +1320,9 @@ def _pause_choice(charger: EVCharger, current: str) -> ModeChoice:
     return stop_mode, f"Paused by you — switching to {stop_mode}"
 
 
-def _owner_choice(charger: EVCharger, request: EVRequest) -> ModeChoice | None:
+def _owner_choice(
+    charger: EVCharger, request: EVRequest, solar_surplus_w: float
+) -> ModeChoice | None:
     """The mode the owner's switches or a cheaper rate ask for, None when none does."""
     current = (charger.charge_mode or "").strip().lower()
     if request.pause:
@@ -1337,13 +1339,44 @@ def _owner_choice(charger: EVCharger, request: EVRequest) -> ModeChoice | None:
             return None, f"{why}, already charging in {grid_mode}"
         return grid_mode, f"{why} — switching to {grid_mode} to charge the car"
 
-    ours = {m.lower() for m in (grid_mode, stop_mode) if m is not None}
-    if request.mode_held and not wanted and current in ours:
+    if not wanted and grid_mode is not None and current == grid_mode.lower():
+        return _leave_grid_mode(charger, solar_surplus_w)
+
+    if request.mode_held and not wanted and stop_mode is not None and current == stop_mode.lower():
         back = charger.surplus_mode()
         if back is not None:
             return back, f"Back to {back}"
         return None, f"{charger.display_name} offers no surplus-only mode, so its mode is left"
     return None
+
+
+def _leave_grid_mode(charger: EVCharger, solar_surplus_w: float) -> ModeChoice | None:
+    """Nothing asks for the grid mode, so take the charger out of it, whoever put it there.
+
+    A grid mode left on outside the charge hours starts charging the moment a car plugs in.
+    Enough surplus to start a charge returns None, so the surplus rule picks the surplus-only
+    mode. Otherwise the charger is stopped.
+    """
+    stop_mode = charger.stop_mode()
+    surplus_mode = charger.surplus_mode()
+    if surplus_mode is not None and solar_surplus_w >= EV_CHARGER_MIN_POWER_W:
+        return None
+    if stop_mode is not None:
+        return stop_mode, f"Charge hours are over, switching to {stop_mode}"
+    if surplus_mode is not None:
+        return surplus_mode, f"Charge hours are over, back to {surplus_mode}"
+    return None, f"{charger.display_name} offers no stop or surplus-only mode, so its mode is left"
+
+
+def _unplugged_choice(charger: EVCharger, request: EVRequest) -> ModeChoice:
+    """Park an unplugged charger in its stop mode so the next car does not start charging."""
+    stop_mode = charger.stop_mode()
+    asks_for_grid = (request.on_cheap_rate or request.charge_now) and not request.pause
+    if stop_mode is None or asks_for_grid:
+        return None, "EV not connected"
+    if (charger.charge_mode or "").strip().lower() == stop_mode.lower():
+        return None, "EV not connected"
+    return stop_mode, f"EV not connected, switching to {stop_mode}"
 
 
 def decide_ev_charger_action(
@@ -1358,23 +1391,27 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. No plugged-in vehicle → no change
+      1. No plugged-in vehicle → the stop mode, unless a cheaper rate or Charge now asks for
+         the grid mode, so the next car does not start charging at once
       2. The owner asked to pause and the charger has a stop mode (Stopped on a Zappi) → that
          mode, whatever the rate or the surplus
       3. A cheaper-than-base rate period is running, or the owner asked to charge now, and the
          charger has a grid mode (Fast on a Zappi) → switch to it, so a car that takes hours to
          fill charges at the cheap rate
-      4. The reason for the grid or stop mode has ended and this rule put the charger there →
-         back to the surplus-only mode, or no change when the charger offers none
+      4. Nothing asks for the grid mode and the charger is in it → the surplus-only mode when
+         the surplus can start a charge, otherwise the stop mode, whoever chose the grid mode.
+         The reason for the stop mode has ended and this rule put the charger there → back to
+         the surplus-only mode, or no change when the charger offers none
       5. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
       6. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
          that is not already in it → switch to that mode, never to a stop, pause, fast or grid mode
       7. Otherwise → no change
     """
+    request = request or EVRequest()
     if not charger.is_plugged_in:
-        return None, "EV not connected"
+        return _unplugged_choice(charger, request)
 
-    if (choice := _owner_choice(charger, request or EVRequest())) is not None:
+    if (choice := _owner_choice(charger, request, solar_surplus_w)) is not None:
         return choice
 
     # Minimum power guard: OCPP chargers will not start below 6A (1,380W at 230V).
