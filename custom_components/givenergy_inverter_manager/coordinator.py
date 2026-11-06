@@ -153,6 +153,7 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.ev_offline import next_step as next_ev_offline_step
 from .core.ev_session import EVSession
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
@@ -200,6 +201,7 @@ from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
 from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
     EVCharger,
+    EVChargerState,
     discover_ev_chargers,
     update_charger_state,
 )
@@ -223,6 +225,7 @@ from .repairs import (
     async_create_battery_cost_issue,
     async_create_charge_blocked_by_pause_issue,
     async_create_ev_base_rate_issue,
+    async_create_ev_charger_offline_issue,
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
     async_create_givtcp_resets_ids_issue,
@@ -237,6 +240,7 @@ from .repairs import (
     async_delete_battery_cost_issue,
     async_delete_charge_blocked_by_pause_issue,
     async_delete_ev_base_rate_issue,
+    async_delete_ev_charger_offline_issue,
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
     async_delete_givtcp_resets_ids_issue,
@@ -393,6 +397,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_power_warned: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
+        # Updates the EV charger has read offline in a row, for the repair.
+        self._ev_offline_cycles = 0
+        self.entry.async_on_unload(lambda: async_delete_ev_charger_offline_issue(self.hass))
         # Cycles each hot water temperature sensor has read nothing in a row, for the repair.
         self._silent_temperature_cycles: dict[str, int] = {}
         self.entry.async_on_unload(lambda: async_delete_immersion_temperature_issue(self.hass))
@@ -1792,6 +1799,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_real_time_control()
         self._check_temperature_sensors(cfg)
 
+    def _check_ev_offline(self) -> None:
+        """Raise one repair while the EV charger has read offline for a few minutes."""
+        charger = self._ev_charger
+        offline = charger is not None and charger.state is EVChargerState.OFFLINE
+        step = next_ev_offline_step(offline=offline, cycles=self._ev_offline_cycles)
+        self._ev_offline_cycles = step.cycles
+        if step.raise_issue and charger is not None:
+            async_create_ev_charger_offline_issue(self.hass, charger.display_name)
+        elif step.clear_issue:
+            async_delete_ev_charger_offline_issue(self.hass)
+
     def _check_wired_entities(self) -> None:
         """Raise one repair naming wired GivTCP entities that have gone, after a few minutes.
 
@@ -2044,6 +2062,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._maybe_rediscover_battery_cycles()
         raw = self._collect_raw(cfg)
         self._refresh_ev_charger(raw, now)
+        self._check_ev_offline()
         self.immersion.release_if_at_target(raw.immersion_temp)
         self._learn_heating_rate(raw, now)
         self._track_input_outage(raw, now)

@@ -1268,6 +1268,10 @@
       "title": "EV is charging at the base rate",
       "description": "The car is drawing about {power_kw} kW from the grid at the {rate_name} rate. A cheaper band starts at {next_cheap_start}.\n\nMoving the session into the cheaper band lowers its cost. Pause the charge now and resume it when the cheaper band starts, or set the charger's own schedule. This integration does not stop or pause the charger.\n\nThe repair clears when the session ends or the rate drops. Ignore it to hide it for the rest of the session."
     },
+    "ev_charger_offline": {
+      "title": "The EV charger is not responding",
+      "description": "{charger} has not reported for several minutes, so it has no power or has lost its connection. No charge can start until it is back, whatever the plan says.\n\nCheck the supply first (a tripped breaker or a switched-off isolator at the fuse panel), then the charger's network connection and the integration that provides it.\n\nThis repair clears by itself when the charger reports again. The integration has not changed anything."
+    },
     "write_not_confirmed": {
       "title": "The inverter did not take a charge setting",
       "description": "The integration wrote a charge setting to GivTCP and read it back after every attempt, and the inverter still showed the old value. Not taken: {settings}.\n\nThe inverter keeps its old charge window or target until this is fixed, so tonight's charge may not follow the plan.\n\nThe usual causes are that GivTCP's **Real Time Control** setting is off (an upgrade of GivTCP can reset it), or that GivTCP is not running or not publishing. Also check that GivTCP's day rate, night rate and tariff type are filled in. The learn more link has the steps.\n\nThe repair clears when a later write, or a later look, finds each setting at its value. Ignore it to hide it until then."

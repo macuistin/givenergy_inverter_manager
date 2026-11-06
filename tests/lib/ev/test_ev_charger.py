@@ -271,7 +271,7 @@ class TestUpdateChargerState:
         ch = _make_zappi("99")
         entity = "sensor.myenergi_zappi_99_plug_status"
         stale = _FakeState(entity, "EV Disconnected")
-        stale.last_reported = now - timedelta(minutes=30)
+        stale.last_reported = now - timedelta(minutes=45)
         update_charger_state({entity: stale}.get, ch, battery_power_w=0, now=now)
         assert ch.state == EVChargerState.OFFLINE
         fresh = _FakeState(entity, "EV Disconnected")
