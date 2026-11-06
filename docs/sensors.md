@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 170 sensors. 119 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 174 sensors. 123 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -195,6 +195,17 @@ These sensors exist only while a supported charger is discovered, and appear whe
 | Charging Plan | `ev_charging_plan` | - | - | none | no | yes | What the car will do and when, such as the cheaper rate it charges at. Created only with an EV charger. EV charger needed. |
 | Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
 | Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
+
+## Car
+
+These sensors exist only while a car is set up under Configure, EV charger. They read the car's own entities and only report. Nothing here changes the charge plan yet. They show as unavailable until the first car reading.
+
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
+|---|---|---|---|---|---|---|---|
+| Plug Status | `car_plug_status` | - | - | none | no | yes | plugged_in, not_plugged_in or unknown: whether a car is plugged in at home, decided from the charger and the car together. The charger wins when it says connected. Attributes: `source` (charger, car, charger_and_car or none), `confidence`, `conflict` (the two disagree) and `car_matches` (false when the charger is connected but the car is away, so it is probably another car). A car reading older than an hour is ignored. Created only with a car set up in the options. |
+| Battery Level | `car_battery_level` | % | battery | measurement | no | yes | The car's charge in percent, from the battery sensor you picked. Created only with a car set up in the options. |
+| Charging Power | `car_charging_power` | W | power | measurement | no | yes | The charger's power while this car is plugged in at home, else 0 W. Few cars report their own charge power, so the charger's reading is used. Created only with a car set up in the options. |
+| Location | `car_at_home` | - | - | none | no | yes | home, away or unknown, from the car's device tracker. Only the state is read, never the position. Created only with a car set up in the options. |
 
 ## Solar forecast
 

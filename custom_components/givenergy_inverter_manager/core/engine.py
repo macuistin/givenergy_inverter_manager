@@ -87,7 +87,17 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OK,
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
-from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
+from ..lib.ev import (
+    CarPlugInputs,
+    CarPlugResult,
+    CarReading,
+    EVCharger,
+    EVChargerState,
+    EVSessionLog,
+    EVSessionStep,
+    decide_car_plug,
+    track_session,
+)
 from ..lib.heating import WaterReading
 from ..lib.heating.solar import SolarOutlook
 from ..lib.solar.day import HeldSolarDay, SolarReading, settled_solar_w
@@ -263,6 +273,8 @@ class RawSensorValues:
     ev_plugged_in: bool = False
     # True once an EV charger has been discovered. The coordinator sets it.
     ev_charger_present: bool = False
+    # The configured car read this cycle, None when no car is set up. The coordinator sets it.
+    car: CarReading | None = None
     inverter_temp: float | None = None
     # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
     unavailable_inputs: tuple[str, ...] = ()
@@ -435,6 +447,9 @@ class CoordinatorData:
     ev_solar_surplus_available: bool = False
     # The running EV session and the last finished ones. None without a charger or a stored log.
     ev_sessions: EVSessionLog | None = None
+    # The car set up in the options, and whether it is plugged in at home. None without a car.
+    car_reading: CarReading | None = None
+    car_plug: CarPlugResult | None = None
     # This integration's open repair issues. The coordinator sets them, from the issue registry.
     active_repairs: tuple[RepairIssue, ...] = ()
     # The entities the EV charger and the hot water are based on, with their state and when they
@@ -923,6 +938,24 @@ def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str
             next_cheap_name=upcoming.name if upcoming else "",
             next_cheap_rate=upcoming.rate if upcoming else 0.0,
             surplus_min_w=EV_CHARGER_MIN_POWER_W,
+        )
+    )
+
+
+def _set_car(data: CoordinatorData, raw: RawSensorValues) -> None:
+    """The car's readings and the plug-in answer from the charger and the car together.
+
+    Nothing reads the answer yet. The charge plan still uses the charger alone.
+    """
+    if raw.car is None:
+        return
+    data.car_reading = raw.car
+    data.car_plug = decide_car_plug(
+        CarPlugInputs(
+            charger_plugged=raw.ev_plugged_in if raw.ev_charger_present else None,
+            car_plugged=raw.car.plugged,
+            car_home=raw.car.at_home,
+            car_age_s=raw.car.age_s,
         )
     )
 
@@ -2122,6 +2155,7 @@ def build_coordinator_data(
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)
     _set_carbon_intensity(data, inputs.raw)
+    _set_car(data, inputs.raw)
 
     if inputs.ev_charger is None:
         return data, None

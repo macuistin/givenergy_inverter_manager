@@ -276,6 +276,18 @@ The advice needs the setting on, a cost or a cost sensor, and an immersion switc
 
 The page says which charger was found. The charger is found automatically and there is nothing to choose. Car efficiency converts the energy delivered to the car into kilometres.
 
+The car is optional. Pick the entities your car's own integration provides, and leave out any it does not have: When no car is saved yet, the page suggests the entities of a device that has a device tracker, a battery sensor in percent and a plug sensor. It suggests nothing if more than one device fits, and every suggestion can be changed or cleared.
+
+| Field | Key | Notes |
+|---|---|---|
+| Car name | `car_name` | Shown on the car's device. Empty means Car |
+| Car battery level | `car_battery_level_entity` | A sensor or number that reads the charge in percent |
+| Car plug or charging state | `car_plug_entity` | A binary sensor or sensor that says whether the cable is plugged in |
+| Car location | `car_tracker_entity` | A device tracker. Only whether it is at home is read, never its position |
+| Car battery size (kWh) | `car_battery_capacity_kwh` | Usable size, 10 to 200. Empty if you do not know it |
+
+The integration only reads these entities and never wakes the car. The choices are saved as the `cars` option, a list with one car, so more cars can be added later. Saving a change to the car reloads the integration. A car set up here gets its own **Car** device with four sensors: **Plug Status**, **Battery Level**, **Charging Power** and **Location**. See [Sensors](sensors.md#car). The charge plan does not use the car yet.
+
 ## Controls
 
 A control is a setting you try, watch and adjust. It is an entity on the device page, not a form field, and it takes effect on the next 30-second cycle with no reload. Each one shows the value in force, so a change made anywhere shows on the next refresh. The controls are in the **Configuration** section of **Settings → Devices & Services → GivEnergy Inverter Manager**, and on the administrators' **Settings** view of the dashboard.

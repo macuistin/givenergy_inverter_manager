@@ -16,6 +16,7 @@ from ..const import (
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_COST_ENTITY,
     CONF_ALT_HEAT_ENABLED,
+    CONF_CARS,
     CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -36,6 +37,9 @@ class Device(StrEnum):
     # Alternative water heating switched on with a cost, and the immersion switch. The advice
     # compares the two.
     ALTERNATIVE_HEAT = "alternative_heat"
+    # A car set up in the options. Its battery, plug and location entities come from the car's
+    # own integration.
+    CAR = "car"
 
 
 class DeviceGroup(StrEnum):
@@ -44,6 +48,8 @@ class DeviceGroup(StrEnum):
     MAIN = "main"
     EV_CHARGER = "ev_charger"
     IMMERSION = "immersion"
+    # The first car. One group for now. More cars need a group for each, see the car plan.
+    CAR = "car"
 
 
 _GROUPS = {
@@ -52,6 +58,7 @@ _GROUPS = {
     Device.IMMERSION_SENSOR: DeviceGroup.IMMERSION,
     Device.IMMERSION_LOWER_SENSOR: DeviceGroup.IMMERSION,
     Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
+    Device.CAR: DeviceGroup.CAR,
 }
 
 
@@ -59,6 +66,7 @@ _GROUP_NAMES = {
     DeviceGroup.MAIN: NAME,
     DeviceGroup.EV_CHARGER: "EV Charger",
     DeviceGroup.IMMERSION: "Immersion",
+    DeviceGroup.CAR: "Car",
 }
 
 
@@ -69,6 +77,7 @@ def group_name(group: DeviceGroup) -> str:
 
 _HARDWARE = {
     DeviceGroup.EV_CHARGER: frozenset({Device.EV_CHARGER}),
+    DeviceGroup.CAR: frozenset({Device.CAR}),
     DeviceGroup.IMMERSION: frozenset(
         {
             Device.IMMERSION_SWITCH,
@@ -131,5 +140,6 @@ def installed_devices(
         Device.IMMERSION_LOWER_SENSOR: bool(config.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)),
         Device.IMMERSION_THERMOSTAT: switch and sensor,
         Device.ALTERNATIVE_HEAT: switch and alt_heat_configured(config),
+        Device.CAR: bool(config.get(CONF_CARS)),
     }
     return frozenset(device for device, here in present.items() if here)

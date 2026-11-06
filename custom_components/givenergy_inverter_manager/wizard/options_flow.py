@@ -71,7 +71,7 @@ from ..core.wizard_tariff import (
     validate_tariff,
 )
 from .detect import detect
-from .flow_base import PageView, WizardPages, own_entity_ids, states_by_id
+from .flow_base import PageView, WizardPages, car_suggestions, own_entity_ids, states_by_id
 from .schemas import (
     CANCEL_SCHEDULED,
     CHANGE_DATE,
@@ -376,7 +376,7 @@ class OptionsSteps(WizardPages):
         )
         view = PageView(
             "ev",
-            ev_schema(ctx),
+            ev_schema(ctx, car_suggestions(self.hass)),
             lambda _flat: Validation(),
             clean_ev,
             {"charger": charger},

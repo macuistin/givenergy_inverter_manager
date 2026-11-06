@@ -32,6 +32,7 @@ from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
 from .core.tomorrow_outlook import outlook_table
 from .core.write_log import newest_first
+from .lib.ev import PlugState
 
 GRID_IMPORTING = "Importing"
 GRID_EXPORTING = "Exporting"
@@ -774,3 +775,53 @@ def cheapest_rate_active(data: CoordinatorData) -> bool:
 def cheap_rate_active(data: CoordinatorData) -> bool:
     """True while any period cheaper than the base rate is in force."""
     return data.cheap_run_remaining_minutes is not None
+
+
+# ── Car ───────────────────────────────────────────────────────────────────────
+
+
+def car_plug_status(data: CoordinatorData) -> str | None:
+    """plugged_in, not_plugged_in or unknown. None before the first car reading."""
+    return data.car_plug.state.value if data.car_plug is not None else None
+
+
+def car_plug_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """How the plug status was decided, so a surprising answer can be traced."""
+    plug = data.car_plug
+    if plug is None:
+        return None
+    return {
+        "source": plug.source.value,
+        "confidence": plug.confidence.value,
+        "conflict": plug.conflict,
+        "car_matches": plug.car_matches,
+    }
+
+
+def car_battery_level(data: CoordinatorData) -> float | None:
+    """The car's charge in percent, None while its battery sensor cannot be read."""
+    return data.car_reading.battery_pct if data.car_reading is not None else None
+
+
+def car_charging_power(data: CoordinatorData) -> float | None:
+    """What the charger delivers while this car is plugged in at home, else 0 W.
+
+    The charger's reading is used because few cars report their own charge power, and a car
+    that is away or not the one connected to the charger takes nothing from it.
+    """
+    plug = data.car_plug
+    if plug is None:
+        return None
+    if plug.state is PlugState.PLUGGED_IN and plug.car_matches:
+        return round(data.ev_power_w, 1)
+    return 0.0
+
+
+def car_at_home(data: CoordinatorData) -> str | None:
+    """home, away or unknown, from the car's tracker. Only the state is read, never a position."""
+    reading = data.car_reading
+    if reading is None:
+        return None
+    if reading.at_home is None:
+        return "unknown"
+    return "home" if reading.at_home else "away"

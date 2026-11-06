@@ -1557,6 +1557,11 @@ class TestApplyEvAction:
 # ── TestDryRunLastSkippedSurvivesCycles ───────────────────────────────────────
 
 
+def _midday() -> datetime:
+    """A fixed time outside the charge hours, so a cycle never moves the charger by the clock."""
+    return datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+
+
 class TestDryRunLastSkippedSurvivesCycles:
     """The engine builds a fresh snapshot each cycle, so the coordinator must carry the value."""
 
@@ -1582,6 +1587,7 @@ class TestDryRunLastSkippedSurvivesCycles:
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
         coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
+        coord._now = _midday
         await coord.run_cycle()
 
         coord._apply_ev_action("Stopped")
@@ -1596,6 +1602,7 @@ class TestDryRunLastSkippedSurvivesCycles:
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
         coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
+        coord._now = _midday
         await coord.run_cycle()
 
         coord._apply_ev_action("Stopped")

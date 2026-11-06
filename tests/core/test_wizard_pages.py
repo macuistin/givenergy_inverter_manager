@@ -357,9 +357,40 @@ class TestHotWater:
 class TestEv:
     def test_the_efficiency_is_a_number_and_only_stored_when_sent(self):
         assert clean_ev({"car_efficiency_kwh_per_100km": "17.5"}) == {
-            "car_efficiency_kwh_per_100km": 17.5
+            "car_efficiency_kwh_per_100km": 17.5,
+            "cars": [],
         }
         assert clean_ev({}) == {}
+
+    def test_the_cars_fields_make_one_car_and_blanks_are_left_out(self):
+        values = {
+            "car_efficiency_kwh_per_100km": 15,
+            "car_name": " Family car ",
+            "car_battery_level_entity": "sensor.car_battery",
+            "car_plug_entity": "",
+            "car_tracker_entity": "device_tracker.car",
+            "car_battery_capacity_kwh": 64.0,
+        }
+
+        assert clean_ev(values)["cars"] == [
+            {
+                "car_name": "Family car",
+                "car_battery_level_entity": "sensor.car_battery",
+                "car_tracker_entity": "device_tracker.car",
+                "car_battery_capacity_kwh": 64.0,
+            }
+        ]
+
+    def test_clearing_every_car_field_clears_the_car(self):
+        assert clean_ev({"car_efficiency_kwh_per_100km": 15})["cars"] == []
+
+    def test_the_summary_names_the_car(self):
+        cfg = {"cars": [{"car_name": "Family car"}]}
+
+        assert ev_summary(cfg).endswith(", car Family car")
+        assert ev_summary({"cars": [{"car_plug_entity": "binary_sensor.x"}]}).endswith(
+            ", car set up"
+        )
 
     def test_the_summary_falls_back_to_the_default(self):
         assert ev_summary({}) == "car efficiency 15 kWh per 100 km"

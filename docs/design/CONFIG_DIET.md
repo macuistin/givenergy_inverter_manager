@@ -44,6 +44,7 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Alternative heating on or off (`alt_heat_enabled`) | Hot water | Keep | Gates the whole feature |
 | Alternative heating name, unit, cost, cost sensor (`alt_heat_label`, `alt_heat_cost_unit`, `alt_heat_cost`, `alt_heat_cost_entity`) | Hot water | Keep | The user's own words and prices. The oil efficiency and energy content stay fixed assumptions in the code |
 | Car efficiency (`car_efficiency_kwh_per_100km`) | EV charger | Keep | Only used to turn kWh into km. Defaults to 15 and has no setup screen |
+| The car (`cars`: name, battery level, plug state, location, battery size) | EV charger | Entity | Car makers name their entities too differently to find by name, so the user picks them. Optional, one car for now, stored as a list so more can follow |
 | The charger | none | Detect | Found automatically and re-found every few cycles. There is nothing to choose |
 | The twelve wiring keys (`inverter_serial` and the eleven entity ids) | System, Reconfigure | Detect | Found by discovery. Reconfigure remaps them |
 

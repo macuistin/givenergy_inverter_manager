@@ -41,6 +41,7 @@ _DEVICE_SLUGS = {
     Device.IMMERSION_SENSOR: "immersion",
     Device.IMMERSION_LOWER_SENSOR: "immersion",
     Device.IMMERSION_THERMOSTAT: "immersion",
+    Device.CAR: "car",
 }
 
 

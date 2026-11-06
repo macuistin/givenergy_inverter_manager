@@ -16,3 +16,7 @@ EV_BASE_RATE_ALERT_DELAY_S = 300
 # charger that lost power stops reporting although the sensor keeps its last value.
 EV_OFFLINE_AFTER_S = 1800
 EV_RECENT_SESSIONS_MAX = 10  # finished EV charging sessions kept for the recent charges table
+# A car reading older than this counts as missing when deciding if the car is plugged in. Cars
+# report every 10 to 30 minutes and some stop while asleep, so an hour allows two missed polls
+# without a false stale read. A stale car only drops the decision back to the charger alone.
+CAR_READING_MAX_AGE_S = 3600

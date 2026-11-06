@@ -54,6 +54,7 @@ else:
         CONF_BILL_START_DAY,
         CONF_CAR_EFFICIENCY_KWH_PER_100KM,
         CONF_CARBON_INTENSITY_ENTITY,
+        CONF_CARS,
         CONF_CHARGE_END_TIME_ENTITY,
         CONF_CHARGE_START_TIME_ENTITY,
         CONF_CHEAP_RATE_FLOOR_SOC,
@@ -114,6 +115,9 @@ CHARGE_END = f"select.{PREFIX}_charge_end_time_slot_1"
 IMMERSION_SWITCH = "switch.immersion_heater"
 IMMERSION_TEMP = "sensor.hot_water_cylinder_temperature"
 IMMERSION_LOWER_TEMP = "sensor.hot_water_cylinder_lower_temperature"
+CAR_BATTERY = "sensor.test_car_battery"
+CAR_PLUG = "binary_sensor.test_car_plug"
+CAR_TRACKER = "device_tracker.test_car"
 FORECAST = "sensor.energy_production_tomorrow"
 FORECAST_P10 = "sensor.solcast_pv_forecast_forecast_tomorrow_10"
 FORECAST_D2 = "sensor.solcast_pv_forecast_forecast_day_3"
@@ -244,6 +248,15 @@ def full_config_data() -> dict[str, Any]:
         CONF_IMMERSION_WATTAGE: 3000,
         CONF_IMMERSION_TEMP_SENSOR: IMMERSION_TEMP,
         CONF_IMMERSION_LOWER_TEMP_SENSOR: IMMERSION_LOWER_TEMP,
+        # Car
+        CONF_CARS: [
+            {
+                "car_name": "Family car",
+                "car_battery_level_entity": CAR_BATTERY,
+                "car_plug_entity": CAR_PLUG,
+                "car_tracker_entity": CAR_TRACKER,
+            }
+        ],
         CONF_IMMERSION_TARGET_TEMP: 55,
         CONF_IMMERSION_MIN_TEMP: 50,
         # EV
@@ -295,6 +308,9 @@ def set_givtcp_states(hass, scenario: Scenario) -> None:
     s(IMMERSION_SWITCH, "off")
     s(IMMERSION_TEMP, 48.2, {"unit_of_measurement": "°C", "device_class": "temperature"})
     s(IMMERSION_LOWER_TEMP, 31.4, {"unit_of_measurement": "°C", "device_class": "temperature"})
+    s(CAR_BATTERY, 64, {"unit_of_measurement": "%", "device_class": "battery"})
+    s(CAR_PLUG, "off")
+    s(CAR_TRACKER, "home")
     s(FORECAST, 14.2, {"unit_of_measurement": "kWh", "device_class": "energy"})
     s(FORECAST_P10, 9.8, {"unit_of_measurement": "kWh", "device_class": "energy"})
     s(FORECAST_D2, 11.0, {"unit_of_measurement": "kWh", "device_class": "energy"})

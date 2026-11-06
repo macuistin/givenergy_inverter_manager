@@ -4066,7 +4066,7 @@
    "battery_summary": "battery 9.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast sensor: sensor.energy_production_tomorrow",
    "hot_water_summary": "immersion switch switch.immersion_heater",
-   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "ev_summary": "car efficiency 15 kWh per 100 km, car Family car",
    "unsaved": "",
    "save_note": "Applies at once."
   },
@@ -5025,6 +5025,87 @@
     "required": false,
     "optional": true,
     "default": 15.0
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "car_name",
+    "description": {
+     "suggested_value": "Family car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor",
+       "number"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_battery_level_entity",
+    "description": {
+     "suggested_value": "sensor.test_car_battery"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "binary_sensor",
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_plug_entity",
+    "description": {
+     "suggested_value": "binary_sensor.test_car_plug"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "device_tracker"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_tracker_entity",
+    "description": {
+     "suggested_value": "device_tracker.test_car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 10.0,
+      "max": 200.0,
+      "step": 0.5,
+      "unit_of_measurement": "kWh",
+      "mode": "box"
+     }
+    },
+    "name": "car_battery_capacity_kwh",
+    "required": false,
+    "optional": true
    }
   ]
  },
@@ -5047,7 +5128,7 @@
    "battery_summary": "battery 9.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
    "hot_water_summary": "immersion switch switch.immersion_heater",
-   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "ev_summary": "car efficiency 15 kWh per 100 km, car Family car",
    "unsaved": "",
    "save_note": "Applies at once."
   },
@@ -6000,6 +6081,87 @@
     "required": false,
     "optional": true,
     "default": 15.0
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "car_name",
+    "description": {
+     "suggested_value": "Family car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor",
+       "number"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_battery_level_entity",
+    "description": {
+     "suggested_value": "sensor.test_car_battery"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "binary_sensor",
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_plug_entity",
+    "description": {
+     "suggested_value": "binary_sensor.test_car_plug"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "device_tracker"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_tracker_entity",
+    "description": {
+     "suggested_value": "device_tracker.test_car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 10.0,
+      "max": 200.0,
+      "step": 0.5,
+      "unit_of_measurement": "kWh",
+      "mode": "box"
+     }
+    },
+    "name": "car_battery_capacity_kwh",
+    "required": false,
+    "optional": true
    }
   ]
  },
@@ -6022,7 +6184,7 @@
    "battery_summary": "battery 13.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
    "hot_water_summary": "immersion switch switch.immersion_heater",
-   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "ev_summary": "car efficiency 15 kWh per 100 km, car Family car",
    "unsaved": "",
    "save_note": "Applies at once."
   },
@@ -6972,6 +7134,87 @@
     "required": false,
     "optional": true,
     "default": 15.0
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "car_name",
+    "description": {
+     "suggested_value": "Family car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor",
+       "number"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_battery_level_entity",
+    "description": {
+     "suggested_value": "sensor.test_car_battery"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "binary_sensor",
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_plug_entity",
+    "description": {
+     "suggested_value": "binary_sensor.test_car_plug"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "device_tracker"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "car_tracker_entity",
+    "description": {
+     "suggested_value": "device_tracker.test_car"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 10.0,
+      "max": 200.0,
+      "step": 0.5,
+      "unit_of_measurement": "kWh",
+      "mode": "box"
+     }
+    },
+    "name": "car_battery_capacity_kwh",
+    "required": false,
+    "optional": true
    }
   ]
  },

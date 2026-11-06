@@ -100,7 +100,7 @@ async def test_each_menu_line_carries_the_current_status(hass, loaded_entry):
         "minimum charge 10%, overnight cap 80%, forecast"
     )
     assert lines["hot_water_summary"].startswith("immersion switch switch.immersion_heater")
-    assert lines["ev_summary"] == "car efficiency 15 kWh per 100 km"
+    assert lines["ev_summary"] == "car efficiency 15 kWh per 100 km, car Family car"
     manager(hass).async_abort(result["flow_id"])
 
 

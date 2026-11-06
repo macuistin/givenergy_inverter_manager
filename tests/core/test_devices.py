@@ -25,6 +25,7 @@ LOWER = {CONF_IMMERSION_LOWER_TEMP_SENSOR: "sensor.cylinder_low"}
 ON = {CONF_ALT_HEAT_ENABLED: True}
 COST = {CONF_ALT_HEAT_COST: 0.95}
 COST_SENSOR = {CONF_ALT_HEAT_COST_ENTITY: "sensor.heat_cost"}
+CAR = {"cars": [{"car_name": "Family car"}]}
 
 
 def test_an_install_with_nothing_has_no_device():
@@ -65,7 +66,7 @@ def test_an_unset_entity_is_not_a_device(empty):
 
 def test_the_devices_do_not_depend_on_each_other_apart_from_the_thermostat():
     everything = installed_devices(
-        {**SWITCH, **SENSOR, **LOWER, **ON, **COST}, ev_charger_found=True
+        {**SWITCH, **SENSOR, **LOWER, **ON, **COST, **CAR}, ev_charger_found=True
     )
     assert everything == frozenset(Device)
 
@@ -140,3 +141,13 @@ class TestWarnings:
 
     def test_a_cost_sensor_counts_as_a_cost(self):
         assert alt_heat_warnings({**SWITCH, **ON, **COST_SENSOR}) == []
+
+
+def test_a_car_in_the_options_is_the_car_device_whatever_else_is_there():
+    assert installed_devices(CAR, ev_charger_found=False) == {Device.CAR}
+    assert Device.CAR in installed_devices({**CAR, **SWITCH}, ev_charger_found=True)
+
+
+@pytest.mark.parametrize("empty", [None, []])
+def test_no_car_is_no_car_device(empty):
+    assert Device.CAR not in installed_devices({"cars": empty}, ev_charger_found=True)

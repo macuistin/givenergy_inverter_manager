@@ -65,6 +65,26 @@
   "name": "Target Temperature"
  },
  {
+  "entity_id": "sensor.car_battery_level",
+  "key": "car_battery_level",
+  "name": "Battery Level"
+ },
+ {
+  "entity_id": "sensor.car_charging_power",
+  "key": "car_charging_power",
+  "name": "Charging Power"
+ },
+ {
+  "entity_id": "sensor.car_location",
+  "key": "car_at_home",
+  "name": "Location"
+ },
+ {
+  "entity_id": "sensor.car_plug_status",
+  "key": "car_plug_status",
+  "name": "Plug Status"
+ },
+ {
   "entity_id": "sensor.ev_charger_charging_cost_today",
   "key": "zappi_cost_today",
   "name": "Charging Cost Today"

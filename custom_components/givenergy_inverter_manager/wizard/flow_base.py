@@ -41,6 +41,7 @@ from ..core.wizard_pages import (
     validate_forecast,
     validate_hot_water,
 )
+from ..lib.ev import EntityFacts, suggest_car_entities
 from .schemas import forecast_schema, hot_water_schema
 
 
@@ -208,6 +209,22 @@ def own_entity_ids(hass: Any) -> frozenset[str]:
     return frozenset(
         entry.entity_id for entry in registry.entities.values() if entry.platform == DOMAIN
     )
+
+
+def car_suggestions(hass: Any) -> dict[str, str]:
+    """The entities of the one device that looks like a car, found from the entity registry."""
+    registry = er.async_get(hass)
+    facts = [
+        EntityFacts(
+            entity_id=entry.entity_id,
+            device_id=entry.device_id,
+            device_class=entry.device_class or entry.original_device_class,
+            unit=entry.unit_of_measurement,
+        )
+        for entry in registry.entities.values()
+        if entry.platform != DOMAIN and entry.disabled_by is None
+    ]
+    return suggest_car_entities(facts)
 
 
 def states_by_id(hass: Any) -> Mapping[str, Any]:

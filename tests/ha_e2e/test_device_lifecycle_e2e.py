@@ -40,7 +40,7 @@ async def test_the_immersion_device_goes_when_its_hardware_is_cleared(hass, load
     await hass.config_entries.async_reload(loaded_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert set(_devices(hass, loaded_entry)) == {"main"}
+    assert set(_devices(hass, loaded_entry)) == {"main", "car"}
 
 
 async def test_a_device_in_use_cannot_be_deleted_and_one_without_hardware_can(hass, loaded_entry):
