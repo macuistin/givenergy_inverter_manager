@@ -8,6 +8,18 @@ from .config import TariffConfig, cheapest_period
 from .definition import SCHEMA_VERSION, DefinitionError, TariffDefinition
 from .definition_parse import load_definition, parse_definition
 from .engine import BillInputs, CheckFailed, Line, PricedBill, price_bill, verify_checks
+from .index import (
+    ChecksumMismatch,
+    StaticSource,
+    TariffIndex,
+    TariffSource,
+    build_index,
+    checksum_of,
+    find_tariff,
+    load_revision,
+    parse_index,
+    revision_in_force,
+)
 from .periods import RatePeriod
 from .reprice import BillPeriod, Repriced, Rounding, import_by_band, reprice
 from .slot_history import SlotHistory
@@ -16,6 +28,16 @@ from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_
 
 __all__ = [
     "SCHEMA_VERSION",
+    "ChecksumMismatch",
+    "StaticSource",
+    "TariffIndex",
+    "TariffSource",
+    "build_index",
+    "checksum_of",
+    "find_tariff",
+    "load_revision",
+    "parse_index",
+    "revision_in_force",
     "Locale",
     "definition_from_config",
     "band_at",
