@@ -32,6 +32,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         value_fn=values.inverter_temperature,
+        attrs_fn=values.inverter_source_attributes("inverter_temperature"),
     ),
     GivEnergyManagerSensorDescription(
         key="inverter_temperature_status",
@@ -54,6 +55,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:molecule-co2",
         entity_registry_enabled_default=False,
         value_fn=values.carbon_intensity,
+        attrs_fn=values.inverter_source_attributes("carbon_intensity"),
     ),
     GivEnergyManagerSensorDescription(
         key="carbon_intensity_status",

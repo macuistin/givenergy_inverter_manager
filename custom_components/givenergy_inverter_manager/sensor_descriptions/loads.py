@@ -29,6 +29,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.ev_power_w, 1),
+        attrs_fn=values.inverter_source_attributes("ev_power"),
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
@@ -39,6 +40,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: round(d.ev_session_kwh, 3),
+        attrs_fn=values.inverter_source_attributes("ev_session_energy"),
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
@@ -159,6 +161,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=values.immersion_lower_temperature,
+        attrs_fn=values.inverter_source_attributes("immersion_lower_water_temperature"),
     ),
     GivEnergyManagerSensorDescription(
         key="water_heating_cheapest_source",

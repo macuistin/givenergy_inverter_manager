@@ -90,6 +90,7 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
+    CONF_INVERTER_TEMP_ENTITY,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     CURRENCIES,
@@ -215,6 +216,7 @@ from .inverter.givtcp.discovery import (
     REAL_TIME_CONTROL_SUFFIX,
     device_prefix,
     discover_givtcp_inverters,
+    temperature_entity_ids_for,
 )
 from .lib.givtcp.keys import (
     KEY_BATTERY_POWER,
@@ -2269,6 +2271,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         data.immersion_sources = tuple(describe(water, now))
         data.inverter_sources = self._inverter_sources(cfg, now)
+        self._add_role_sources(data, "ev_power", data.ev_sources, "power")
+        self._add_role_sources(data, "ev_session_energy", data.ev_sources, "session energy")
+        self._add_role_sources(
+            data, "immersion_water_temperature", data.immersion_sources, "water temperature"
+        )
+        self._add_role_sources(
+            data,
+            "immersion_lower_water_temperature",
+            data.immersion_sources,
+            "lower water temperature",
+        )
         data.immersion_status, data.immersion_status_cause = source_status(water, now)
 
     def _inverter_sources(self, cfg: dict[str, Any], now: datetime) -> dict[str, dict[str, Any]]:
@@ -2285,7 +2298,34 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             source = self._source("inverter reading", cfg.get(cfg_key))
             if source is not None:
                 rows[sensor_key] = describe((source,), now)[0]
+        for sensor_key, entity_id in (
+            ("inverter_temperature", self._inverter_temperature_entity(cfg)),
+            ("carbon_intensity", cfg.get(CONF_CARBON_INTENSITY_ENTITY)),
+        ):
+            source = self._source("reading", entity_id)
+            if source is not None:
+                rows[sensor_key] = describe((source,), now)[0]
         return rows
+
+    def _inverter_temperature_entity(self, cfg: dict[str, Any]) -> str | None:
+        """The temperature entity the reading comes from: the chosen one, else GivTCP's."""
+        chosen = cfg.get(CONF_INVERTER_TEMP_ENTITY)
+        if chosen:
+            return str(chosen)
+        prefix = device_prefix(cfg)
+        for entity_id in temperature_entity_ids_for(prefix) if prefix else ():
+            if self._get_state(entity_id) is not None:
+                return entity_id
+        return None
+
+    @staticmethod
+    def _add_role_sources(
+        data: CoordinatorData, sensor_key: str, rows: tuple[dict[str, Any], ...], role: str
+    ) -> None:
+        """Give a sensor the one row of *rows* with this role, when there is one."""
+        row = next((r for r in rows if r["role"] == role), None)
+        if row is not None:
+            data.inverter_sources[sensor_key] = row
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict[str, Any]
