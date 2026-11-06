@@ -62,6 +62,7 @@
       "night_survival_confidence": {"default": "mdi:moon-waning-crescent"},
       "is_clipping": {"default": "mdi:lightning-bolt"},
       "ev_charger_state": {"default": "mdi:ev-station"},
+      "immersion_status": {"default": "mdi:water-boiler-alert"},
       "ev_power": {"default": "mdi:lightning-bolt"},
       "ev_session_energy": {"default": "mdi:battery-charging-outline"},
       "ev_session_cost": {"default": "mdi:car-electric"},

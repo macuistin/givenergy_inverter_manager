@@ -104,6 +104,7 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, CARD_MOD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
+    OFFLINE_CARD_CSS,
     RUN_LIMIT_BANNER_TEXT,
     ChargerNow,
     DayTotals,
@@ -594,15 +595,23 @@ class Builder:
     def _water_tiles(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The hot water figures for the devices of *shown*, each opening the Hot water view.
 
-        The heater is shown as on or off, read from the managed switch, which is on while the
-        integration has the heater on. Its entity ID is known before the switch exists, so the
-        tile appears when a switch is added later with no new dashboard.
+        A red tile shows first, only while the Hot water Status sensor reads error, with the
+        cause in that sensor's attributes. The heater is shown as on or off, read from the
+        managed switch, which is on while the integration has the heater on. Its entity ID is
+        known before the switch exists, so the tile appears when a switch is added later with no
+        new dashboard.
         """
         sensor = Device.IMMERSION_SENSOR in shown
         heater = Device.IMMERSION_SWITCH in shown
         nav = self.go(SUB_IMMERSION)
+        status = self.immersion("immersion_status") if heater else None
+        error = with_visibility(
+            figure_tile(status, "Hot water", "mdi:water-boiler-alert", "red", nav),
+            [{"condition": "state", "entity": status, "state": "error"}],
+        )
         return tile_grid(
             [
+                error if status else None,
                 figure_tile(
                     self.water_sensor("immersion_water_temperature") if sensor else None,
                     "Water",
@@ -637,11 +646,12 @@ class Builder:
 
     def _charger_story(self) -> dict[str, Any] | None:
         """The charger in a sentence with the reason it is not charging, for the main page."""
-        return markdown_card(
+        state = self.ev("ev_charger_state")
+        card = markdown_card(
             ev_story_template(
                 ChargerNow(
                     self.ev_power(),
-                    self.ev("ev_charger_state"),
+                    state,
                     self.ev("ev_charging_source"),
                     self.ev("ev_solar_surplus_available"),
                     self.ev("ev_protection_reason"),
@@ -649,6 +659,10 @@ class Builder:
                 )
             )
         )
+        if state and self.cards.installed(CARD_MOD):
+            # Red while the charger is not responding. Without card-mod the sentence says it.
+            return styled(card, OFFLINE_CARD_CSS.format(entity=state))
+        return card
 
     def _charger_controls(self) -> list[dict[str, Any] | None]:
         """Charge now and Pause, to every user and only while a car is plugged in."""
@@ -656,7 +670,11 @@ class Builder:
         if not state:
             return []
         gate = [
-            {"condition": "state", "entity": state, "state_not": ["disconnected", "unknown"]},
+            {
+                "condition": "state",
+                "entity": state,
+                "state_not": ["disconnected", "unknown", "offline"],
+            },
         ]
         return [
             with_visibility(switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), gate),

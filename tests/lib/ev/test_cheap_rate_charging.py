@@ -73,15 +73,45 @@ class TestTheDecision:
         target, _ = decide_ev_charger_action(_zappi("Eco+"), 60.0, 3000.0)
         assert target is None
 
-    def test_when_the_cheaper_rate_ends_a_charger_this_rule_set_goes_back_to_eco_plus(self):
+    def test_when_the_cheaper_rate_ends_with_no_surplus_the_charger_is_stopped(self):
         target, reason = decide_ev_charger_action(
             _zappi("Fast"), 60.0, 0.0, on_cheap_rate=False, mode_held=True
         )
-        assert target == "Eco+"
-        assert "Back to" in reason
+        assert target == "Stopped"
+        assert "Charge hours are over" in reason
 
-    def test_a_charger_the_owner_put_in_fast_by_hand_is_left_alone(self):
+    def test_when_the_cheaper_rate_ends_with_surplus_the_charger_goes_to_eco_plus(self):
+        target, _ = decide_ev_charger_action(_zappi("Fast"), 60.0, 3000.0, on_cheap_rate=False)
+        assert target == "Eco+"
+
+    def test_a_charger_left_in_fast_by_hand_is_stopped_outside_the_charge_hours(self):
         target, _ = decide_ev_charger_action(_zappi("Fast"), 60.0, 0.0, on_cheap_rate=False)
+        assert target == "Stopped"
+
+    def test_fast_is_left_alone_when_the_charger_has_no_stop_or_surplus_mode(self):
+        charger = _zappi("Fast", options=("Fast", "Eco"))
+        target, reason = decide_ev_charger_action(charger, 60.0, 0.0)
+        assert target is None and "left" in reason
+
+    def test_an_unplugged_charger_in_eco_plus_is_stopped(self):
+        target, _ = decide_ev_charger_action(_zappi("Eco+", plugged=False), 60.0, 0.0)
+        assert target == "Stopped"
+
+    def test_an_unplugged_charger_keeps_fast_while_a_cheaper_rate_runs(self):
+        target, _ = decide_ev_charger_action(
+            _zappi("Fast", plugged=False), 60.0, 0.0, on_cheap_rate=True
+        )
+        assert target is None
+
+    def test_an_unplugged_charger_is_stopped_when_paused(self):
+        target, _ = decide_ev_charger_action(
+            _zappi("Fast", plugged=False), 60.0, 0.0, on_cheap_rate=True, pause=True
+        )
+        assert target == "Stopped"
+
+    def test_an_unplugged_charger_without_a_stop_mode_is_left_alone(self):
+        charger = _zappi("Fast", plugged=False, options=("Fast", "Eco", "Eco+"))
+        target, _ = decide_ev_charger_action(charger, 60.0, 0.0)
         assert target is None
 
     def test_a_charger_without_a_fast_option_keeps_the_solar_rule(self):
@@ -106,11 +136,11 @@ class TestChargeNow:
         target, _ = decide_ev_charger_action(_zappi("Fast"), 60.0, 0.0, charge_now=True)
         assert target is None
 
-    def test_turning_it_off_puts_a_charger_it_set_back_to_eco_plus(self):
+    def test_turning_it_off_stops_a_charger_it_set_when_there_is_no_surplus(self):
         target, _ = decide_ev_charger_action(
             _zappi("Fast"), 60.0, 0.0, mode_held=True, charge_now=False
         )
-        assert target == "Eco+"
+        assert target == "Stopped"
 
     def test_without_a_fast_mode_it_says_so_and_changes_nothing(self):
         charger = _zappi("Eco", options=("Eco", "Eco+", "Stopped"))

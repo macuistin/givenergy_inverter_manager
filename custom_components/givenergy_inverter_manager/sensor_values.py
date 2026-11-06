@@ -9,6 +9,7 @@ table and references these functions by name.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -243,11 +244,37 @@ def immersion_lower_temperature(data: CoordinatorData) -> float | None:
     return None if data.immersion_lower_temp is None else round(data.immersion_lower_temp, 1)
 
 
+def inverter_source_attributes(key: str) -> Callable[[CoordinatorData], dict[str, Any] | None]:
+    """The attributes for a live inverter reading: the GivTCP entity it comes from."""
+
+    def attrs(data: CoordinatorData) -> dict[str, Any] | None:
+        row = data.inverter_sources.get(key)
+        return {"sources": [row]} if row else None
+
+    return attrs
+
+
+def ev_state_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The entities the EV charger is based on, with their state and last report time."""
+    return {"sources": list(data.ev_sources)} if data.ev_sources else None
+
+
+def immersion_status_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Why the hot water is in error, and the entities it is based on."""
+    attrs: dict[str, Any] = {"sources": list(data.immersion_sources)}
+    if data.immersion_status_cause:
+        attrs["cause"] = data.immersion_status_cause
+    return attrs
+
+
 def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """The ready-by attributes and the planned heating sentence, None while neither is set."""
     attributes = immersion_ready_attributes(data) or {}
     if data.immersion_planned_heating is not None:
         attributes = {**attributes, "planned_heating": data.immersion_planned_heating}
+    row = data.inverter_sources.get("immersion_water_temperature")
+    if row:
+        attributes = {**attributes, "sources": [row]}
     return attributes or None
 
 

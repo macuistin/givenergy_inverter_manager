@@ -825,6 +825,13 @@
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
+      "immersion_status": {
+        "name": "Hot Water Status",
+        "state": {
+          "ok": "OK",
+          "error": "Error"
+        }
+      },
       "immersion_water_temperature": {
         "name": "Water Temperature"
       },
@@ -1277,6 +1284,10 @@
     "ev_charging_at_base_rate": {
       "title": "EV is charging at the base rate",
       "description": "The car is drawing about {power_kw} kW from the grid at the {rate_name} rate. A cheaper band starts at {next_cheap_start}.\n\nMoving the session into the cheaper band lowers its cost. Pause the charge now and resume it when the cheaper band starts, or set the charger's own schedule. This integration does not stop or pause the charger.\n\nThe repair clears when the session ends or the rate drops. Ignore it to hide it for the rest of the session."
+    },
+    "ev_charger_offline": {
+      "title": "The EV charger is not responding",
+      "description": "{charger} has not reported for several minutes, so it has no power or has lost its connection. No charge can start until it is back, whatever the plan says.\n\nCheck the supply first (a tripped breaker or a switched-off isolator at the fuse panel), then the charger's network connection and the integration that provides it.\n\nThis repair clears by itself when the charger reports again. The integration has not changed anything."
     },
     "write_not_confirmed": {
       "title": "The inverter did not take a charge setting",

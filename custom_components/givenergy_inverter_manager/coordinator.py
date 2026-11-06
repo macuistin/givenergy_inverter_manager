@@ -90,6 +90,7 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
+    CONF_INVERTER_TEMP_ENTITY,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     CURRENCIES,
@@ -153,6 +154,7 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.ev_offline import next_step as next_ev_offline_step
 from .core.ev_session import EVSession
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
@@ -175,6 +177,8 @@ from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
 from .core.slot_sampler import SlotSampler
+from .core.source_health import Source, describe
+from .core.source_health import status as source_status
 from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
@@ -201,6 +205,7 @@ from .core.wizard_pages import first_car
 from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
     EVCharger,
+    EVChargerState,
     discover_ev_chargers,
     update_charger_state,
 )
@@ -212,6 +217,14 @@ from .inverter.givtcp.discovery import (
     REAL_TIME_CONTROL_SUFFIX,
     device_prefix,
     discover_givtcp_inverters,
+    temperature_entity_ids_for,
+)
+from .lib.givtcp.keys import (
+    KEY_BATTERY_POWER,
+    KEY_BATTERY_SOC,
+    KEY_GRID_POWER,
+    KEY_HOUSE_LOAD,
+    KEY_SOLAR_POWER,
 )
 from .lib.ev import read_car
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
@@ -225,6 +238,7 @@ from .repairs import (
     async_create_battery_cost_issue,
     async_create_charge_blocked_by_pause_issue,
     async_create_ev_base_rate_issue,
+    async_create_ev_charger_offline_issue,
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
     async_create_givtcp_resets_ids_issue,
@@ -239,6 +253,7 @@ from .repairs import (
     async_delete_battery_cost_issue,
     async_delete_charge_blocked_by_pause_issue,
     async_delete_ev_base_rate_issue,
+    async_delete_ev_charger_offline_issue,
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
     async_delete_givtcp_resets_ids_issue,
@@ -395,6 +410,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_power_warned: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
+        # Updates the EV charger has read offline in a row, for the repair.
+        self._ev_offline_cycles = 0
+        self.entry.async_on_unload(lambda: async_delete_ev_charger_offline_issue(self.hass))
         # Cycles each hot water temperature sensor has read nothing in a row, for the repair.
         self._silent_temperature_cycles: dict[str, int] = {}
         self.entry.async_on_unload(lambda: async_delete_immersion_temperature_issue(self.hass))
@@ -1784,6 +1802,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
         data.active_repairs = await async_active_repairs(self.hass)
+        self._attach_source_health(data, cfg, now)
         return data
 
     def _begin_cycle(self) -> None:
@@ -1800,6 +1819,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_system()
         self._check_real_time_control()
         self._check_temperature_sensors(cfg)
+
+    def _check_ev_offline(self) -> None:
+        """Raise one repair while the EV charger has read offline for a few minutes."""
+        charger = self._ev_charger
+        offline = charger is not None and charger.state is EVChargerState.OFFLINE
+        step = next_ev_offline_step(offline=offline, cycles=self._ev_offline_cycles)
+        self._ev_offline_cycles = step.cycles
+        if step.raise_issue and charger is not None:
+            async_create_ev_charger_offline_issue(self.hass, charger.display_name)
+        elif step.clear_issue:
+            async_delete_ev_charger_offline_issue(self.hass)
 
     def _check_wired_entities(self) -> None:
         """Raise one repair naming wired GivTCP entities that have gone, after a few minutes.
@@ -2052,7 +2082,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._maybe_rediscover_ev()
         self._maybe_rediscover_battery_cycles()
         raw = self._collect_raw(cfg)
-        self._refresh_ev_charger(raw)
+        self._refresh_ev_charger(raw, now)
+        self._check_ev_offline()
         self.immersion.release_if_at_target(raw.immersion_temp)
         self._learn_heating_rate(raw, now)
         self._track_input_outage(raw, now)
@@ -2067,10 +2098,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("Immersion run warmed the water at %.1f°C an hour", rate)
             self._acc.record_immersion_rate(rate, now.date())
 
-    def _refresh_ev_charger(self, raw: RawSensorValues) -> None:
+    def _refresh_ev_charger(self, raw: RawSensorValues, now: datetime) -> None:
         """Update the charger state now that battery_power_w is known."""
         if self._ev_charger is not None:
-            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
+            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w, now)
             if not self._ev_charger.is_plugged_in:
                 self.override_ev_charge_now = False
                 self.override_ev_pause = False
@@ -2204,6 +2235,106 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         self.data.active_repairs = await async_active_repairs(self.hass)
         self.async_update_listeners()
+
+    def _source(
+        self, role: str, entity_id: str | None, *, can_be_stale: bool = True
+    ) -> Source | None:
+        """What an entity another device is based on is doing, None when none is configured."""
+        if not entity_id:
+            return None
+        state = self._get_state(entity_id)
+        reported = getattr(state, "last_reported", None)
+        return Source(
+            role,
+            entity_id,
+            state.state if state is not None else None,
+            reported if isinstance(reported, datetime) else None,
+            can_be_stale,
+        )
+
+    def _attach_source_health(
+        self, data: CoordinatorData, cfg: dict[str, Any], now: datetime
+    ) -> None:
+        """Put the EV charger's and the hot water's source entities on the data for attributes.
+
+        The hot water is in error when a source is missing or unavailable, or a temperature
+        sensor has not reported for an hour. A switch reports only on change, so it is never
+        stale.
+        """
+        charger = self._ev_charger
+        if charger is not None:
+            ev = (
+                self._source("status", charger.status_entity),
+                self._source("power", charger.power_entity),
+                self._source("session energy", charger.session_energy_entity),
+            )
+            data.ev_sources = tuple(describe(tuple(s for s in ev if s), now))
+        water = tuple(
+            source
+            for source in (
+                self._source("heater switch", cfg.get(CONF_IMMERSION_SWITCH), can_be_stale=False),
+                self._source("water temperature", cfg.get(CONF_IMMERSION_TEMP_SENSOR)),
+                self._source("lower water temperature", cfg.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)),
+            )
+            if source
+        )
+        data.immersion_sources = tuple(describe(water, now))
+        data.inverter_sources = self._inverter_sources(cfg, now)
+        self._add_role_sources(data, "ev_power", data.ev_sources, "power")
+        self._add_role_sources(data, "ev_session_energy", data.ev_sources, "session energy")
+        self._add_role_sources(
+            data, "immersion_water_temperature", data.immersion_sources, "water temperature"
+        )
+        self._add_role_sources(
+            data,
+            "immersion_lower_water_temperature",
+            data.immersion_sources,
+            "lower water temperature",
+        )
+        data.immersion_status, data.immersion_status_cause = source_status(water, now)
+
+    def _inverter_sources(self, cfg: dict[str, Any], now: datetime) -> dict[str, dict[str, Any]]:
+        """The GivTCP entity behind each live inverter reading, for the sensor's attributes."""
+        wanted = {
+            "solar_power": KEY_SOLAR_POWER,
+            "battery_soc": KEY_BATTERY_SOC,
+            "battery_power": KEY_BATTERY_POWER,
+            "grid_power": KEY_GRID_POWER,
+            "house_load": KEY_HOUSE_LOAD,
+        }
+        rows: dict[str, dict[str, Any]] = {}
+        for sensor_key, cfg_key in wanted.items():
+            source = self._source("inverter reading", cfg.get(cfg_key))
+            if source is not None:
+                rows[sensor_key] = describe((source,), now)[0]
+        for sensor_key, entity_id in (
+            ("inverter_temperature", self._inverter_temperature_entity(cfg)),
+            ("carbon_intensity", cfg.get(CONF_CARBON_INTENSITY_ENTITY)),
+        ):
+            source = self._source("reading", entity_id)
+            if source is not None:
+                rows[sensor_key] = describe((source,), now)[0]
+        return rows
+
+    def _inverter_temperature_entity(self, cfg: dict[str, Any]) -> str | None:
+        """The temperature entity the reading comes from: the chosen one, else GivTCP's."""
+        chosen = cfg.get(CONF_INVERTER_TEMP_ENTITY)
+        if chosen:
+            return str(chosen)
+        prefix = device_prefix(cfg)
+        for entity_id in temperature_entity_ids_for(prefix) if prefix else ():
+            if self._get_state(entity_id) is not None:
+                return entity_id
+        return None
+
+    @staticmethod
+    def _add_role_sources(
+        data: CoordinatorData, sensor_key: str, rows: tuple[dict[str, Any], ...], role: str
+    ) -> None:
+        """Give a sensor the one row of *rows* with this role, when there is one."""
+        row = next((r for r in rows if r["role"] == role), None)
+        if row is not None:
+            data.inverter_sources[sensor_key] = row
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict[str, Any]
