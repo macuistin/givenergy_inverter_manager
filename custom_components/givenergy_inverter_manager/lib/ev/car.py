@@ -7,9 +7,13 @@ report only every 10 to 30 minutes and some stop while asleep.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
+from ..timeutil import elapsed_seconds
 from .defaults import CAR_READING_MAX_AGE_S
 
 # The keys of one car in the saved config. A car is a dict with these keys.
@@ -142,3 +146,55 @@ def _no_charger(*, car_plugged: bool | None, car_home: bool | None) -> CarPlugRe
         confidence = Confidence.MEDIUM if car_home else Confidence.LOW
         return CarPlugResult(PlugState.PLUGGED_IN, PlugSource.CAR, confidence)
     return CarPlugResult(PlugState.NOT_PLUGGED_IN, PlugSource.CAR, Confidence.MEDIUM)
+
+
+@dataclass(frozen=True)
+class CarReading:
+    """One car's entities read at one moment. None means missing, unavailable or unreadable."""
+
+    name: str
+    plugged: bool | None
+    at_home: bool | None
+    battery_pct: float | None
+    # Seconds since the oldest of the plug, location and battery readings that were present.
+    age_s: float | None
+
+
+def _battery_pct(raw: str | None) -> float | None:
+    if raw is None or raw.strip().lower() in _UNREADABLE:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if 0.0 <= value <= 100.0 else None
+
+
+def read_car(
+    get_state: Callable[[str], Any], car: Mapping[str, Any], now: datetime
+) -> CarReading:
+    """Read a configured car's battery level, plug state and location from entity states.
+
+    Only reads. It never calls a service on the car, so it cannot wake it. The tracker's
+    coordinates are not read.
+    """
+    ages: list[float] = []
+
+    def read(key: str) -> str | None:
+        entity_id = car.get(key)
+        state = get_state(entity_id) if entity_id else None
+        if state is None:
+            return None
+        ages.append(max(0.0, elapsed_seconds(state.last_reported, now)))
+        return str(state.state)
+
+    plug = car_plug_from_state(read(CAR_KEY_PLUG_ENTITY))
+    home = car_home_from_state(read(CAR_KEY_TRACKER_ENTITY))
+    level = _battery_pct(read(CAR_KEY_BATTERY_ENTITY))
+    return CarReading(
+        name=str(car.get(CAR_KEY_NAME) or "Car"),
+        plugged=plug,
+        at_home=home,
+        battery_pct=level,
+        age_s=max(ages) if ages else None,
+    )

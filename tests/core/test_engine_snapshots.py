@@ -230,6 +230,11 @@ and test_dst_countdowns.py.
 period. Only ev_protection_reason, ev_mode_change_requested and the returned EV mode moved, in the
 cases with a plugged-in Zappi in a Night or Nightboost period. The behaviour is pinned in
 tests/lib/ev/test_mode_held.py.
+
+The car_reading and car_plug leaves were added when the coordinator started reading the car set
+up in the options. Only the fresh snapshot gained them (both None), and none of the 255 cases
+moved, because the coordinator fills them from the raw readings and none of the cases has a car.
+They are pinned in tests/test_car_coordinator.py.
 """
 
 from __future__ import annotations

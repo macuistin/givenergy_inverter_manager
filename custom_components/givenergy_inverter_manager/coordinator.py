@@ -197,6 +197,7 @@ from .core.window_guard import (
     parse_clock,
 )
 from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
+from .core.wizard_pages import first_car
 from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
     EVCharger,
@@ -212,6 +213,7 @@ from .inverter.givtcp.discovery import (
     device_prefix,
     discover_givtcp_inverters,
 )
+from .lib.ev import read_car
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
@@ -1336,6 +1338,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_forecasts(cfg, raw)
         raw.carbon_intensity_gco2 = self._read_optional_float(cfg.get(CONF_CARBON_INTENSITY_ENTITY))
         self._copy_ev_state(raw)
+        self._read_car(cfg, raw)
         return raw
 
     def _apply_inverter_values(self, raw: RawSensorValues, values: InverterValues) -> None:
@@ -1460,6 +1463,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """A forecast reading in kWh, or None when it is missing or negative."""
         value = self._read_optional_float(entity_id)
         return value if value is not None and value >= 0 else None
+
+    def _read_car(self, cfg: dict[str, Any], raw: RawSensorValues) -> None:
+        """Read the car set up in the options, if any. It only reads entity states."""
+        car = first_car(cfg)
+        if car:
+            raw.car = read_car(self._get_state, car, self._now())
 
     def _copy_ev_state(self, raw: RawSensorValues) -> None:
         if self._ev_charger is not None:
