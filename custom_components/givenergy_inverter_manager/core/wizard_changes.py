@@ -10,7 +10,7 @@ Pure Python, no Home Assistant imports.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from ..const import (
@@ -29,6 +29,7 @@ from ..const import (
     CONF_BILL_START_DAY,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CARS,
     CONF_CHARGE_SHOULDER_MONTHS,
     CONF_CHARGE_WINTER_MONTHS,
     CONF_CHARGE_WINTER_USES_FORECAST,
@@ -55,6 +56,9 @@ from ..const import (
     CONF_TARIFF_CHANGES,
     CONF_TARIFF_REVIEWED_ON,
     CONF_VAT_RATE,
+)
+from ..lib.ev import (
+    CAR_KEY_NAME,
 )
 from .reload_policy import Effect, change_effect, changed_keys, reload_keys
 from .wizard_model import KEY_DEFAULTS, is_unset
@@ -102,6 +106,7 @@ LABELS: dict[str, str] = {
     CONF_ALT_HEAT_COST: "Alternative heating cost",
     CONF_ALT_HEAT_COST_ENTITY: "Alternative heating cost sensor",
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: "Car efficiency",
+    CONF_CARS: "Car",
 }
 
 # What a value is quoted in, appended to a number.
@@ -155,14 +160,19 @@ def _month_names(value: Any) -> str:
     return ", ".join(_MONTH_NAMES[int(m) - 1] for m in sorted(value) if 1 <= int(m) <= 12)
 
 
+def _cars(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "none"
+    return ", ".join(
+        str(car.get(CAR_KEY_NAME) or "unnamed car") for car in value if isinstance(car, dict)
+    )
+
+
 def show(key: str, value: Any) -> str:
     """One config value in words."""
-    if key in (CONF_CHARGE_WINTER_MONTHS, CONF_CHARGE_SHOULDER_MONTHS):
-        return _month_names(value)
-    if key == CONF_RATE_PERIODS:
-        return _periods(value)
-    if key == CONF_TARIFF_CHANGES:
-        return _changes(value)
+    special = _SPECIAL_SHOWS.get(key)
+    if special is not None:
+        return special(value)
     if is_unset(value):
         return _NOT_SET
     if isinstance(value, bool):
@@ -172,6 +182,15 @@ def show(key: str, value: Any) -> str:
     if isinstance(value, float):
         return f"{value:g}{_UNITS.get(key, '')}"
     return f"{value}{_UNITS.get(key, '')}"
+
+
+_SPECIAL_SHOWS: dict[str, Callable[[Any], str]] = {
+    CONF_CARS: _cars,
+    CONF_CHARGE_WINTER_MONTHS: _month_names,
+    CONF_CHARGE_SHOULDER_MONTHS: _month_names,
+    CONF_RATE_PERIODS: _periods,
+    CONF_TARIFF_CHANGES: _changes,
+}
 
 
 def _value_of(config: Mapping[str, Any], key: str) -> Any:

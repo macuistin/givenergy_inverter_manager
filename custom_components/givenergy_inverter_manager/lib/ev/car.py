@@ -12,6 +12,13 @@ from enum import StrEnum
 
 from .defaults import CAR_READING_MAX_AGE_S
 
+# The keys of one car in the saved config. A car is a dict with these keys.
+CAR_KEY_NAME = "car_name"
+CAR_KEY_BATTERY_ENTITY = "car_battery_level_entity"
+CAR_KEY_PLUG_ENTITY = "car_plug_entity"
+CAR_KEY_TRACKER_ENTITY = "car_tracker_entity"
+CAR_KEY_BATTERY_KWH = "car_battery_capacity_kwh"
+
 
 class PlugState(StrEnum):
     PLUGGED_IN = "plugged_in"

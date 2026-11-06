@@ -33,6 +33,7 @@ from ..const import (
     CONF_BILL_START_DAY,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CARS,
     CONF_CHARGE_SHOULDER_MONTHS,
     CONF_CHARGE_WINTER_MONTHS,
     CONF_CHARGE_WINTER_USES_FORECAST,
@@ -145,7 +146,7 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
         CONF_ALT_HEAT_COST,
         CONF_ALT_HEAT_COST_ENTITY,
     ),
-    "ev": (CONF_CAR_EFFICIENCY_KWH_PER_100KM,),
+    "ev": (CONF_CAR_EFFICIENCY_KWH_PER_100KM, CONF_CARS),
 }
 
 # The steps each checklist page runs through. The tariff has up to four. Charge planning has two:

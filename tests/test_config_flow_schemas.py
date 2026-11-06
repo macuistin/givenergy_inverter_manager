@@ -142,6 +142,27 @@ class TestSchemaConstruction:
 
         assert validated["rate_count"] == "2"
 
+    def test_the_ev_schema_takes_a_car_with_real_selectors_and_all_fields_optional(
+        self, real_ha_selector, real_vol
+    ):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        schema = schemas.ev_schema(_ctx(model, "options"))
+
+        validated = schema(
+            {
+                "car_name": "Family car",
+                "car_battery_level_entity": "sensor.car_battery",
+                "car_plug_entity": "binary_sensor.car_plug",
+                "car_tracker_entity": "device_tracker.car",
+                "car_battery_capacity_kwh": 64.5,
+            }
+        )
+
+        assert validated["car_battery_capacity_kwh"] == 64.5
+        assert schema({})["car_efficiency_kwh_per_100km"] == 15.0
+        with pytest.raises(real_vol.error.MultipleInvalid):
+            schema({"car_tracker_entity": "sensor.not_a_tracker"})
+
     def test_the_charge_planning_schema_takes_months_as_strings_and_defaults_from_latitude(
         self, real_ha_selector, real_vol
     ):

@@ -34,6 +34,7 @@ from ..const import (
     CONF_BATTERY_THROUGHPUT_BUDGET,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CARS,
     CONF_CHARGE_SHOULDER_MONTHS,
     CONF_CHARGE_WINTER_MONTHS,
     CONF_CHARGE_WINTER_USES_FORECAST,
@@ -59,6 +60,13 @@ from ..const import (
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
+)
+from ..lib.ev import (
+    CAR_KEY_BATTERY_ENTITY,
+    CAR_KEY_BATTERY_KWH,
+    CAR_KEY_NAME,
+    CAR_KEY_PLUG_ENTITY,
+    CAR_KEY_TRACKER_ENTITY,
 )
 from .alt_heat_label import clean_label
 from .immersion_ready import parse_ready_times
@@ -372,14 +380,47 @@ def hot_water_summary(cfg: Mapping[str, Any]) -> str:
 # ── EV ────────────────────────────────────────────────────────────────────────
 
 
-def clean_ev(values: Mapping[str, Any]) -> dict[str, Any]:
-    """The car efficiency, when the form sends it."""
-    if CONF_CAR_EFFICIENCY_KWH_PER_100KM in values:
-        return {CONF_CAR_EFFICIENCY_KWH_PER_100KM: float(values[CONF_CAR_EFFICIENCY_KWH_PER_100KM])}
+CAR_TEXT_KEYS = (
+    CAR_KEY_NAME,
+    CAR_KEY_BATTERY_ENTITY,
+    CAR_KEY_PLUG_ENTITY,
+    CAR_KEY_TRACKER_ENTITY,
+)
+
+
+def first_car(cfg: Mapping[str, Any]) -> dict[str, Any]:
+    """The first car in the config, empty when none is set up."""
+    cars = cfg.get(CONF_CARS)
+    if isinstance(cars, list) and cars and isinstance(cars[0], dict):
+        return dict(cars[0])
     return {}
 
 
+def clean_ev(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The car efficiency and the first car, when the form sends them.
+
+    A cleared optional field is left out of the submission, so the car holds only the fields that
+    have a value, and no value at all means no car. The efficiency is always sent, so its presence
+    says the form was submitted.
+    """
+    if CONF_CAR_EFFICIENCY_KWH_PER_100KM not in values:
+        return {}
+    car: dict[str, Any] = {
+        key: str(values[key]).strip() for key in CAR_TEXT_KEYS if str(values.get(key) or "").strip()
+    }
+    if values.get(CAR_KEY_BATTERY_KWH):
+        car[CAR_KEY_BATTERY_KWH] = float(values[CAR_KEY_BATTERY_KWH])
+    return {
+        CONF_CAR_EFFICIENCY_KWH_PER_100KM: float(values[CONF_CAR_EFFICIENCY_KWH_PER_100KM]),
+        CONF_CARS: [car] if car else [],
+    }
+
+
 def ev_summary(cfg: Mapping[str, Any]) -> str:
-    """The car efficiency on one line."""
+    """The car efficiency and the car, if any, on one line."""
     efficiency = cfg.get(CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM)
-    return f"car efficiency {float(efficiency):g} kWh per 100 km"
+    text = f"car efficiency {float(efficiency):g} kWh per 100 km"
+    car = first_car(cfg)
+    if car:
+        text += f", car {car.get(CAR_KEY_NAME) or 'set up'}"
+    return text

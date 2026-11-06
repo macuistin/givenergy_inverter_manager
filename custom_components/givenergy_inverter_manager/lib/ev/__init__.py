@@ -8,6 +8,11 @@ from .base_rate import (
     watch_step,
 )
 from .car import (
+    CAR_KEY_BATTERY_ENTITY,
+    CAR_KEY_BATTERY_KWH,
+    CAR_KEY_NAME,
+    CAR_KEY_PLUG_ENTITY,
+    CAR_KEY_TRACKER_ENTITY,
     CarPlugInputs,
     CarPlugResult,
     Confidence,
@@ -54,6 +59,11 @@ from .state import (
 )
 
 __all__ = [
+    "CAR_KEY_NAME",
+    "CAR_KEY_BATTERY_ENTITY",
+    "CAR_KEY_PLUG_ENTITY",
+    "CAR_KEY_TRACKER_ENTITY",
+    "CAR_KEY_BATTERY_KWH",
     "ACTIVE_STATES",
     "AlertAction",
     "BaseRateReading",

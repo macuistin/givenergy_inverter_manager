@@ -106,6 +106,10 @@ CONF_ALT_HEAT_COST_UNIT = "alt_heat_cost_unit"
 CONF_ALT_HEAT_COST = "alt_heat_cost"
 CONF_ALT_HEAT_COST_ENTITY = "alt_heat_cost_entity"
 CONF_CAR_EFFICIENCY_KWH_PER_100KM = "car_efficiency_kwh_per_100km"
+# The cars the owner has set up, a list so a second car needs no migration. Each entry is a dict
+# with the CAR_KEY_* keys of lib/ev/car.py. The setup pages edit the first entry. A car is
+# optional: without one, the charger alone says whether a car is plugged in.
+CONF_CARS = "cars"
 
 # ── Dry run mode ──────────────────────────────────────────────────────────────
 # When True, all inverter writes are skipped and logged as "would have done X".

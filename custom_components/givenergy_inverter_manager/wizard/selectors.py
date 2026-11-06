@@ -39,6 +39,9 @@ from ..const import (
     DEFAULT_CURRENCY,
 )
 from ..core.wizard_tariff import MAX_RATE_PERIODS
+from ..lib.ev import (
+    CAR_KEY_BATTERY_KWH,
+)
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,7 @@ NUMBER_BOUNDS: dict[str, Bounds] = {
     # 0 turns the limit off, so the box has to allow it.
     CONF_IMMERSION_MAX_RUN_MINUTES: Bounds(0, 240, 5, "min", BOX),
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: Bounds(5, 40, 0.1, "kWh/100km", BOX),
+    CAR_KEY_BATTERY_KWH: Bounds(10, 200, 0.5, "kWh", BOX),
     # A box, not a slider: a slider cannot be left empty, and empty means no advice.
     CONF_ALT_HEAT_COST: Bounds(0.001, 5, 0.001, mode=BOX),
 }

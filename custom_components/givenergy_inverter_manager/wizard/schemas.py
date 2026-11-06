@@ -70,11 +70,19 @@ from ..const import (
 from ..core.seasons import season_defaults
 from ..core.tariff import scheduled_tariff_changes
 from ..core.wizard_model import KEY_DEFAULTS, Mode, PageContext
+from ..core.wizard_pages import first_car
 from ..core.wizard_tariff import (
     default_rate_rows,
     night_window,
     rate_count,
     rate_prefill,
+)
+from ..lib.ev import (
+    CAR_KEY_BATTERY_ENTITY,
+    CAR_KEY_BATTERY_KWH,
+    CAR_KEY_NAME,
+    CAR_KEY_PLUG_ENTITY,
+    CAR_KEY_TRACKER_ENTITY,
 )
 from .selectors import (
     alt_heat_unit_selector,
@@ -392,15 +400,32 @@ def hot_water_schema(ctx: PageContext) -> vol.Schema:
     )
 
 
+def _car_key(car: dict[str, Any], key: str) -> vol.Optional:
+    """Optional key of the car form that suggests the saved value and has no default."""
+    if car.get(key):
+        return vol.Optional(key, description={"suggested_value": car[key]})
+    return vol.Optional(key)
+
+
 def ev_schema(ctx: PageContext) -> vol.Schema:
-    """The car efficiency. The charger itself is found automatically."""
+    """The car efficiency and the first car. The charger itself is found automatically.
+
+    The car's entities are picked by the user, because car makers name theirs too differently to
+    find by name.
+    """
     efficiency = ctx.current.get(
         CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM
     )
+    car = first_car(ctx.current)
     return vol.Schema(
         {
             vol.Optional(
                 CONF_CAR_EFFICIENCY_KWH_PER_100KM, default=float(efficiency)
-            ): number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM)
+            ): number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM),
+            _car_key(car, CAR_KEY_NAME): selector.TextSelector(),
+            _car_key(car, CAR_KEY_BATTERY_ENTITY): entity_selector(["sensor", "number"]),
+            _car_key(car, CAR_KEY_PLUG_ENTITY): entity_selector(["binary_sensor", "sensor"]),
+            _car_key(car, CAR_KEY_TRACKER_ENTITY): entity_selector("device_tracker"),
+            _car_key(car, CAR_KEY_BATTERY_KWH): number_selector(CAR_KEY_BATTERY_KWH),
         }
     )

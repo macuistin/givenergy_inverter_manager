@@ -534,13 +534,23 @@
         }
       },
       "ev": {
-        "title": "EV charger",
-        "description": "{warnings}Used to convert kWh charged into km added.\n\n{charger}",
+        "title": "EV charger and car",
+        "description": "{warnings}The car is optional. Pick the entities your car's own integration provides and the integration can tell which car is plugged in at home. It only reads them and never wakes the car.\n\n{charger}",
         "data": {
-          "car_efficiency_kwh_per_100km": "Car efficiency (kWh per 100 km)"
+          "car_efficiency_kwh_per_100km": "Car efficiency (kWh per 100 km)",
+          "car_name": "Car name",
+          "car_battery_level_entity": "Car battery level",
+          "car_plug_entity": "Car plug or charging state",
+          "car_tracker_entity": "Car location",
+          "car_battery_capacity_kwh": "Car battery size (kWh)"
         },
         "data_description": {
-          "car_efficiency_kwh_per_100km": "Used to turn the kWh charged into km added. A typical electric car uses about 15."
+          "car_efficiency_kwh_per_100km": "Used to turn the kWh charged into km added. A typical electric car uses about 15.",
+          "car_name": "Shown on the car's device. Leave it empty to call it Car.",
+          "car_battery_level_entity": "A sensor that reads the car's charge in percent.",
+          "car_plug_entity": "A binary sensor or sensor that says whether the cable is plugged in or the car is charging.",
+          "car_tracker_entity": "The car's device tracker. Only whether it is at home is read, never its position.",
+          "car_battery_capacity_kwh": "The usable battery size. Leave it empty if you do not know it."
         }
       },
       "confirm": {

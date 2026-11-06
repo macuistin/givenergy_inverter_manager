@@ -93,6 +93,8 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "immersion_min_temp_c": (50, 45, LIVE),
     "immersion_hysteresis_c": (5, 8, LIVE),
     "car_efficiency_kwh_per_100km": (15.0, 18.0, LIVE),
+    # A car gets its own device and sensors, so adding or changing one reloads.
+    "cars": ([], [{"car_name": "Car", "car_plug_entity": "binary_sensor.car_plug"}], RELOAD),
     # Controls.
     "dry_run": (False, True, LIVE),
     "verbose_logging": (False, True, LIVE),
