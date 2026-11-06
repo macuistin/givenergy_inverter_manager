@@ -492,6 +492,12 @@ async def test_every_page_keeps_its_keys_in_the_page_table(hass, loaded_entry):
         "rate",
         "start",
         "end",
+        # The car form fields are stored inside the `cars` list, not as keys of their own.
+        "car_name",
+        "car_battery_level_entity",
+        "car_plug_entity",
+        "car_tracker_entity",
+        "car_battery_capacity_kwh",
     }
 
     names = {f["name"] for form in forms.values() for f in every_field(form["fields"])}
