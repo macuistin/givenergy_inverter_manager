@@ -422,7 +422,7 @@ Saving reloads the integration once, when the sensor appears or goes. The sensor
 
 ## The Zappi changed to Eco+
 
-With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It never selects Stopped. The only way to stop it is dry run. See [Concepts](concepts.md#ev-charger).
+With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It selects Stopped only when no car is plugged in, when you press Pause, or when it takes the charger out of Fast with too little surplus to charge. See [Concepts](concepts.md#ev-charger).
 
 ## Totals are lower after a crash
 
