@@ -706,7 +706,11 @@ class Builder:
         )
 
     def _car_tiles(self) -> dict[str, Any] | None:
-        """The car's plug state, battery level, location and power, opening the EV charger view."""
+        """The car's battery level and plug state in one row, opening the EV charger view.
+
+        Its location and power are on the EV charger view. The charger tiles above already show
+        the power, and four more tiles made the box crowded.
+        """
         nav = self.go(SUB_EV)
 
         def tile(suffix: str, name: str, icon: str, colour: str) -> dict[str, Any] | None:
@@ -714,10 +718,8 @@ class Builder:
 
         return tile_grid(
             [
-                tile("car_plug_status", "Plug", "mdi:ev-plug-type2", "teal"),
                 tile("car_battery_level", "Battery", "mdi:car-battery", "green"),
-                tile("car_at_home", "Location", "mdi:map-marker", "blue"),
-                tile("car_charging_power", "Car power", "mdi:flash", "orange"),
+                tile("car_plug_status", "Plug", "mdi:ev-plug-type2", "teal"),
             ]
         )
 
