@@ -20,8 +20,10 @@ from ..const import (
     CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    CONF_SHADOW_TARIFFS,
     NAME,
 )
+from .shadow_tariffs import shadow_entries
 
 
 class Device(StrEnum):
@@ -40,6 +42,8 @@ class Device(StrEnum):
     # A car set up in the options. Its battery, plug and location entities come from the car's
     # own integration.
     CAR = "car"
+    # At least one shadow tariff is set up in the options. Its sensors only re-price usage.
+    SHADOW_TARIFFS = "shadow_tariffs"
 
 
 class DeviceGroup(StrEnum):
@@ -50,6 +54,8 @@ class DeviceGroup(StrEnum):
     IMMERSION = "immersion"
     # The first car. One group for now. More cars need a group for each, see the car plan.
     CAR = "car"
+    # The sensors of the shadow tariffs, apart from the real tariff and bill on the main device.
+    SHADOW_TARIFFS = "shadow_tariffs"
 
 
 _GROUPS = {
@@ -59,6 +65,7 @@ _GROUPS = {
     Device.IMMERSION_LOWER_SENSOR: DeviceGroup.IMMERSION,
     Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
     Device.CAR: DeviceGroup.CAR,
+    Device.SHADOW_TARIFFS: DeviceGroup.SHADOW_TARIFFS,
 }
 
 
@@ -67,6 +74,7 @@ _GROUP_NAMES = {
     DeviceGroup.EV_CHARGER: "EV Charger",
     DeviceGroup.IMMERSION: "Immersion",
     DeviceGroup.CAR: "Car",
+    DeviceGroup.SHADOW_TARIFFS: "Shadow tariffs",
 }
 
 
@@ -78,6 +86,7 @@ def group_name(group: DeviceGroup) -> str:
 _HARDWARE = {
     DeviceGroup.EV_CHARGER: frozenset({Device.EV_CHARGER}),
     DeviceGroup.CAR: frozenset({Device.CAR}),
+    DeviceGroup.SHADOW_TARIFFS: frozenset({Device.SHADOW_TARIFFS}),
     DeviceGroup.IMMERSION: frozenset(
         {
             Device.IMMERSION_SWITCH,
@@ -141,5 +150,6 @@ def installed_devices(
         Device.IMMERSION_THERMOSTAT: switch and sensor,
         Device.ALTERNATIVE_HEAT: switch and alt_heat_configured(config),
         Device.CAR: bool(config.get(CONF_CARS)),
+        Device.SHADOW_TARIFFS: bool(shadow_entries(config.get(CONF_SHADOW_TARIFFS))),
     }
     return frozenset(device for device, here in present.items() if here)

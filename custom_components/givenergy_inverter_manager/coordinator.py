@@ -94,6 +94,7 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_SHADOW_TARIFFS,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     CURRENCIES,
@@ -118,6 +119,7 @@ from .const import (
     DOMAIN,
     FORECAST_P10_ATTRIBUTE,
     FORECAST_PERIOD_ATTRIBUTES,
+    SHADOW_PRICING_INTERVAL_SECONDS,
     SOLAR_SUNRISE_HOUR,
     TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
@@ -180,6 +182,8 @@ from .core.rules import ChargeDecision, monthly_solar_fractions
 from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
+from .core.shadow_pricing import ShadowReport, price_shadows
+from .core.shadow_tariffs import shadow_entries
 from .core.slot_sampler import SlotSampler
 from .core.source_health import Source, describe
 from .core.source_health import status as source_status
@@ -432,6 +436,38 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """The half-hourly energy history, and the reader that feeds it each cycle."""
         self._slots = SlotStore(self.hass, dt_util.get_default_time_zone())
         self._slot_sampler = SlotSampler()
+        self._shadow_cache: tuple[datetime, tuple[Any, Any], ShadowReport | None] | None = None
+
+    def _attach_tariff_reports(
+        self, data: CoordinatorData, cfg: dict[str, Any], now: datetime
+    ) -> None:
+        """The rates in force as text, and the bill so far under each shadow tariff."""
+        data.tariff_report_state = build_tariff_state(cfg, now.date())
+        data.tariff_report_html = build_tariff_html(cfg, now.date())
+        data.shadow_report = self._shadow_report(cfg, now)
+
+    def _shadow_report(self, cfg: dict[str, Any], now: datetime) -> ShadowReport | None:
+        """The bill so far under each shadow tariff, worked out at most every few minutes.
+
+        It re-prices the stored slots and writes nothing. The last result is kept between runs.
+        """
+        if not shadow_entries(cfg.get(CONF_SHADOW_TARIFFS)):
+            self._shadow_cache = None
+            return None
+        if self._shadow_cache is not None:
+            when, key, report = self._shadow_cache
+            if key == (now.date(), cfg.get(CONF_SHADOW_TARIFFS)) and (
+                elapsed_seconds(when, now) < SHADOW_PRICING_INTERVAL_SECONDS
+            ):
+                return report
+        report = price_shadows(
+            self._slots.history,
+            cfg,
+            now.date(),
+            str(dt_util.get_default_time_zone()),
+        )
+        self._shadow_cache = (now, (now.date(), cfg.get(CONF_SHADOW_TARIFFS)), report)
+        return report
 
     def _init_battery_hold(self) -> None:
         """The hold that keeps the house battery back while the car charges, and its record."""
@@ -1841,8 +1877,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._save_when_ev_session_changed(ev_session_before)
         self._record_slots(raw, now)
         self._attach_stored_totals(data)
-        data.tariff_report_state = build_tariff_state(cfg, now.date())
-        data.tariff_report_html = build_tariff_html(cfg, now.date())
+        self._attach_tariff_reports(data, cfg, now)
         self._attach_bill_audit(data, cfg, now)
         data.charge_target_conflict = detect_conflict(
             data.register_write_log, cfg.get(CONF_TARGET_SOC_ENTITY), now

@@ -46,6 +46,26 @@ What a dated change covers and does not cover:
 - **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Open **Schedule a rate change** and select **Cancel the scheduled rate changes** to remove every change that has not started.
 - **Later edits.** Once a change has started, its rates are the ones shown on the Tariff screen. Saving the tariff without a date sets the rates from now on. A change that has not started yet is kept.
 
+## Shadow tariffs
+
+A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three.
+
+Each shadow tariff adds three entities to a **Shadow tariffs** device, which is separate from the main device. They are off until you turn them on in **Settings → Devices & services → Entities**. Your real tariff, bill and entity IDs do not change.
+
+| Entity | Meaning |
+|---|---|
+| `<name> bill so far` | what the usage of this bill period would cost under the shadow tariff, with the same standing charge, levy, VAT and discount steps as your bill |
+| `<name> difference from your tariff` | the shadow bill less your own bill priced the same way. Positive means the shadow tariff costs more |
+| `<name> would be cheaper so far` | on while the difference is below zero |
+
+How the figures are worked out:
+
+- Every figure is a re-pricing of the energy your inverter measured, taken from the [half-hourly energy history](concepts.md#half-hourly-energy-history). Nothing is estimated or forecast, and nothing is sent to your inverter.
+- Your tariff and each shadow tariff are priced by the same code over the same days, so the difference comes from the rates alone. Your real bill sensors are not used, because they add up costs as they happen and can be a cent or two away from a bill.
+- The days are the current bill period of your own tariff, from its bill start day to today. A shadow tariff follows your bill start day and base rate name.
+- The history starts the day the integration first saved it, so a shadow tariff added today shows the whole period since then at once. The `data_from` attribute gives the first day with data and `data_coverage` the share of the time that was observed. A figure over days with gaps is lower than the true cost.
+- Figures update about every five minutes and at once when a shadow tariff changes.
+
 ## Stale tariff repair
 
 The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure, recorded a dated change, chose **The tariff is still current** or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).

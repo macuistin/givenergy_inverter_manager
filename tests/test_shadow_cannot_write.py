@@ -13,8 +13,8 @@ The write modules are the inverter package, the GivTCP adapter, the coordinator'
 service actions, the immersion actuator and the optional devices. The write methods are the
 `apply_` and `clear_` methods of the inverter interface, and `async_call`.
 
-No shadow module exists yet, so the checks on the real tree pass for now and start to guard the
-first one the day it is added. The checks themselves are proved on a small tree built below.
+The shadow modules are core/shadow_tariffs.py, core/shadow_pricing.py, wizard/shadow_form.py and
+shadow_sensor.py. The checks themselves are proved on a small tree built below.
 """
 
 from __future__ import annotations

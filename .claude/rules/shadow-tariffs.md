@@ -20,3 +20,7 @@ have cost. The active tariff stays the one the planner and every write work agai
   `immersion_actuator` and `optional_devices`. Add a new one to `WRITE_MODULES` in the test.
 - Label every shadow figure as a re-pricing, and say from which date it has data.
 - The number of shadow tariffs allowed is one named constant, so it can change later.
+- A pure shadow module cannot import `const`, because `const` re-exports `lib/givtcp/defaults`. Import
+  from `conf`, `defaults` and `tuning` instead, which import nothing. `core/tariff_config.py` builds a
+  `TariffConfig` from the options on those alone (`core/tariff.py` re-exports it), so a shadow
+  module can build a tariff without importing `core/tariff.py`.
