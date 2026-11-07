@@ -131,6 +131,7 @@ What each device brings:
 | Device | How the integration knows | Shown when it is there |
 |---|---|---|
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger box and sub-view, the EV share of the cost charts |
+| Car | You pick the car's entities in Configure → EV charger | The car's plug state, battery level, location and power in the EV charger box and sub-view |
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater chart, the divert reason, the Use spare solar and Heat now settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Water tile, the Hot water sentence and the water temperature chart |
 | Lower immersion temperature sensor | The sensor is set under Configure, Immersion heater, with the main sensor | A second line in the water temperature chart, labelled Water, lower |
