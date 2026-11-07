@@ -62,6 +62,7 @@ class TestWhatNeedsWhat:
             "ev_hours_before_cheap",
             "ev_hours_after_cheap",
             "ev_pause",
+            "ev_hold_battery",
         }
 
     def test_the_immersion_switch_has_its_energy_money_and_controls(self):

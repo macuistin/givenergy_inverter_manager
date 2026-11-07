@@ -1565,12 +1565,13 @@ class TestResponsiveLayout:
             ("power-flow", "The immersion stopped at its longest run"),
         }
 
-    def test_settings_is_five_sections_of_one_column_so_a_laptop_fills_every_column(self):
+    def test_settings_is_sections_of_one_column_so_a_laptop_fills_every_column(self):
         settings = next(v for v in self._views() if v["path"] == "settings")
         assert [s["cards"][0]["heading"] for s in settings["sections"]] == [
             "Tonight's charge",
             "Charge planning",
             "Hot water",
+            "EV charger",
             "System",
             "Recent changes",
         ]
@@ -1590,6 +1591,7 @@ class TestResponsiveLayout:
             "Fixed target": 6,
             "Charge now": 6,
             "Pause": 6,
+            "Hold battery": 6,
             "Charge hours before": "full",
             "Charge hours after": "full",
             "Skip tonight": 6,

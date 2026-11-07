@@ -38,7 +38,7 @@ from .keys import (
     KEY_INVERTER_SERIAL,
     KEY_TARGET_SOC_ENTITY,
 )
-from .model import BatteryPause, SelfUseMode
+from .model import BatteryPause, PauseSetting, SelfUseMode
 from .reader import GivTCPReader
 from .schedules import GivTCPSchedules
 from .status import WriteStatus
@@ -173,6 +173,9 @@ class GivTCPBackend:
         end: time | None = None,
     ) -> WriteStatus:
         return await self.controls.apply_battery_pause(cfg, pause, start, end)
+
+    def read_battery_pause(self, cfg: Mapping[str, Any]) -> PauseSetting | None:
+        return self._reader.battery_pause_setting(cfg)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
         return self._reader.rate_defaults(cfg.get(KEY_INVERTER_SERIAL), device_prefix(cfg))

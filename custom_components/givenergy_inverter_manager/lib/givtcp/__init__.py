@@ -11,7 +11,15 @@ from .controls import GivTCPControls
 from .discovery import GivTCPInverter, discover_givtcp_inverters
 from .errors import ServiceCallError
 from .force import GivTCPForce
-from .model import BatteryMode, BatteryPause, Force, SelfUseMode, SlotKind, Window
+from .model import (
+    BatteryMode,
+    BatteryPause,
+    Force,
+    PauseSetting,
+    SelfUseMode,
+    SlotKind,
+    Window,
+)
 from .reader import GivTCPReader
 from .schedules import GivTCPSchedules
 from .status import WriteStatus
@@ -36,6 +44,7 @@ from .writer import (
 __all__ = [
     "BatteryMode",
     "BatteryPause",
+    "PauseSetting",
     "ChargePlan",
     "ConfirmationListener",
     "EntityState",

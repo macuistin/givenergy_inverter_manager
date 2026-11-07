@@ -139,6 +139,7 @@ SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
 CHARGE_NOW_NAME = "Charge now"
 PAUSE_NAME = "Pause"
+HOLD_BATTERY_NAME = "Hold battery"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN, TAB_TOMORROW, TAB_BILL})
 
@@ -191,11 +192,18 @@ _DIVERT_HELP = ("Min battery, Min spare solar", "spare solar goes to the water o
 _SYSTEM_HELP = (
     ("Dry run", "plan as normal but send nothing to the inverter, the immersion or the car."),
     ("Verbose logging", "write the integration's decisions to the Home Assistant log."),
+)
+_EV_HELP = (
     (
         CHARGE_NOW_NAME,
         "charge the car from the grid at any rate until you turn this off or unplug it.",
     ),
     (PAUSE_NAME, "stop the charge, whatever the rate, until you turn this off or unplug the car."),
+    (
+        HOLD_BATTERY_NAME,
+        "while the car charges from the house battery, pause the battery so the grid supplies "
+        "it, and put the battery pause back afterwards.",
+    ),
     (
         "Charge hours before, Charge hours after",
         "hours either side of the cheaper rate when the car may still charge from the grid.",
@@ -1664,6 +1672,7 @@ class Builder:
             [
                 self.ev("ev_charge_now"),
                 self.ev("ev_pause"),
+                self.ev("ev_hold_battery"),
                 self.ev("ev_hours_before_cheap"),
                 self.ev("ev_hours_after_cheap"),
             ]
@@ -1746,26 +1755,26 @@ class Builder:
         restart = (_RESTART_DROP_HELP,) if Device.IMMERSION_THERMOSTAT in shown else ()
         return _help((_HEAT_NOW_HELP, *restart, _DIVERT_HELP))
 
+    def _ev_controls(self) -> dict[str, Any] | None:
+        return group(
+            heading_card("EV charger", "mdi:ev-station"),
+            [
+                switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV),
+                switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV),
+                switch_tile(self.ev("ev_hold_battery"), HOLD_BATTERY_NAME, EV),
+                stepper_row(self.ev("ev_hours_before_cheap"), "Charge hours before", EV),
+                stepper_row(self.ev("ev_hours_after_cheap"), "Charge hours after", EV),
+                _help(_EV_HELP),
+            ],
+            **self._when(Device.EV_CHARGER),
+        )
+
     def _system_controls(self) -> dict[str, Any] | None:
         return group(
             heading_card("System", "mdi:cog-outline"),
             [
                 switch_tile(self.entity("dry_run"), "Dry run", GRID),
                 switch_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
-                self.devices.show_with(
-                    switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), Device.EV_CHARGER
-                ),
-                self.devices.show_with(
-                    switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV), Device.EV_CHARGER
-                ),
-                self.devices.show_with(
-                    stepper_row(self.ev("ev_hours_before_cheap"), "Charge hours before", EV),
-                    Device.EV_CHARGER,
-                ),
-                self.devices.show_with(
-                    stepper_row(self.ev("ev_hours_after_cheap"), "Charge hours after", EV),
-                    Device.EV_CHARGER,
-                ),
                 _help(_SYSTEM_HELP),
             ],
         )
@@ -1793,6 +1802,7 @@ class Builder:
             self._charge_controls(),
             self._planning_controls(),
             self._water_controls(),
+            self._ev_controls(),
             self._system_controls(),
             self._recent_changes(),
         ]

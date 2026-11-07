@@ -187,6 +187,7 @@
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
       "ev_charge_now": {"default": "mdi:ev-station"},
       "ev_pause": {"default": "mdi:pause-circle-outline"},
+      "ev_hold_battery": {"default": "mdi:battery-lock"},
       "immersion_managed": {"default": "mdi:water-boiler"},
       "immersion_schedule": {"default": "mdi:water-boiler-auto"},
       "skip_charge_override": {"default": "mdi:battery-off"},
