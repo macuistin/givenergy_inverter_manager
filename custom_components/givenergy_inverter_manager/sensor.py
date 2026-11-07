@@ -28,9 +28,12 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ATTR_FULL_TEXT, DEFAULT_CURRENCY_SYMBOL
+from .config_helpers import effective_config
+from .const import ATTR_FULL_TEXT, CONF_SHADOW_TARIFFS, DEFAULT_CURRENCY_SYMBOL
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device, group_of
+from .core.shadow_pricing import shadow_keys
+from .core.shadow_tariffs import shadow_names
 from .core.text_state import fit_state
 from .entity import GivEnergyEntity
 from .optional_devices import async_add_entities_per_device
@@ -40,6 +43,7 @@ from .sensor_descriptions.base import (
     GivEnergyManagerSensorDescription,
     reset_period_of,
 )
+from .shadow_sensor import ShadowBillSensor, ShadowDifferenceSensor
 
 _RESET_FIELDS = {
     "day": "last_reset_time",
@@ -141,6 +145,18 @@ async def async_setup_entry(
         ]
 
     async_add_entities_per_device(entry, async_add_entities, _sensors_of)
+    async_add_entities(_shadow_sensors(coordinator))
+
+
+def _shadow_sensors(coordinator: GivEnergyCoordinator) -> list[SensorEntity]:
+    """The bill and difference sensors of each shadow tariff, off until turned on."""
+    cfg = effective_config(coordinator.entry)
+    raw = cfg.get(CONF_SHADOW_TARIFFS)
+    sensors: list[SensorEntity] = []
+    for key, name in zip(shadow_keys(raw), shadow_names(raw), strict=True):
+        sensors.append(ShadowBillSensor(coordinator, key, name))
+        sensors.append(ShadowDifferenceSensor(coordinator, key, name))
+    return sensors
 
 
 class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):

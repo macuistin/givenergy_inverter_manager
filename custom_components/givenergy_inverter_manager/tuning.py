@@ -12,6 +12,9 @@ TARIFF_REVIEW_STALE_DAYS = 365
 # Each shadow tariff costs one pricing pass over the bill period per update, and no extra
 # storage. Three is enough to compare a few offers without crowding the device.
 MAX_SHADOW_TARIFFS = 3
+# The shadow bills are re-priced from the stored slots at most this often, and at once when a
+# shadow tariff changes or the day does.
+SHADOW_PRICING_INTERVAL_SECONDS = 300
 
 # ── Carbon intensity ──────────────────────────────────────────────────────────
 # Thresholds for status classification (g CO2/kWh).

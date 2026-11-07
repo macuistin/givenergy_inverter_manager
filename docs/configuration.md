@@ -134,7 +134,7 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 
 ### Shadow tariffs
 
-A shadow tariff is another set of rates that the integration prices your real usage under, so you can see whether it would have cost less. It changes nothing: it never writes to the inverter, the charge plan ignores it and your real bill is not affected. Set up at most three.
+A shadow tariff is another set of rates that the integration prices your real usage under, so you can see whether it would have cost less. It changes nothing: it never writes to the inverter, the charge plan ignores it and your real bill is not affected. Set up at most three. Each one adds sensors to a Shadow tariffs device, which are off until you turn them on. See [Shadow tariffs](tariff.md#shadow-tariffs).
 
 | Menu line | Opens |
 |---|---|
