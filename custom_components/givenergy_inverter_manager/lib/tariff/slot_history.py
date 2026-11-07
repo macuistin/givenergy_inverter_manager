@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from ..timeutil import elapsed_seconds
@@ -31,6 +31,11 @@ class SlotHistory:
         total = elapsed_seconds(start, end)
         if not 0 < total <= SLOT_MAX_INTERVAL_SECONDS:
             return False
+        # Two datetimes in one zone compare by their clock fields and ignore which side of a clock
+        # change they are on, so an interval in the repeated hour would look empty. UTC compares
+        # by real time.
+        if start.tzinfo is not None and end.tzinfo is not None:
+            start, end = start.astimezone(timezone.utc), end.astimezone(timezone.utc)
         cursor = start
         while cursor < end:
             day = self._day_for(cursor.astimezone(self._tz).date())
@@ -75,7 +80,7 @@ class SlotHistory:
         for item in stored:
             try:
                 day = SlotDay.from_storage(item, self._tz)
-            except (ValueError, TypeError, AttributeError):
+            except ValueError, TypeError, AttributeError:
                 self.skipped += 1
                 continue
             self._days[day.day] = day
