@@ -97,6 +97,7 @@ from .selectors import (
     price_selector,
     rate_count_selector,
 )
+from .shadow_form import FORM_NAME
 
 ALT_HEAT_SECTION = "alt_heat"
 BILL_SECTION = "bill_details"
@@ -252,6 +253,65 @@ def rates_schema(ctx: PageContext, count: int, country: str | None) -> vol.Schem
         {
             vol.Optional(f"rate_period_{i}"): _rate_row_section(row, currency)
             for i, row in enumerate(rows, 1)
+        }
+    )
+
+
+def shadow_schema(ctx: PageContext, start: Mapping[str, Any], name: str = "") -> vol.Schema:
+    """A new shadow tariff: its name and the rates and bill figures that start at the active
+    tariff's own, to edit. The base rate name and the bill start day follow the active tariff."""
+    currency = _currency(ctx)
+    return vol.Schema(
+        {
+            vol.Required(FORM_NAME, default=name): selector.TextSelector(),
+            vol.Required(CONF_BASE_RATE, default=float(start[CONF_BASE_RATE])): price_selector(
+                CONF_BASE_RATE, currency
+            ),
+            vol.Required(CONF_EXPORT_RATE, default=float(start[CONF_EXPORT_RATE])): price_selector(
+                CONF_EXPORT_RATE, currency
+            ),
+            vol.Required(
+                "rate_count", default=str(rate_count(start[CONF_RATE_PERIODS]))
+            ): rate_count_selector(),
+            vol.Required(
+                CONF_STANDING_CHARGE, default=float(start[CONF_STANDING_CHARGE])
+            ): price_selector(CONF_STANDING_CHARGE, currency),
+            vol.Required(CONF_PSO_LEVY, default=float(start[CONF_PSO_LEVY])): price_selector(
+                CONF_PSO_LEVY, currency
+            ),
+            vol.Required(CONF_VAT_RATE, default=float(start[CONF_VAT_RATE])): number_selector(
+                CONF_VAT_RATE
+            ),
+            vol.Required(
+                CONF_DISCOUNT_RATE, default=float(start[CONF_DISCOUNT_RATE])
+            ): number_selector(CONF_DISCOUNT_RATE),
+        }
+    )
+
+
+def shadow_rates_schema(
+    ctx: PageContext, count: int, saved: list[dict[str, Any]], country: str | None
+) -> vol.Schema:
+    """Exactly *count* timed rate rows for a shadow tariff, starting at the *saved* rows."""
+    rows = default_rate_rows(count, saved, night_window(country))
+    currency = _currency(ctx)
+    return vol.Schema(
+        {
+            vol.Optional(f"rate_period_{i}"): _rate_row_section(row, currency)
+            for i, row in enumerate(rows, 1)
+        }
+    )
+
+
+def shadow_remove_schema(names: list[str]) -> vol.Schema:
+    """Which shadow tariff to remove."""
+    return vol.Schema(
+        {
+            vol.Required("shadow_remove"): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=names, mode=selector.SelectSelectorMode.DROPDOWN
+                )
+            )
         }
     )
 

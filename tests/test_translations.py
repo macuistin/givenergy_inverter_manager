@@ -45,6 +45,10 @@ SETUP_STEPS = {
 OPTIONS_STEPS = {
     "init",
     "tariff_menu",
+    "shadow_menu",
+    "shadow_add",
+    "shadow_rates",
+    "shadow_remove",
     "tariff",
     "tariff_rates",
     "bill",

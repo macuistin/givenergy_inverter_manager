@@ -207,6 +207,9 @@ ERROR_KEYS: tuple[str, ...] = (
     "alt_heat_label_empty",
     "alt_heat_label_too_long",
     "missing_entities",
+    "shadow_limit",
+    "shadow_name_missing",
+    "shadow_name_duplicate",
 )
 
 
