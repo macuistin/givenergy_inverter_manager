@@ -783,7 +783,11 @@ class TestTheRecentCharges:
 
     def test_the_charge_cost_joins_the_figures_with_the_sensor(self):
         section = _section(dashboard_dict(registry=FakeRegistry(enable_all=True)), "ev-charger", "EV charger")
-        (figures,) = [c for c in section["cards"] if c["type"] == "glance"]
+        (figures,) = [
+            c
+            for c in section["cards"]
+            if c["type"] == "glance" and c["entities"][0]["name"] == "This charge"
+        ]
         assert [r["name"] for r in figures["entities"]] == [
             "This charge",
             "Its cost",

@@ -30,6 +30,7 @@ from .registry import Registry
 # One entity per device that exists exactly while the device does.
 SENTINELS: dict[Device, str] = {
     Device.EV_CHARGER: "ev_charger_state",
+    Device.CAR: "car_plug_status",
     Device.IMMERSION_SWITCH: "immersion_managed",
     Device.IMMERSION_SENSOR: "immersion_water_temperature",
     Device.IMMERSION_LOWER_SENSOR: "immersion_lower_water_temperature",

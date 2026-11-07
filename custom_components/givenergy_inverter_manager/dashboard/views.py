@@ -341,6 +341,10 @@ class Builder:
         """An EV charger entity. Its expected ID while no charger has been discovered."""
         return self.devices.entity(Device.EV_CHARGER, suffix)
 
+    def car(self, suffix: str) -> str | None:
+        """A car entity. Its expected ID while no car is set up."""
+        return self.devices.entity(Device.CAR, suffix)
+
     def immersion(self, suffix: str) -> str | None:
         """An entity of the immersion switch. Its expected ID while none is configured."""
         return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
@@ -693,6 +697,22 @@ class Builder:
             ]
         )
 
+    def _car_tiles(self) -> dict[str, Any] | None:
+        """The car's plug state, battery level, location and power, opening the EV charger view."""
+        nav = self.go(SUB_EV)
+
+        def tile(suffix: str, name: str, icon: str, colour: str) -> dict[str, Any] | None:
+            return figure_tile(self.car(suffix), name, icon, colour, nav)
+
+        return tile_grid(
+            [
+                tile("car_plug_status", "Plug", "mdi:ev-plug-type2", "teal"),
+                tile("car_battery_level", "Battery", "mdi:car-battery", "green"),
+                tile("car_at_home", "Location", "mdi:map-marker", "blue"),
+                tile("car_charging_power", "Car power", "mdi:flash", "orange"),
+            ]
+        )
+
     def _device_sections(self) -> list[Any]:
         """A section for the hot water and one for the EV charger, each with its figures.
 
@@ -727,6 +747,7 @@ class Builder:
                             for tile in self._charger_controls()
                         ),
                         devices.show_with(self._charger_tiles(), Device.EV_CHARGER),
+                        devices.show_with(self._car_tiles(), Device.CAR),
                     ],
                 )
             ),
@@ -1540,6 +1561,17 @@ class Builder:
                 entity_row(self.ev("zappi_cost_today"), "Cost today"),
             ]
         )
+        car_figures = self.devices.show_with(
+            glance_card(
+                [
+                    entity_row(self.car("car_plug_status"), "Plug"),
+                    entity_row(self.car("car_battery_level"), "Battery"),
+                    entity_row(self.car("car_charging_power"), "Car power"),
+                    entity_row(self.car("car_at_home"), "Location"),
+                ]
+            ),
+            Device.CAR,
+        )
         power = history_graph([entity_row(self.ev_power(), "Charge power")], 24, 4)
         plan = self.ev("ev_charging_plan")
         window = self.ev("ev_charging_window")
@@ -1554,7 +1586,7 @@ class Builder:
         return grid_section(
             heading_block(
                 heading_card("EV charger", "mdi:ev-station"),
-                [plan_card, markdown_card(story), *self._charger_controls(), figures],
+                [plan_card, markdown_card(story), *self._charger_controls(), figures, car_figures],
             ),
             heading_block(
                 subheading_card("Charge power, last 24 hours", "mdi:chart-line"), [power]
