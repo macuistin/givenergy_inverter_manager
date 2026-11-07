@@ -131,7 +131,7 @@ What each device brings:
 | Device | How the integration knows | Shown when it is there |
 |---|---|---|
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger box and sub-view, the EV share of the cost charts |
-| Car | You pick the car's entities in Configure → EV charger | The car's plug state, battery level, location and power in the EV charger box and sub-view |
+| Car | You pick the car's entities in Configure → EV charger | The car's battery level and plug state in the EV charger box, and its plug state, battery level, location and power in the sub-view |
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater chart, the divert reason, the Use spare solar and Heat now settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Water tile, the Hot water sentence and the water temperature chart |
 | Lower immersion temperature sensor | The sensor is set under Configure, Immersion heater, with the main sensor | A second line in the water temperature chart, labelled Water, lower |
@@ -221,7 +221,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 - **Tonight**: one line with an icon, **Tonight: won't charge** or **Tonight: will charge to 75%**. Through the day it reads **Tonight: the plan will be ready around 17:00**, and after the night's charge **Overnight charge complete** (see [When the overnight plan is shown](concepts.md#when-the-overnight-plan-is-shown)). It reads the Tonight's Charge Plan sensor, which follows the plan the inverter is written from. The Recommended Overnight Charge Target sensor is held for a while and can still show last night's charge by day. Tap the Tonight tab for the plan.
 - **Where it came from**: the split bar of today's energy from solar, the battery and the grid, the same bar as on the Today tab.
 - **Hot water**: four coloured tiles that open the Hot water sub-view. **Water** is the temperature with a line of the last 24 hours. **Heater** is On or Off, read from the Immersion Heater (Managed) switch, which is on while the integration has the heater on, since the heater draws full power or none. Its icon turns red while it is on. In dry run it shows what the integration would do. Tapping the icon never switches it. **Heated today** and **Cost today** are the day so far. The Water tile needs the temperature sensor and the others need the switch, and the box shows only while either exists.
-- **EV charger**: four coloured tiles that open the EV charger sub-view: **State**, **Power** with a line of the last 24 hours, **Today** and **Cost today**. It shows only while the charger exists.
+- **EV charger**: four coloured tiles that open the EV charger sub-view: **State**, **Power** with a line of the last 24 hours, **Today** and **Cost today**. It shows only while the charger exists. With a car set up, a row of two more tiles shows the car's **Battery** and **Plug**. Its location and power are in the sub-view.
 
 Hot water and EV charger are two sections of their own. On a laptop they sit beside the power flow, and Tonight and Where it came from run under it. On a tablet the two sit side by side. On a phone every section stacks in that order.
 
