@@ -8,6 +8,14 @@ No imports, so no cycle. const.py re-exports every name.
 # year, and no existing constant measures time since a user action.
 TARIFF_REVIEW_STALE_DAYS = 365
 
+# ── Shadow tariffs ────────────────────────────────────────────────────────────
+# Each shadow tariff costs one pricing pass over the bill period per update, and no extra
+# storage. Three is enough to compare a few offers without crowding the device.
+MAX_SHADOW_TARIFFS = 3
+# The shadow bills are re-priced from the stored slots at most this often, and at once when a
+# shadow tariff changes or the day does.
+SHADOW_PRICING_INTERVAL_SECONDS = 300
+
 # ── Carbon intensity ──────────────────────────────────────────────────────────
 # Thresholds for status classification (g CO2/kWh).
 # Below LOW → "Low" (high renewable fraction, good time to import).
@@ -109,6 +117,10 @@ CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistica
 CHARGE_SKIP_HEADROOM = 0.8  # forecast/fill headroom needed to justify skipping charge
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
 CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
+EV_HOLD_MINUTES = 30  # how long one battery hold lasts before it is renewed
+EV_HOLD_RENEW_MINUTES = 10  # renew a hold when this much of it is left
+EV_HOLD_RELEASE_MINUTES = 5  # the car must stay off this long before the hold is ended
+EV_HOLD_STEP_MINUTES = 5  # hold times are rounded to this, which every pause time list offers
 CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
 CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
 CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS = 3  # same-weekday days needed to prefer them

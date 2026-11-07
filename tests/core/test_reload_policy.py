@@ -46,6 +46,8 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     # Read once at setup: forecast history seeding, the unit of every money sensor.
     "forecast_entity": ("sensor.a", "sensor.b", RELOAD),
     "currency": ("EUR", "GBP", RELOAD),
+    # The Shadow tariffs device and its sensors are created at setup.
+    "shadow_tariffs": ([], [{"name": "Night saver"}], RELOAD),
     # Tariff.
     "base_rate": (0.30, 0.31, LIVE),
     "base_rate_name": ("Day", "Standard", LIVE),
@@ -106,6 +108,7 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "forecast_conservatism": (0.35, 0.4, LIVE),
     "ev_hours_before_cheap": (0.0, 1.5, LIVE),
     "ev_hours_after_cheap": (0.0, 1.5, LIVE),
+    "ev_hold_battery": (False, True, LIVE),
     # The URL path of the dashboard setup found. It is written once, before the update listener
     # exists, and no cycle reads it.
     "dashboard_url_path": ("givenergy", "lovelace", LIVE),

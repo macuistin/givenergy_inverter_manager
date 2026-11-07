@@ -19,9 +19,13 @@ from custom_components.givenergy_inverter_manager.core.wizard_tariff import (
     validate_rates,
     validate_tariff,
 )
+from custom_components.givenergy_inverter_manager.wizard.shadow_form import validate_form
 
 NIGHT = {"name": "Night", "rate": 0.15, "start": "23:00", "end": "08:00"}
 CTX = PageContext(Mode.OPTIONS, date(2031, 6, 15))
+_SHADOW = {"name": "Night saver", "base_rate": 0.3, "export_rate": 0.1, "rate_periods": [],
+           "standing_charge_per_day": 0.5, "pso_levy_per_month": 1.0, "vat_rate": 9.0,
+           "discount_rate": 0.0}
 
 
 def _key(errors: dict[str, str]) -> str:
@@ -44,6 +48,9 @@ def _produced() -> set[str]:
         validate_hot_water({"alt_heat_enabled": True, "alt_heat_label": ""}, CTX).errors,
         validate_hot_water({"alt_heat_enabled": True, "alt_heat_label": "x" * 40}, CTX).errors,
         missing_wiring({}),
+        validate_form([], {"shadow_name": " "}).errors,
+        validate_form([_SHADOW], {"shadow_name": "night saver"}).errors,
+        validate_form([_SHADOW] * 3, {"shadow_name": "Other"}).errors,
     ]
     return {_key(errors) for errors in results}
 

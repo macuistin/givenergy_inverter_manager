@@ -28,9 +28,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import sensor_values as values
+from .config_helpers import effective_config
+from .const import CONF_SHADOW_TARIFFS
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.engine import CoordinatorData
+from .core.shadow_pricing import shadow_keys
+from .core.shadow_tariffs import shadow_names
 from .entity import GivEnergyEntity
+from .shadow_sensor import ShadowCheaperSensor
 
 # Coordinator-driven, so no parallel updates are needed
 PARALLEL_UPDATES = 0
@@ -69,6 +74,11 @@ async def async_setup_entry(
     async_add_entities(
         GivEnergyBinarySensor(coordinator, description)
         for description in BINARY_SENSOR_DESCRIPTIONS
+    )
+    raw = effective_config(entry).get(CONF_SHADOW_TARIFFS)
+    async_add_entities(
+        ShadowCheaperSensor(coordinator, key, name)
+        for key, name in zip(shadow_keys(raw), shadow_names(raw), strict=True)
     )
 
 

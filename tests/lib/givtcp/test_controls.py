@@ -12,6 +12,7 @@ from custom_components.givenergy_inverter_manager.lib.givtcp import (
     BatteryMode,
     BatteryPause,
     GivTCPPorts,
+    PauseSetting,
     SelfUseMode,
     controls,
     make_backend,
@@ -88,6 +89,48 @@ def _no_read_back_wait(monkeypatch):
 def _backend(bus: _Bus):
     ports = GivTCPPorts(bus.get_state, bus.call_service, lambda count: None)
     return make_backend(CFG, ports)
+
+
+# ── Reading the pause ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("mode", "pause"),
+    [
+        ("Disabled", BatteryPause.OFF),
+        ("Not Paused", BatteryPause.OFF),
+        ("PauseCharge", BatteryPause.CHARGE),
+        ("PauseDischarge", BatteryPause.DISCHARGE),
+        ("Pause Both", BatteryPause.BOTH),
+    ],
+)
+def test_the_pause_is_read_whatever_it_stops(mode, pause):
+    bus = _pause_bus(**{MODE: _state(mode), START: _state("23:00:00"), END: _state("08:00:00")})
+
+    setting = _backend(bus).read_battery_pause(CFG)
+
+    assert setting == PauseSetting(pause, (time(23, 0), time(8, 0)))
+
+
+def test_a_pause_with_a_time_that_cannot_be_read_has_no_window():
+    bus = _pause_bus(**{MODE: _state("PauseDischarge"), END: _state("unavailable")})
+
+    setting = _backend(bus).read_battery_pause(CFG)
+
+    assert setting == PauseSetting(BatteryPause.DISCHARGE, None)
+
+
+@pytest.mark.parametrize("mode", ["unavailable", "Something New"])
+def test_a_pause_mode_that_is_not_known_reads_as_none(mode):
+    assert _backend(_pause_bus(**{MODE: _state(mode)})).read_battery_pause(CFG) is None
+
+
+def test_a_device_that_publishes_no_pause_entities_reads_as_none():
+    bus = _pause_bus()
+    for entity in (MODE, START, END):
+        del bus.states[entity]
+
+    assert _backend(bus).read_battery_pause(CFG) is None
 
 
 # ── The battery pause ─────────────────────────────────────────────────────────
