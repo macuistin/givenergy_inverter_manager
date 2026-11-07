@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import time
 from enum import StrEnum
 
@@ -15,6 +16,18 @@ class BatteryPause(StrEnum):
     CHARGE = "PauseCharge"
     DISCHARGE = "PauseDischarge"
     BOTH = "PauseBoth"
+
+
+@dataclass(frozen=True)
+class PauseSetting:
+    """The battery pause as the inverter holds it: what it stops and the window it repeats in.
+
+    The window is None when the start or end cannot be read. A pause window repeats every day,
+    so a caller that changes it for a while saves this first and writes it back.
+    """
+
+    pause: BatteryPause
+    window: Window | None = None
 
 
 class SelfUseMode(StrEnum):

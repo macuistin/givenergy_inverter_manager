@@ -32,7 +32,7 @@ inside it.
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
 | `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`lib/ev/discover.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast. The EV charger and immersion entities sit on their own devices (`DeviceGroup`, `entity.py`) |
-| `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
+| `controls.py` | The tuning controls: switches and numbers, each owning one option key. A control for an optional device is added with that device (`control_switches_of`, `control_numbers`) |
 | `dashboard/`, `strategy.py` | The dashboard builder, and the Lovelace strategy that serves it |
 | `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current. `active_repairs.py` reads the open ones for the Active Repairs sensor |
 

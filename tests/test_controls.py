@@ -194,6 +194,35 @@ class TestWritingAControl:
         assert entity.is_on is False
 
 
+class TestTheBatteryHoldSwitch:
+    def test_only_an_ev_charger_gets_it(self):
+        coordinator = _coordinator()
+
+        assert controls.control_switches_of(coordinator, Device.IMMERSION_SWITCH) == []
+        assert [e._option_key for e in controls.control_switches_of(coordinator, Device.EV_CHARGER)] == [
+            "ev_hold_battery"
+        ]
+        assert "ev_hold_battery" not in {e._option_key for e in controls.control_switches(coordinator)}
+
+    def test_it_is_off_until_the_user_turns_it_on_and_is_a_live_key(self):
+        (entity,) = controls.control_switches_of(_coordinator(), Device.EV_CHARGER)
+
+        assert entity.is_on is False
+        assert entity._attr_unique_id == "entry_ev_hold_battery"
+        assert entity._attr_translation_key == "ev_hold_battery"
+        assert change_effect({"ev_hold_battery": False}, {"ev_hold_battery": True}) is Effect.LIVE
+
+    def test_turning_it_on_saves_its_flag_and_keeps_every_other_option(self):
+        coordinator = _coordinator(options={"base_rate": 0.3})
+        (entity,) = controls.control_switches_of(coordinator, Device.EV_CHARGER)
+        entity.hass = SimpleNamespace(config_entries=FakeEntries())
+
+        asyncio.run(entity.async_turn_on())
+
+        assert entity.hass.config_entries.updates == [{"base_rate": 0.3, "ev_hold_battery": True}]
+        assert entity.is_on is True
+
+
 class TestTheDryRunSwitch:
     def _switch(self, **kwargs):
         entity = controls.DryRunSwitch(_coordinator(**kwargs))

@@ -2,10 +2,10 @@
 controls.py - the tuning controls: switches and numbers that each own one saved option.
 
 A setting is either a form field (set once, changes rarely) or a control (a knob the user tries,
-watches and adjusts), never both. The eight controls here write the flat option key they were
+watches and adjusts), never both. The nine controls here write the flat option key they were
 always stored under, so no data moves and an install keeps the value it had:
 
-  switches  dry_run, verbose_logging, charge_replan
+  switches  dry_run, verbose_logging, charge_replan, ev_hold_battery
   numbers   surplus_divert_soc_pct, surplus_divert_min_power_w, cheap_rate_floor_soc,
             skip_charge_soc_threshold_pct, forecast_conservatism,
             ev_hours_before_cheap, ev_hours_after_cheap
@@ -33,6 +33,7 @@ from .const import (
     CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
+    CONF_EV_HOLD_BATTERY,
     CONF_EV_HOURS_AFTER_CHEAP,
     CONF_EV_HOURS_BEFORE_CHEAP,
     CONF_FORECAST_CONSERVATISM,
@@ -43,6 +44,7 @@ from .const import (
     DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
+    DEFAULT_EV_HOLD_BATTERY,
     DEFAULT_EV_HOURS_AFTER_CHEAP,
     DEFAULT_EV_HOURS_BEFORE_CHEAP,
     DEFAULT_FORECAST_CONSERVATISM,
@@ -252,12 +254,27 @@ class DryRunSwitch(ControlSwitch):
 
 
 def control_switches(coordinator: GivEnergyCoordinator) -> list[ControlSwitch]:
-    """The three switch controls."""
+    """The switch controls that every install has."""
     return [
         DryRunSwitch(coordinator),
         ControlSwitch(coordinator, CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING),
         ControlSwitch(coordinator, CONF_CHARGE_REPLAN, DEFAULT_CHARGE_REPLAN),
     ]
+
+
+def control_switches_of(coordinator: GivEnergyCoordinator, device: Device) -> list[ControlSwitch]:
+    """The switch controls that need *device*.
+
+    The battery hold only acts on an EV charger, so it exists while one is set, like the other
+    EV entities.
+    """
+    if device is Device.EV_CHARGER:
+        return [
+            ControlSwitch(
+                coordinator, CONF_EV_HOLD_BATTERY, DEFAULT_EV_HOLD_BATTERY, Device.EV_CHARGER
+            )
+        ]
+    return []
 
 
 def control_numbers(
