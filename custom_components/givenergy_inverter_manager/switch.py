@@ -53,7 +53,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
-from .controls import control_switches
+from .controls import control_switches, control_switches_of
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device, DeviceGroup
 from .entity import GivEnergyEntity
@@ -92,7 +92,11 @@ async def async_setup_entry(
         if device is Device.IMMERSION_THERMOSTAT:
             return [GivEnergyImmersionScheduleSwitch(coordinator)]
         if device is Device.EV_CHARGER:
-            return [GivEnergyEVChargeNowSwitch(coordinator), GivEnergyEVPauseSwitch(coordinator)]
+            return [
+                GivEnergyEVChargeNowSwitch(coordinator),
+                GivEnergyEVPauseSwitch(coordinator),
+                *control_switches_of(coordinator, device),
+            ]
         return []
 
     if Device.IMMERSION_SWITCH not in present_devices(entry):

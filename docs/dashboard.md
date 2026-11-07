@@ -193,7 +193,7 @@ A rate sensor reports a bare currency amount, so its unit stays the currency and
 
 ### Settings and administrators
 
-Everything that changes a setting is in the **Settings** sub-view. A **Settings** button in the Energy heading opens it. It is for Home Assistant administrators only. Everyone else does not see it. The rest of the dashboard only shows state, except the EV charger's **Charge now** and **Pause** buttons, which every user sees while a car is plugged in.
+Everything that changes a setting is in the **Settings** sub-view. It groups them by what they control: tonight's charge, charge planning, hot water, the EV charger (Charge now, Pause, Hold battery and the charge hours, shown only while an EV charger is set up), and system (Dry run and Verbose logging). A **Settings** button in the Energy heading opens it. It is for Home Assistant administrators only. Everyone else does not see it. The rest of the dashboard only shows state, except the EV charger's **Charge now** and **Pause** buttons, which every user sees while a car is plugged in.
 
 Home Assistant has no admin option for a dashboard. A view takes a list of users in `visible`, and a card or heading button takes a user condition. The integration uses both, and the server's own check on top.
 

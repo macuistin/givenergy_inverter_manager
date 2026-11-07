@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, time
 from typing import Any, Protocol, runtime_checkable
 
-from ..lib.givtcp.model import BatteryPause, SelfUseMode
+from ..lib.givtcp.model import BatteryPause, PauseSetting, SelfUseMode
 from ..lib.givtcp.status import WriteStatus
 from ..lib.givtcp.values import (
     ChargePlan,
@@ -173,6 +173,10 @@ class InverterControls(Protocol):
         end: time | None = None,
     ) -> WriteStatus:
         """Pause charging or discharging for a window, or end the pause. False when not taken."""
+        ...
+
+    def read_battery_pause(self, cfg: Mapping[str, Any]) -> PauseSetting | None:
+        """The pause the inverter holds now, whatever it stops. None when it cannot be read."""
         ...
 
 

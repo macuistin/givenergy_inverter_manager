@@ -128,6 +128,7 @@ class TestAdminsPresent:
                 "verbose_logging",
                 "ev_charge_now",
                 "ev_pause",
+                "ev_hold_battery",
                 "ev_hours_before_cheap",
                 "ev_hours_after_cheap",
                 "charge_replan",
