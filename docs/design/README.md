@@ -10,6 +10,7 @@ Plans, designs for features that are not built yet, and specifications from othe
   - [SP3: the wizard pattern](spikes/SP3.md)
   - [CC1: can the integration read whether SmartTarget is on?](spikes/CC1.md)
 - [CONFIG_DIET.md](CONFIG_DIET.md): every option the wizards still ask for, and whether to detect it, make it an entity, make it a fixed assumption or keep it.
+- [shadow_tariffs.md](shadow_tariffs.md): why shadow tariffs are priced from the slot history and how they are set up.
 - [mock_givtcp.md](mock_givtcp.md): the fake GivTCP used by the write-sequence test.
 
 The spike tests are in `tests/ha_e2e/spikes/` and run with the real Home Assistant suite (`python -m pytest tests/ha_e2e -q`, see [testing](../testing.md)).

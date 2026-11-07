@@ -38,6 +38,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
     CONF_IMMERSION_SWITCH,
+    CONF_SHADOW_TARIFFS,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
 )
@@ -67,6 +68,7 @@ from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     SwitchState,
 )
 from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
+from custom_components.givenergy_inverter_manager.lib.tariff import SlotHistory
 from custom_components.givenergy_inverter_manager.unconfirmed_write_repair import (
     UnconfirmedWriteRepair,
 )
@@ -127,6 +129,7 @@ class _FakeSlots:
         self.recorded = []
         self.soc = []
         self.counters = []
+        self.history = SlotHistory(timezone.utc)
 
     def record(self, energy, start, end):
         self.recorded.append((energy, start, end))
@@ -205,6 +208,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
+        self._shadow_cache = None
         self._charge_target_trigger_at = None
 
         class _FakeAccStore:
@@ -4310,3 +4314,43 @@ class TestAcChargeCounter:
 
         assert data.today.self_sufficiency_pct == 0.0
         assert not (data.grid_to_battery_counter_available)
+
+
+class TestShadowTariffsLeaveTheWritesAlone:
+    """Shadow tariffs only re-price. The nightly plan and its writes must not notice them (#577)."""
+
+    @staticmethod
+    def _shadow(name: str, base_rate: float) -> dict:
+        return {
+            "name": name,
+            "base_rate": base_rate,
+            "export_rate": 0.0,
+            "rate_periods": [],
+            "standing_charge_per_day": 0.0,
+            "pso_levy_per_month": 0.0,
+            "vat_rate": 0.0,
+            "discount_rate": 0.0,
+        }
+
+    async def _writes_and_decision(self, shadows: list[dict]):
+        cfg = _cfg()
+        if shadows:
+            cfg[CONF_SHADOW_TARIFFS] = shadows
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states(_default_states())
+        data = await coord.run_cycle()
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        for task in coord.tasks_created:
+            await task
+        return data.charge_decision, coord.service_calls
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("count", [1, 3])
+    async def test_the_plan_and_the_write_sequence_are_the_same_with_shadows(self, count):
+        plain_decision, plain_calls = await self._writes_and_decision([])
+        shadows = [self._shadow(f"Shadow {n}", 0.2 + n / 10) for n in range(count)]
+        shadow_decision, shadow_calls = await self._writes_and_decision(shadows)
+
+        assert plain_calls  # the comparison means something only if a write was made
+        assert shadow_calls == plain_calls
+        assert shadow_decision == plain_decision
