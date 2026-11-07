@@ -77,3 +77,27 @@ def test_an_earlier_start_names_both_times():
 
 def test_the_extra_hours_are_named():
     assert "extra hours you allowed" in _plan(in_extra_hours=True)
+
+
+def test_without_a_car_reading_the_plan_says_nothing_about_the_car():
+    assert "car is" not in _plan().lower()
+
+
+def test_a_car_level_without_a_battery_size_gives_the_percentage_only():
+    text = _plan(car_level_pct=38.0)
+    assert text.endswith("The car is at 38%.")
+
+
+def test_a_car_level_with_a_battery_size_gives_the_energy_it_needs():
+    text = _plan(car_level_pct=38.0, car_missing_kwh=38.5)
+    assert text.endswith("The car is at 38%, about 38 kWh to reach 100%.")
+
+
+def test_a_full_car_says_it_is_full():
+    assert _plan(car_level_pct=100.0, car_missing_kwh=0.0).endswith("The car is full.")
+
+
+def test_the_car_level_follows_a_paused_plan_too():
+    text = _plan(pause=True, car_level_pct=50.0)
+    assert text.startswith("Paused by you.")
+    assert text.endswith("The car is at 50%.")

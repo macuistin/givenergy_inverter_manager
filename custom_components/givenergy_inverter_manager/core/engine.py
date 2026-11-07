@@ -88,6 +88,8 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
 from ..lib.ev import (
+    CAR_KEY_BATTERY_KWH,
+    CAR_READING_MAX_AGE_S,
     CarPlugInputs,
     CarPlugResult,
     CarReading,
@@ -206,6 +208,7 @@ from .tariff import (
 )
 from .timeutil import elapsed_seconds, local_time_on
 from .tomorrow_outlook import OutlookInputs, TomorrowOutlook, project_outlook
+from .wizard_pages import first_car
 
 _LOG = get_logger(__name__)
 
@@ -918,9 +921,25 @@ def _ev_window(ev_charger: EVCharger, cycle: _Cycle) -> str:
     return f"{window[0].strftime('%H:%M')} to {window[1].strftime('%H:%M')}"
 
 
+def _car_for_plan(data: CoordinatorData, cycle: _Cycle) -> tuple[float | None, float | None]:
+    """The car's level and the energy it is missing, or none when the plan should not say."""
+    reading = data.car_reading
+    if reading is None or reading.battery_pct is None:
+        return None, None
+    if reading.age_s is not None and reading.age_s > CAR_READING_MAX_AGE_S:
+        return None, None
+    if data.car_plug is not None and not data.car_plug.car_matches:
+        return None, None
+    capacity = first_car(cycle.cfg).get(CAR_KEY_BATTERY_KWH)
+    if not capacity:
+        return reading.battery_pct, None
+    return reading.battery_pct, float(capacity) * (100.0 - reading.battery_pct) / 100.0
+
+
 def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str:
     """The car's charging plan as a sentence (core/ev_plan.py)."""
     upcoming = _upcoming_cheap_period(data, cycle)
+    car_level, car_missing = _car_for_plan(data, cycle)
     return ev_plan_text(
         EVPlanFacts(
             plugged_in=ev_charger.is_plugged_in,
@@ -938,6 +957,8 @@ def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str
             next_cheap_name=upcoming.name if upcoming else "",
             next_cheap_rate=upcoming.rate if upcoming else 0.0,
             surplus_min_w=EV_CHARGER_MIN_POWER_W,
+            car_level_pct=car_level,
+            car_missing_kwh=car_missing,
         )
     )
 

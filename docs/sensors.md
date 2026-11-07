@@ -192,7 +192,7 @@ These sensors exist only while a supported charger is discovered, and appear whe
 | Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |
 | Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. Created only with an EV charger. EV charger needed. Diagnostic category. |
 | Charging Window | `ev_charging_window` | - | - | none | no | yes | The hours the car may charge from the grid, with your extra hours. Created only with an EV charger. EV charger needed. |
-| Charging Plan | `ev_charging_plan` | - | - | none | no | yes | What the car will do and when, such as the cheaper rate it charges at. Created only with an EV charger. EV charger needed. |
+| Charging Plan | `ev_charging_plan` | - | - | none | no | yes | What the car will do and when, such as the cheaper rate it charges at. With a car set up it also says the car's charge and, with its battery size set, the energy it needs. Created only with an EV charger. EV charger needed. |
 | Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
 | Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
 

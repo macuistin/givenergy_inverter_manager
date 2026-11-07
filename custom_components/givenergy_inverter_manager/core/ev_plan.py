@@ -29,6 +29,10 @@ class EVPlanFacts:
     next_cheap_name: str
     next_cheap_rate: float
     surplus_min_w: int
+    # The car's own reading. None when no car is set up, its reading is stale, or the charger
+    # is holding a visitor's car. The missing energy needs the battery size from the options.
+    car_level_pct: float | None = None
+    car_missing_kwh: float | None = None
 
 
 def _price(symbol: str, rate: float) -> str:
@@ -36,7 +40,25 @@ def _price(symbol: str, rate: float) -> str:
 
 
 def ev_plan_text(facts: EVPlanFacts) -> str:
-    """What the car will do, in a sentence a person can follow."""
+    """What the car will do, in a sentence a person can follow, with the car's level if known."""
+    car = _car_text(facts)
+    plan = _plan_text(facts)
+    return f"{plan} {car}" if car else plan
+
+
+def _car_text(facts: EVPlanFacts) -> str:
+    """The car's charge and what it needs, empty when the car is not known."""
+    level = facts.car_level_pct
+    if level is None:
+        return ""
+    if level >= 99.5:
+        return "The car is full."
+    if facts.car_missing_kwh is None:
+        return f"The car is at {level:.0f}%."
+    return f"The car is at {level:.0f}%, about {facts.car_missing_kwh:.0f} kWh to reach 100%."
+
+
+def _plan_text(facts: EVPlanFacts) -> str:
     if facts.pause:
         return "Paused by you. Turn Pause off and the charge carries on as planned."
     if not facts.plugged_in:
