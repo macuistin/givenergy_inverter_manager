@@ -53,6 +53,17 @@ def _build(config=None, registry=None, **kw) -> str:
     return dashboard_text(config, registry, **kw)
 
 
+def _holds(conditions: list[dict], states: dict[str, str]) -> bool:
+    """Whether every state condition holds for these states. Missing entities read unavailable."""
+    for cond in conditions:
+        state = states.get(cond["entity"], "unavailable")
+        wanted = cond.get("state", cond.get("state_not"))
+        wanted = wanted if isinstance(wanted, list) else [wanted]
+        if (state in wanted) != ("state" in cond):
+            return False
+    return True
+
+
 class TestBuildDashboardYaml:
     def test_returns_string(self):
         result = _build()
@@ -275,6 +286,77 @@ class TestPowerFlowTabChanges:
         assert "live_grid_cost_rate" in grid_block, (
             "Grid secondary_info must reference the live_grid_cost_rate sensor."
         )
+
+    def _car_charger_node(self, charger_state: str, *, car: bool = True) -> dict:
+        """The Car Charger node of the flow card that this charger state would show."""
+        resources = ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]
+        sentinel = eid("ev_charger_state")
+        states = {sentinel: charger_state}
+        if car:
+            states[eid("car_plug_status")] = "plugged_in"
+        cards = all_cards(yaml.safe_load(_build(resources=resources))["views"])
+        found = []
+        for card in cards:
+            if card["type"] != "custom:power-flow-card-plus":
+                continue
+            for node in card["entities"].get("individual", []):
+                if node["name"] == "Car Charger" and _holds(
+                    card.get("visibility", []), states
+                ):
+                    found.append(node)
+        return found[0] if found else {}
+
+    def _car_charger_text(self, node: dict) -> str:
+        """The text under the node, as Home Assistant would render its template."""
+        import jinja2
+
+        env = jinja2.Environment()
+        env.globals["states"] = lambda entity: self._states.get(entity, "unknown")
+        env.globals["is_state_attr"] = lambda entity, attr, value: (
+            self._attrs.get(entity, {}).get(attr) == value
+        )
+        env.globals["is_number"] = lambda v: str(v).replace(".", "", 1).isdigit()
+        return env.from_string(node["secondary_info"]["template"]).render().strip()
+
+    def _set(self, charger: str, plug_source: str | None, level: str = "54.4") -> None:
+        plug = eid("car_plug_status")
+        self._states = {eid("ev_charger_state"): charger, eid("car_battery_level"): level}
+        self._attrs = {plug: {"source": plug_source}} if plug_source else {}
+
+    def test_node_hidden_at_zero_while_no_car_is_plugged_in(self):
+        for state in ("disconnected", "offline", "unknown"):
+            assert self._car_charger_node(state)["display_zero"] is False, state
+
+    def test_node_stays_at_zero_while_a_car_is_plugged_in(self):
+        for state in ("connected", "charging", "paused", "completed"):
+            assert self._car_charger_node(state)["display_zero"] is True, state
+
+    def test_car_charge_shown_when_charger_and_car_agree(self):
+        self._set("charging", "charger_and_car")
+        assert self._car_charger_text(self._car_charger_node("charging")) == "54%"
+
+    def test_reason_symbol_when_plugged_in_but_not_charging(self):
+        for state, symbol in (("connected", "⏳"), ("paused", "⏸"), ("completed", "✓")):
+            self._set(state, "charger_and_car")
+            text = self._car_charger_text(self._car_charger_node(state))
+            assert text == f"54% {symbol}", state
+
+    def test_symbol_without_a_confirmed_car(self):
+        """A visitor's car, a car away or a stale reading shows the reason but no number."""
+        for source in ("charger", "car", "none", None):
+            self._set("connected", source)
+            assert self._car_charger_text(self._car_charger_node("connected")) == "⏳", source
+
+    def test_no_car_entity_is_named_without_a_car(self):
+        node = self._car_charger_node("connected", car=False)
+        assert eid("car_plug_status") not in node["secondary_info"]["template"]
+        self._set("connected", None)
+        assert self._car_charger_text(node) == "⏳"
+
+    def test_no_number_without_a_reading(self):
+        for value in ("unknown", "unavailable"):
+            self._set("charging", "charger_and_car", value)
+            assert self._car_charger_text(self._car_charger_node("charging")) == "", value
 
     def test_clipping_entity_card_removed(self):
         """Clipping is the solar node's secondary info, never a card of its own."""

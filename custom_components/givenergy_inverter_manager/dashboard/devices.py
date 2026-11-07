@@ -40,6 +40,8 @@ SENTINELS: dict[Device, str] = {
 
 _STRINGS = Path(__file__).resolve().parent.parent / "strings.json"
 _UNAVAILABLE = "unavailable"
+# Charger states that mean no car is connected to it.
+UNPLUGGED_STATES = ("disconnected", "offline", "unknown")
 
 
 def _slug(text: str) -> str:
@@ -77,7 +79,7 @@ def expected_entity_id(suffix: str) -> str | None:
     return f"{domain}.{_slug(group_name(group))}_{_slug(name)}"
 
 
-def _state_condition(entity: str, **test: str) -> dict[str, Any]:
+def _state_condition(entity: str, **test: str | list[str]) -> dict[str, Any]:
     return {"condition": "state", "entity": entity, **test}
 
 
@@ -134,6 +136,12 @@ class Devices:
     def visible_while_off(self, entity: str) -> list[dict[str, Any]]:
         """A condition that holds while this switch is not on, and while it does not exist."""
         return [_state_condition(entity, state_not="on")]
+
+    def charger_plugged(self, plugged: bool) -> list[dict[str, Any]]:  # noqa: FBT001
+        """Conditions that hold while the charger has a car connected, or while it has not."""
+        sentinel = self.sentinel(Device.EV_CHARGER)
+        key = "state_not" if plugged else "state"
+        return [_state_condition(sentinel, **{key: list(UNPLUGGED_STATES)})]
 
     def visible_with_any(self, *devices: Device) -> list[dict[str, Any]]:
         """One condition that holds while at least one of these devices is present."""
