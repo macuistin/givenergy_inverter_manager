@@ -33,9 +33,18 @@ def _glance_entities(view: dict) -> set[str]:
     return {r["entity"] for c in view_cards(view) if c["type"] == "glance" for r in c["entities"]}
 
 
-def test_home_energy_shows_the_car_tiles_when_a_car_is_set_up():
+HOME_KEYS = ("car_plug_status", "car_battery_level")
+EV_VIEW_ONLY_KEYS = ("car_at_home", "car_charging_power")
+
+
+def test_home_energy_shows_the_car_battery_and_plug_when_a_car_is_set_up():
     tiles = _tile_entities(_page("power-flow", with_car=True))
-    assert {IDS[key] for key in CAR_KEYS} <= tiles
+    assert {IDS[key] for key in HOME_KEYS} <= tiles
+
+
+def test_home_energy_keeps_the_car_location_and_power_on_the_ev_view():
+    tiles = _tile_entities(_page("power-flow", with_car=True))
+    assert not {IDS[key] for key in EV_VIEW_ONLY_KEYS} & tiles
 
 
 def test_home_energy_leaves_the_car_out_when_none_is_set_up():
