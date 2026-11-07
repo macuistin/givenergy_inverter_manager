@@ -633,12 +633,15 @@ def test_the_visibility_a_device_card_carries_names_its_sentinel_entity():
         for c in view_cards(_view(config, "power-flow"))
         if c["type"] == "custom:power-flow-card-plus"
     ]
-    assert len(flow) == 4  # one for each combination of the car charger and the heater
+    # Two without a charger (the heater there or not). With one, two plug states, the heater and
+    # the car there or not.
+    assert len(flow) == 10
     conditions = {yaml.safe_dump(c["visibility"]) for c in flow}
-    assert len(conditions) == 4
+    assert len(conditions) == 10
+    allowed = {IDS["ev_charger_state"], IDS["immersion_managed"], IDS["car_plug_status"]}
     for variant in flow:
         entities = {c["entity"] for c in variant["visibility"]}
-        assert entities == {IDS["ev_charger_state"], IDS["immersion_managed"]}
+        assert {IDS["ev_charger_state"]} <= entities <= allowed
 
 
 def test_a_device_view_exists_with_no_device_so_a_later_device_has_somewhere_to_show():

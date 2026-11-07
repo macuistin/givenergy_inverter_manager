@@ -509,15 +509,49 @@ class Builder:
             return None
         return {"entity": house_load, "subtract_individual": False, "hide": False}
 
-    def _individual_nodes(self, shown: frozenset[Device]) -> list[Any]:
+    def _charger_secondary(self, *, car: bool) -> dict[str, Any] | None:
+        """Under the Car Charger node: the car's charge, then why it is not charging.
+
+        The charge shows only when the Car Plug Status sensor says the charger and the car agree
+        it is plugged in at home (source charger_and_car), which also needs a car reading under
+        an hour old. A visitor's car, a car that is away and a stale reading leave it out. With
+        no car set up the card has no number, and the car's sensors are not named in it.
+
+        The symbol says why a plugged-in car is not charging: an hourglass while it waits for a
+        cheap rate or solar surplus, pause while paused, a tick once the charge is complete.
+        """
+        state = self.ev("ev_charger_state")
+        if not state:
+            return None
+        plug = self.car("car_plug_status") if car else None
+        level = self.car("car_battery_level") if car else None
+        parts = []
+        if plug and level:
+            parts.append(
+                f'{{% if is_state_attr("{plug}", "source", "charger_and_car") '
+                f'and is_number(states("{level}")) %}}'
+                f'{{% set pct = states("{level}") | float(0) | round(0) | int ~ "%" %}}'
+                "{% endif %}"
+            )
+        symbols = '{"connected": "⏳", "paused": "⏸", "completed": "✓"}'
+        template = (
+            f'{{% set pct = "" %}}{"".join(parts)}'
+            f'{{% set why = {symbols}.get(states("{state}"), "") %}}'
+            "{{- (pct ~ ' ' ~ why) | trim -}}"
+        )
+        return {"template": template}
+
+    def _individual_nodes(self, shown: frozenset[Device], *, plugged: bool) -> list[Any]:
         """The devices drawn beside the home node: those of *shown* that exist."""
         car = entity_row(
             self.ev_power() if Device.EV_CHARGER in shown else None,
             "Car Charger",
             icon="mdi:car-electric",
-            display_zero=False,
+            display_zero=plugged,
             color=HEX[EV],
         )
+        if car and (secondary := self._charger_secondary(car=Device.CAR in shown)):
+            car["secondary_info"] = secondary
         heater = entity_row(
             self.immersion("immersion_power") if Device.IMMERSION_SWITCH in shown else None,
             "Immersion",
@@ -527,7 +561,7 @@ class Builder:
         )
         return present([car, heater])
 
-    def _flow_entities(self, shown: frozenset[Device]) -> dict[str, Any]:
+    def _flow_entities(self, shown: frozenset[Device], *, plugged: bool) -> dict[str, Any]:
         nodes = {
             "solar": self._solar_node(),
             "battery": self._battery_node(),
@@ -535,17 +569,44 @@ class Builder:
             "home": self._home_node(),
         }
         out: dict[str, Any] = {name: node for name, node in nodes.items() if node}
-        if individual := self._individual_nodes(shown):
+        if individual := self._individual_nodes(shown, plugged=plugged):
             out["individual"] = individual
         return out
 
-    def _flow_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
-        """The power flow card with the devices of *shown* drawn beside the home node."""
-        flow = self._flow_entities(shown)
+    def _flow_card(
+        self, shown: frozenset[Device], *, plugged: bool = False
+    ) -> dict[str, Any] | None:
+        """The power flow card with the devices of *shown* drawn beside the home node.
+
+        With *plugged* the Car Charger node stays at zero power, for a car plugged in.
+        """
+        flow = self._flow_entities(shown, plugged=plugged)
         if not flow:
             return None
         card = flow_card(flow) if self.cards.installed(POWER_FLOW_CARD) else flow_fallback(flow)
         return {**card, "grid_options": {"columns": FULL}} if card else None
+
+    def _flow_cards(self) -> list[dict[str, Any]]:
+        """The flow cards: no charger, a charger with no car plugged in, and one with a car.
+
+        The Car Charger node hides at zero power unless a car is plugged in, because a card
+        cannot show a node by another entity's state. So the plugged-in cards keep it at zero
+        and the others drop it, chosen by the charger state.
+        """
+        devices = self.devices
+        no_charger = devices.variants((Device.IMMERSION_SWITCH,), self._flow_card)
+        cards = [with_visibility(c, devices.visible_without(Device.EV_CHARGER)) for c in no_charger]
+        for plugged in (False, True):
+
+            def build(
+                shown: frozenset[Device], *, plugged: bool = plugged
+            ) -> dict[str, Any] | None:
+                return self._flow_card(shown | {Device.EV_CHARGER}, plugged=plugged)
+
+            built = devices.variants((Device.IMMERSION_SWITCH, Device.CAR), build)
+            gate = devices.visible_with(Device.EV_CHARGER) + devices.charger_plugged(plugged)
+            cards += [with_visibility(c, gate) for c in built]
+        return [c for c in cards if c]
 
     def _flow(self) -> dict[str, Any] | None:
         """The power flow, two columns wide, under a heading that carries the day's figures.
@@ -557,8 +618,7 @@ class Builder:
         cannot hide one device, so a stored dashboard shows the card built for the devices
         present, and swaps to another when a device comes or goes.
         """
-        devices = (Device.EV_CHARGER, Device.IMMERSION_SWITCH)
-        cards = self.devices.variants(devices, self._flow_card)
+        cards = self._flow_cards()
         heading = heading_card(
             "Energy",
             badges=[*(self._settings_badges() or []), *self._today_badges()],
@@ -1789,7 +1849,7 @@ class Builder:
         """
         cards = self.devices.variants(
             (Device.IMMERSION_SWITCH, Device.IMMERSION_THERMOSTAT, Device.EV_CHARGER),
-            self._recent_changes_card
+            self._recent_changes_card,
         )
         return group(heading_card("Recent changes", "mdi:history"), cards)
 
