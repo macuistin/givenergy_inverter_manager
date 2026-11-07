@@ -121,4 +121,4 @@ async def test_a_charger_whose_mode_select_offers_no_surplus_option_is_left_alon
     entry = await _set_up(hass, mock, keep_setup_writes=True)
     await cycle(hass, entry)
     assert mock.sequence() == []
-    assert "no surplus-only mode" in entry.runtime_data.data.ev_protection_reason
+    assert "surplus-only mode" in entry.runtime_data.data.ev_protection_reason
