@@ -28,6 +28,7 @@ from __future__ import annotations
 import re
 from datetime import time
 
+from .model import BatteryPause
 from .pause import PauseWindow
 
 # The options of GivTCP's Battery_pause_mode, with what each one pauses: (discharge, charge).
@@ -45,6 +46,20 @@ _CLOCK = re.compile(r"^(?P<hour>\d{1,2}):(?P<minute>\d{2})(?::\d{2})?$")
 
 def _pauses(mode: str | None) -> tuple[bool, bool] | None:
     return None if mode is None else _PAUSES.get(_IGNORED.sub("", mode).casefold())
+
+
+_KINDS: dict[str, BatteryPause] = {
+    "disabled": BatteryPause.OFF,
+    "notpaused": BatteryPause.OFF,
+    "pausecharge": BatteryPause.CHARGE,
+    "pausedischarge": BatteryPause.DISCHARGE,
+    "pauseboth": BatteryPause.BOTH,
+}
+
+
+def pause_kind(mode: str | None) -> BatteryPause | None:
+    """The pause a mode option means. None for text GivTCP does not use."""
+    return None if mode is None else _KINDS.get(_IGNORED.sub("", mode).casefold())
 
 
 def pauses_discharge(mode: str | None) -> bool | None:

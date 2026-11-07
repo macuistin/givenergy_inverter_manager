@@ -940,6 +940,11 @@
   "name": "Charge Now"
  },
  {
+  "entity_id": "switch.ev_charger_hold_battery_while_ev_charges",
+  "key": "ev_hold_battery",
+  "name": "Hold Battery While EV Charges"
+ },
+ {
   "entity_id": "switch.ev_charger_pause_charging",
   "key": "ev_pause",
   "name": "Pause Charging"

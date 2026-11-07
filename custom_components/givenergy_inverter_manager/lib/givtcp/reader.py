@@ -34,8 +34,15 @@ from .keys import (
     KEY_INVERTER_TEMP_ENTITY,
     KEY_SOLAR_POWER,
 )
+from .model import PauseSetting
 from .pause import PauseWindow
-from .pause_modes import charge_pause_window, pause_window, pauses_discharge
+from .pause_modes import (
+    charge_pause_window,
+    parse_clock,
+    pause_kind,
+    pause_window,
+    pauses_discharge,
+)
 from .values import FeedState, FeedStatus, InverterValues, RateDefaults
 
 _LOG = logging.getLogger(__name__)
@@ -248,6 +255,24 @@ class GivTCPReader:
             battery_pause=pause_window(mode, start, end),
             charge_pause=charge_pause_window(mode, start, end),
         )
+
+    def battery_pause_setting(self, cfg: Mapping[str, Any]) -> PauseSetting | None:
+        """The pause as GivTCP holds it now, whatever it stops. None when it cannot be read.
+
+        Reads only. None for a device without the entities, a mode that is unavailable, or text
+        this reader does not know, so a caller never writes back a setting it did not understand.
+        """
+        prefix = device_prefix(cfg)
+        if not prefix:
+            return None
+        entities = battery_pause_entities(prefix)
+        pause = pause_kind(self._text(entities.mode))
+        if pause is None:
+            return None
+        start = parse_clock(self._text(*entities.start))
+        end = parse_clock(self._text(*entities.end))
+        window = (start, end) if start is not None and end is not None else None
+        return PauseSetting(pause, window)
 
     def _note_unreadable_pause_mode(self, mode: str) -> None:
         """Say once per option that the pause mode is not one this reader knows."""

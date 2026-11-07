@@ -107,6 +107,19 @@ def _no_write_retry_sleep(monkeypatch):
     monkeypatch.setitem(GivTCPWriter.write_verified.__globals__, "GIVTCP_WRITE_RETRY_SLEEP_S", 0)
 
 
+class _FakeHoldStore:
+    """Stands in for BatteryHoldStore: keeps what the battery hold saves."""
+
+    def __init__(self):
+        self.saved = []
+
+    async def async_save(self, record):
+        self.saved.append(record)
+
+    async def async_load(self):
+        return self.saved[-1] if self.saved else None
+
+
 class _FakeSlots:
     """Stands in for SlotStore: keeps what the coordinator records into the slot history."""
 
@@ -322,6 +335,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._acc = _FakeAccStore()
         self._slot_sampler = SlotSampler()
         self._slots = _FakeSlots()
+        self._hold_store = _FakeHoldStore()
+        self._wire_battery_hold()
         self._audit = WriteAudit(self._acc, now=lambda: self._now())
         self._last_soc: float | None = None
         self._last_update: datetime | None = None

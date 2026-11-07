@@ -148,5 +148,8 @@ CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 # Hours the car may charge before and after the cheaper-rate hours (core/charge_window.py).
 CONF_EV_HOURS_BEFORE_CHEAP = "ev_hours_before_cheap"
 CONF_EV_HOURS_AFTER_CHEAP = "ev_hours_after_cheap"
+# Hold the house battery back while the car charges, so the car draws from the grid and not the
+# battery (core/ev_battery_hold.py). Off until the user turns it on.
+CONF_EV_HOLD_BATTERY = "ev_hold_battery"
 # Cheap rate floor — top up during cheap window if battery drops below this
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"

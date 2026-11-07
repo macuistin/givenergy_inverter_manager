@@ -43,7 +43,7 @@ from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from datetime import time as dtime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
@@ -56,6 +56,8 @@ from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
 from .active_repairs import async_active_repairs, async_listen_repairs
+from .battery_hold import BatteryHold, BatteryHoldPorts
+from .battery_hold_store import BatteryHoldStore
 from .const import (
     CHARGE_WRITE_RETRY_OFFSETS_MIN,
     CONF_ALT_HEAT_COST,
@@ -73,6 +75,7 @@ from .const import (
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
     CONF_DRY_RUN,
+    CONF_EV_HOLD_BATTERY,
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
@@ -103,6 +106,7 @@ from .const import (
     DEFAULT_CURRENCY,
     DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
+    DEFAULT_EV_HOLD_BATTERY,
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MAX_RUN_MINUTES,
     DEFAULT_IMMERSION_MIN_TEMP,
@@ -211,7 +215,7 @@ from .discovery import (
 )
 from .forecast_seeding import async_seed_forecast_accuracy
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
-from .inverter.backend import describe_charge_slots
+from .inverter.backend import InverterControls, describe_charge_slots
 from .inverter.givtcp import GivTCPPorts, make_backend
 from .inverter.givtcp.discovery import (
     REAL_TIME_CONTROL_SUFFIX,
@@ -227,7 +231,9 @@ from .lib.givtcp.keys import (
     KEY_HOUSE_LOAD,
     KEY_SOLAR_POWER,
 )
+from .lib.givtcp.model import BatteryPause, PauseSetting, Window
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
+from .lib.givtcp.status import WriteStatus
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
 from .lib.solar.shape import solar_shape_from_periods
@@ -376,6 +382,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         GivLogger.register(self._effective_cfg)
         self._init_cycle_state()
         self._init_slot_history()
+        self._init_battery_hold()
         self._init_system_watch()
         self._init_manual_overrides()
         self._init_immersion(entry.data)
@@ -425,6 +432,56 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """The half-hourly energy history, and the reader that feeds it each cycle."""
         self._slots = SlotStore(self.hass, dt_util.get_default_time_zone())
         self._slot_sampler = SlotSampler()
+
+    def _init_battery_hold(self) -> None:
+        """The hold that keeps the house battery back while the car charges, and its record."""
+        self._hold_store = BatteryHoldStore(self.hass)
+        self._wire_battery_hold()
+
+    def _wire_battery_hold(self) -> None:
+        self._battery_hold = BatteryHold(
+            BatteryHoldPorts(
+                read_pause=self._read_hold_pause,
+                apply_pause=self._apply_hold_pause,
+                save=lambda record: self._hold_store.async_save(record),
+                is_dry_run=lambda: self.is_dry_run,
+                record_skipped=lambda action: self._record_skipped(action),
+            )
+        )
+
+    def _pause_controls(self) -> InverterControls | None:
+        """The backend's battery pause, None when the backend offers none."""
+        backend = self._backend
+        # Not isinstance: that skips __getattr__, so a backend wrapped by a proxy would read as
+        # having none.
+        offers = all(hasattr(backend, n) for n in ("read_battery_pause", "apply_battery_pause"))
+        return cast(InverterControls, backend) if offers else None
+
+    def _read_hold_pause(self) -> PauseSetting | None:
+        controls = self._pause_controls()
+        return controls.read_battery_pause(self._effective_cfg()) if controls else None
+
+    async def _apply_hold_pause(
+        self, pause: BatteryPause, window: Window | None
+    ) -> WriteStatus:
+        controls = self._pause_controls()
+        if controls is None:
+            return WriteStatus.REFUSED
+        start, end = window if window else (None, None)
+        return await controls.apply_battery_pause(self._effective_cfg(), pause, start, end)
+
+    async def _maybe_hold_battery(
+        self, data: CoordinatorData, cfg: dict[str, Any], now: datetime
+    ) -> None:
+        """Hold the house battery back while the car draws from it, when the switch is on."""
+        charger = self._ev_charger
+        await self._battery_hold.run(
+            enabled=charger is not None
+            and bool(cfg.get(CONF_EV_HOLD_BATTERY, DEFAULT_EV_HOLD_BATTERY)),
+            car_charging=charger is not None and charger.is_active,
+            car_draining=data.ev_draining_battery,
+            now=now,
+        )
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -801,6 +858,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Load stored accumulators and apply any resets missed while HA was down."""
         await self._acc.async_load()
         await self._slots.async_load()
+        self._battery_hold.restore(await self._hold_store.async_load())
         self._acc.restore_battery_stats(self._battery_stats)
         self._backend.write_count = self._acc.state.register_write_count
         now = dt_util.as_local(datetime.now(timezone.utc))
@@ -1798,6 +1856,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._maybe_replan(data, now)
         self._maybe_settle_window(data, now)
         self._maybe_repair_window(now)
+        await self._maybe_hold_battery(data, cfg, now)
         self._check_charge_pause(data, raw)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
