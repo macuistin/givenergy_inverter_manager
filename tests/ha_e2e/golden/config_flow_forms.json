@@ -4063,6 +4063,7 @@
   "errors": null,
   "placeholders": {
    "tariff_summary_line": "Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates",
+   "shadow_summary_line": "None set up",
    "battery_summary": "battery 9.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast sensor: sensor.energy_production_tomorrow",
    "hot_water_summary": "immersion switch switch.immersion_heater",
@@ -4077,6 +4078,10 @@
      [
       "tariff_menu",
       "tariff_menu"
+     ],
+     [
+      "shadow_menu",
+      "shadow_menu"
      ],
      [
       "battery",
@@ -4101,6 +4106,7 @@
   ],
   "menu_options": [
    "tariff_menu",
+   "shadow_menu",
    "battery",
    "charge_planning",
    "hot_water",
@@ -5125,6 +5131,7 @@
   "errors": null,
   "placeholders": {
    "tariff_summary_line": "Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates",
+   "shadow_summary_line": "None set up",
    "battery_summary": "battery 9.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
    "hot_water_summary": "immersion switch switch.immersion_heater",
@@ -5139,6 +5146,10 @@
      [
       "tariff_menu",
       "tariff_menu"
+     ],
+     [
+      "shadow_menu",
+      "shadow_menu"
      ],
      [
       "battery",
@@ -5163,6 +5174,7 @@
   ],
   "menu_options": [
    "tariff_menu",
+   "shadow_menu",
    "battery",
    "charge_planning",
    "hot_water",
@@ -6181,6 +6193,7 @@
   "errors": null,
   "placeholders": {
    "tariff_summary_line": "Standard 0.3334 GBP/kWh, export 0.0000",
+   "shadow_summary_line": "None set up",
    "battery_summary": "battery 13.5 kWh, inverter 5 kW",
    "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
    "hot_water_summary": "immersion switch switch.immersion_heater",
@@ -6195,6 +6208,10 @@
      [
       "tariff_menu",
       "tariff_menu"
+     ],
+     [
+      "shadow_menu",
+      "shadow_menu"
      ],
      [
       "battery",
@@ -6219,6 +6236,7 @@
   ],
   "menu_options": [
    "tariff_menu",
+   "shadow_menu",
    "battery",
    "charge_planning",
    "hot_water",

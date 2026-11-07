@@ -111,6 +111,11 @@ CONF_CAR_EFFICIENCY_KWH_PER_100KM = "car_efficiency_kwh_per_100km"
 # optional: without one, the charger alone says whether a car is plugged in.
 CONF_CARS = "cars"
 
+# Tariffs priced beside the active one, to see what the same usage would have cost. A list of
+# dicts, each a "name" and the rate fields of core/shadow_tariffs.py. A shadow tariff only
+# re-prices measured energy and never reaches the write path. At most MAX_SHADOW_TARIFFS.
+CONF_SHADOW_TARIFFS = "shadow_tariffs"
+
 # ── Dry run mode ──────────────────────────────────────────────────────────────
 # When True, all inverter writes are skipped and logged as "would have done X".
 # Sensors still update, charge decisions are still calculated — nothing is sent
@@ -148,5 +153,8 @@ CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 # Hours the car may charge before and after the cheaper-rate hours (core/charge_window.py).
 CONF_EV_HOURS_BEFORE_CHEAP = "ev_hours_before_cheap"
 CONF_EV_HOURS_AFTER_CHEAP = "ev_hours_after_cheap"
+# Hold the house battery back while the car charges, so the car draws from the grid and not the
+# battery (core/ev_battery_hold.py). Off until the user turns it on.
+CONF_EV_HOLD_BATTERY = "ev_hold_battery"
 # Cheap rate floor — top up during cheap window if battery drops below this
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"

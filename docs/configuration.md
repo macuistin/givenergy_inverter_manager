@@ -105,7 +105,7 @@ The step count at the top of each setup screen ("Step 2 of about 4.") is recompu
 
 ## Configure
 
-Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. The first screen is a menu: Tariff, Battery, Charge planning, Hot water and EV charger, each with a line on what is set now. Saved options override the values entered at setup.
+Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. The first screen is a menu: Tariff, Shadow tariffs, Battery, Charge planning, Hot water and EV charger, each with a line on what is set now. Saved options override the values entered at setup.
 
 Pick a page, change it and submit, and it brings you back to the menu. Charge planning has a second screen, the solar forecast. Nothing is saved yet: the menu lists what you changed above it, and **Save changes** appears at the bottom with a note on whether the save applies at once or reloads the integration. Choose it to see every change before and after in plain words, then Submit to save. Close the window to leave without saving. A page you did not open is never rewritten, and a value you leave as it was is not written at all. Configure saves the options as they are when you submit, so a control you moved while it was open keeps its new value.
 
@@ -131,6 +131,18 @@ Prices, costs and sizes are typed in a box, so a figure from a bill can be enter
 Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). The integration uses only the rates entered here. It does not read the rates GivTCP holds.
 
 **Schedule a rate change.** Sets the date the rates on the Tariff and rows screens start. Leave the date empty to apply them now. Only the base rate and its name, the time-of-day rates and the export rate follow the date. The bill details apply when you save. See [Tariff](tariff.md#change-the-rates-from-a-date). Saving the tariff without a date ends any dated change that has started and keeps the ones that have not.
+
+### Shadow tariffs
+
+A shadow tariff is another set of rates that the integration prices your real usage under, so you can see whether it would have cost less. It changes nothing: it never writes to the inverter, the charge plan ignores it and your real bill is not affected. Set up at most three. Each one adds sensors to a Shadow tariffs device, which are off until you turn them on. See [Shadow tariffs](tariff.md#shadow-tariffs).
+
+| Menu line | Opens |
+|---|---|
+| Add a shadow tariff | a name and the figures that differ between tariffs: the base rate, the export rate, the number of time-of-day rates, the standing charge, the levy, VAT and the discount. They start at your current tariff, so change only what is different. A count above 0 opens the rows of time-of-day rates next |
+| Remove a shadow tariff | a list of the shadow tariffs. The one you pick is deleted when you save |
+| Back | the main menu |
+
+A shadow tariff uses your tariff's base rate name and bill start day, so both tariffs are priced over the same days. To change a shadow tariff, remove it and add it again. Adding or removing one reloads the integration when you save.
 
 ### Battery
 

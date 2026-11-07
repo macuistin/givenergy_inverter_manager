@@ -26,6 +26,20 @@ ON = {CONF_ALT_HEAT_ENABLED: True}
 COST = {CONF_ALT_HEAT_COST: 0.95}
 COST_SENSOR = {CONF_ALT_HEAT_COST_ENTITY: "sensor.heat_cost"}
 CAR = {"cars": [{"car_name": "Family car"}]}
+SHADOW = {
+    "shadow_tariffs": [
+        {
+            "name": "Flat",
+            "base_rate": 0.3,
+            "export_rate": 0.1,
+            "rate_periods": [],
+            "standing_charge_per_day": 0.5,
+            "pso_levy_per_month": 1.0,
+            "vat_rate": 9.0,
+            "discount_rate": 0.0,
+        }
+    ]
+}
 
 
 def test_an_install_with_nothing_has_no_device():
@@ -64,9 +78,15 @@ def test_an_unset_entity_is_not_a_device(empty):
     assert installed_devices(config, ev_charger_found=False) == frozenset()
 
 
+def test_a_shadow_tariff_is_a_device_of_its_own():
+    assert installed_devices({}, ev_charger_found=False) == frozenset()
+    assert installed_devices(SHADOW, ev_charger_found=False) == {Device.SHADOW_TARIFFS}
+    assert installed_devices({"shadow_tariffs": [{"name": "x"}]}, ev_charger_found=False) == frozenset()
+
+
 def test_the_devices_do_not_depend_on_each_other_apart_from_the_thermostat():
     everything = installed_devices(
-        {**SWITCH, **SENSOR, **LOWER, **ON, **COST, **CAR}, ev_charger_found=True
+        {**SWITCH, **SENSOR, **LOWER, **ON, **COST, **CAR, **SHADOW}, ev_charger_found=True
     )
     assert everything == frozenset(Device)
 
