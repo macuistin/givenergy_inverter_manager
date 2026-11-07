@@ -52,6 +52,7 @@ from ..const import (
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
+    CONF_SHADOW_TARIFFS,
     CONF_STANDING_CHARGE,
     CONF_TARIFF_CHANGES,
     CONF_TARIFF_REVIEWED_ON,
@@ -61,6 +62,7 @@ from ..lib.ev import (
     CAR_KEY_NAME,
 )
 from .reload_policy import Effect, change_effect, changed_keys, reload_keys
+from .shadow_tariffs import shadow_names
 from .wizard_model import KEY_DEFAULTS, is_unset
 from .wizard_pages import battery_summary, forecast_summary, hot_water_summary
 from .wizard_tariff import periods_text, tariff_summary
@@ -107,6 +109,7 @@ LABELS: dict[str, str] = {
     CONF_ALT_HEAT_COST_ENTITY: "Alternative heating cost sensor",
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: "Car efficiency",
     CONF_CARS: "Car",
+    CONF_SHADOW_TARIFFS: "Shadow tariffs",
 }
 
 # What a value is quoted in, appended to a number.
@@ -168,6 +171,10 @@ def _cars(value: Any) -> str:
     )
 
 
+def _shadow_tariffs(value: Any) -> str:
+    return ", ".join(shadow_names(value)) or "none"
+
+
 def show(key: str, value: Any) -> str:
     """One config value in words."""
     special = _SPECIAL_SHOWS.get(key)
@@ -186,6 +193,7 @@ def show(key: str, value: Any) -> str:
 
 _SPECIAL_SHOWS: dict[str, Callable[[Any], str]] = {
     CONF_CARS: _cars,
+    CONF_SHADOW_TARIFFS: _shadow_tariffs,
     CONF_CHARGE_WINTER_MONTHS: _month_names,
     CONF_CHARGE_SHOULDER_MONTHS: _month_names,
     CONF_RATE_PERIODS: _periods,

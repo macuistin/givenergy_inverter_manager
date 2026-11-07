@@ -28,11 +28,20 @@ from ..config_helpers import effective_config, merge_config
 from ..const import (
     CONF_BASE_RATE_NAME,
     CONF_RATE_PERIODS,
+    CONF_SHADOW_TARIFFS,
     CONF_TARIFF_REVIEWED_ON,
     DEFAULT_BASE_RATE_NAME,
+    MAX_SHADOW_TARIFFS,
 )
 from ..core.reload_policy import Effect, change_effect
 from ..core.seasons import season_defaults
+from ..core.shadow_tariffs import (
+    KEY_NAME,
+    shadow_entries,
+    shadow_summary,
+    with_shadow,
+    without_shadow,
+)
 from ..core.tariff import options_after_tariff_save, tariff_in_force
 from ..core.wizard_changes import confirm_text
 from ..core.wizard_model import (
@@ -81,12 +90,23 @@ from .schemas import (
     ev_schema,
     rates_schema,
     schedule_schema,
+    shadow_rates_schema,
+    shadow_remove_schema,
+    shadow_schema,
     tariff_schema,
 )
 from .selectors import currency_code
+from .shadow_form import entry_from_form, starting_entry, validate_form, validate_rows
 
 # The main menu, in order. The tariff opens a menu of its own.
-MENU_PAGES: tuple[str, ...] = ("tariff_menu", "battery", "charge_planning", "hot_water", "ev")
+MENU_PAGES: tuple[str, ...] = (
+    "tariff_menu",
+    "shadow_menu",
+    "battery",
+    "charge_planning",
+    "hot_water",
+    "ev",
+)
 _TARIFF_KEYS = frozenset(
     key for step in PAGE_STEPS["tariff"] for key in PAGE_KEYS[step]
 )
@@ -105,6 +125,10 @@ class OptionsSteps(WizardPages):
         self._cancel_scheduled = False
         self._confirm_current = False
         self._tariff_touched = False
+        # The shadow tariffs as edited here, None until one is added or removed. A tariff being
+        # added waits in _shadow_draft until its timed rates, if any, are entered.
+        self._shadow: list[dict[str, Any]] | None = None
+        self._shadow_draft: dict[str, Any] | None = None
 
     # ── Context ───────────────────────────────────────────────────────────────
 
@@ -140,6 +164,7 @@ class OptionsSteps(WizardPages):
         current = self._ctx().current
         return {
             "tariff_summary_line": tariff_page_summary(current),
+            "shadow_summary_line": shadow_summary(self._shadow_list()),
             "battery_summary": battery_summary(current),
             "charge_planning_summary": (
                 f"{charge_planning_summary(current)}, {forecast_summary(current)}"
@@ -192,9 +217,111 @@ class OptionsSteps(WizardPages):
         if step_id == "charge_planning":
             # The solar forecast is the second screen of charge planning.
             return await self.async_step_forecast()
+        if step_id == "shadow_add":
+            return await self._after_shadow_add()
+        if step_id == "shadow_rates":
+            self._finish_shadow()
+            return await self.async_step_shadow_menu()
+        if step_id == "shadow_remove":
+            return await self.async_step_shadow_menu()
         if step_id in PAGE_STEPS["tariff"]:
             return await self.async_step_tariff_menu()
         return await self.async_step_init()
+
+    async def _after_shadow_add(self) -> Any:
+        """The timed rate rows when the new tariff has any, else the tariff is added."""
+        if int((self._shadow_draft or {}).get("_count", 0)) > 0:
+            return await self.async_step_shadow_rates()
+        self._finish_shadow()
+        return await self.async_step_shadow_menu()
+
+    # ── shadow tariffs ────────────────────────────────────────────────────────
+
+    def _shadow_list(self) -> list[dict[str, Any]]:
+        """The shadow tariffs as they stand with the changes made here."""
+        if self._shadow is not None:
+            return self._shadow
+        return shadow_entries(effective_config(self.config_entry).get(CONF_SHADOW_TARIFFS))
+
+    async def async_step_shadow_menu(self, user_input: dict[str, Any] | None = None) -> Any:
+        """The shadow tariffs: add one, remove one, or go back."""
+        shadows = self._shadow_list()
+        options = []
+        if len(shadows) < MAX_SHADOW_TARIFFS:
+            options.append("shadow_add")
+        if shadows:
+            options.append("shadow_remove")
+        options.append("init")
+        return self.async_show_menu(  # type: ignore[attr-defined]
+            step_id="shadow_menu",
+            menu_options=options,
+            description_placeholders={
+                "shadow_list": shadow_summary(shadows),
+                "shadow_limit": str(MAX_SHADOW_TARIFFS),
+            },
+        )
+
+    def _shadow_start(self) -> dict[str, Any]:
+        return starting_entry(self._ctx().current)
+
+    async def async_step_shadow_add(self, user_input: dict[str, Any] | None = None) -> Any:
+        """A new shadow tariff: its name and figures, starting at the active tariff's."""
+        ctx = self._ctx()
+        shadows = self._shadow_list()
+        view = PageView(
+            "shadow_add",
+            shadow_schema(ctx, self._shadow_start()),
+            lambda flat: validate_form(shadows, flat),
+            self._keep_shadow_draft,
+        )
+        return await self._page(user_input, view)
+
+    def _keep_shadow_draft(self, flat: dict[str, Any]) -> dict[str, Any]:
+        count = count_from_input(flat)
+        saved = self._shadow_start()["rate_periods"]
+        rows = [dict(row) for row in saved[:count]]
+        self._shadow_draft = {**entry_from_form(flat, rows), "_count": count}
+        return {}
+
+    async def async_step_shadow_rates(self, user_input: dict[str, Any] | None = None) -> Any:
+        """The timed rates of the new shadow tariff, one row for each the count asked for."""
+        draft = self._shadow_draft or {}
+        count = int(draft.get("_count", 0))
+        ctx = self._ctx()
+        view = PageView(
+            "shadow_rates",
+            shadow_rates_schema(
+                ctx, count, self._shadow_start()["rate_periods"], self.hass.config.country
+            ),
+            lambda flat: validate_rows(rows_from_sections(flat, count), ctx.current),
+            self._keep_shadow_rows,
+        )
+        return await self._page(user_input, view)
+
+    def _keep_shadow_rows(self, flat: dict[str, Any]) -> dict[str, Any]:
+        count = int((self._shadow_draft or {}).get("_count", 0))
+        if self._shadow_draft is not None:
+            self._shadow_draft["rate_periods"] = rows_from_sections(flat, count)
+        return {}
+
+    def _finish_shadow(self) -> None:
+        """Add the tariff being entered to the list."""
+        draft = {k: v for k, v in (self._shadow_draft or {}).items() if k != "_count"}
+        self._shadow = with_shadow(self._shadow_list(), draft)
+        self._shadow_draft = None
+
+    async def async_step_shadow_remove(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Remove one shadow tariff. Its sensors go when the changes are saved."""
+        names = [str(entry[KEY_NAME]) for entry in self._shadow_list()]
+
+        def forget(flat: dict[str, Any]) -> dict[str, Any]:
+            self._shadow = without_shadow(self._shadow_list(), str(flat["shadow_remove"]))
+            return {}
+
+        view = PageView(
+            "shadow_remove", shadow_remove_schema(names), lambda _f: Validation(), forget
+        )
+        return await self._page(user_input, view)
 
     # ── the tariff menu ───────────────────────────────────────────────────────
 
@@ -408,6 +535,10 @@ class OptionsSteps(WizardPages):
                 options[CONF_TARIFF_REVIEWED_ON] = today.isoformat()
         other = {k: v for k, v in self._values.items() if k not in _TARIFF_KEYS}
         options.update(changed_values(other, self._with_season_defaults(effective)))
+        if self._shadow is not None and self._shadow != shadow_entries(
+            effective.get(CONF_SHADOW_TARIFFS)
+        ):
+            options[CONF_SHADOW_TARIFFS] = self._shadow
         return options
 
     def _before_and_after(self) -> tuple[dict[str, Any], dict[str, Any]]:

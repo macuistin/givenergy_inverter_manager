@@ -288,6 +288,7 @@
         "description": "{unsaved}Pick a page to change. Nothing is saved until you choose **Save changes**.",
         "menu_options": {
           "tariff_menu": "Tariff",
+          "shadow_menu": "Shadow tariffs",
           "battery": "Battery",
           "charge_planning": "Charge planning",
           "hot_water": "Hot water",
@@ -296,6 +297,7 @@
         },
         "menu_option_descriptions": {
           "tariff_menu": "{tariff_summary_line}",
+          "shadow_menu": "{shadow_summary_line}",
           "battery": "{battery_summary}",
           "charge_planning": "{charge_planning_summary}",
           "hot_water": "{hot_water_summary}",
@@ -576,6 +578,140 @@
           "tariff_reviewed": "Record today as the day you checked the tariff, so the yearly reminder resets.",
           "init": "Back to the other pages."
         }
+      },
+      "shadow_menu": {
+        "title": "Shadow tariffs",
+        "description": "A shadow tariff prices the energy you really used under another set of rates, so you can see whether it would have cost less. It changes nothing: your inverter, the charge plan and your real bill are not affected. Its sensors are off until you turn them on. You can set up at most {shadow_limit}.\n\nNow: {shadow_list}.",
+        "menu_options": {
+          "shadow_add": "Add a shadow tariff",
+          "shadow_remove": "Remove a shadow tariff",
+          "init": "Back"
+        },
+        "menu_option_descriptions": {
+          "shadow_add": "Start from your current rates and change what the other tariff does differently.",
+          "shadow_remove": "Delete a shadow tariff and its sensors.",
+          "init": "Back to the other pages."
+        }
+      },
+      "shadow_add": {
+        "title": "Add a shadow tariff",
+        "description": "{warnings}These figures start at your current tariff. Change what the other tariff does differently. Its base rate name and bill start day are the same as yours, so both are priced over the same days.",
+        "data": {
+          "shadow_name": "Name",
+          "base_rate": "Base rate",
+          "export_rate": "Export rate",
+          "rate_count": "Time-of-day rates besides the base rate",
+          "standing_charge_per_day": "Standing charge per day",
+          "pso_levy_per_month": "Fixed levy per billing period",
+          "vat_rate": "VAT (%)",
+          "discount_rate": "Supplier discount (%)"
+        },
+        "data_description": {
+          "shadow_name": "What to call this tariff, for example Night saver. It names the sensors, and each name has to be different.",
+          "base_rate": "The price of one kWh before VAT, outside any time-of-day rate. A flat-rate home enters its one rate here.",
+          "export_rate": "What your supplier pays for each kWh you export. Enter 0 if nothing is paid.",
+          "rate_count": "0 means one rate all day. When it is 1 or more, the rate rows open next.",
+          "standing_charge_per_day": "The fixed daily charge on your bill. Enter 0 if there is none.",
+          "pso_levy_per_month": "A fixed monthly levy, if your bill has one. It is on your bill as a fixed charge. Enter 0 if there is none.",
+          "vat_rate": "The VAT percentage on your bill. Enter 0 if there is none.",
+          "discount_rate": "A percentage taken off the energy charge before VAT, such as a direct debit discount. Enter 0 if there is none."
+        }
+      },
+      "shadow_rates": {
+        "title": "Shadow tariff time-of-day rates",
+        "description": "{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "sections": {
+          "rate_period_1": {
+            "name": "Rate 1",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_2": {
+            "name": "Rate 2",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_3": {
+            "name": "Rate 3",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_4": {
+            "name": "Rate 4",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_5": {
+            "name": "Rate 5",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          }
+        }
+      },
+      "shadow_remove": {
+        "title": "Remove a shadow tariff",
+        "description": "Choose the shadow tariff to remove. Its sensors are deleted when you save the changes.",
+        "data": {
+          "shadow_remove": "Shadow tariff"
+        },
+        "data_description": {
+          "shadow_remove": "The tariff to remove."
+        }
       }
     },
     "error": {
@@ -589,7 +725,10 @@
       "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00.",
       "alt_heat_label_empty": "Give the alternative water heating a name, such as Oil, Gas or Heat pump.",
       "alt_heat_label_too_long": "The name of the alternative water heating can be at most 20 characters.",
-      "season_months_overlap": "A month cannot be both a winter month and a shoulder month. Take it out of one list."
+      "season_months_overlap": "A month cannot be both a winter month and a shoulder month. Take it out of one list.",
+      "shadow_limit": "Three shadow tariffs are the most you can set up. Remove one first.",
+      "shadow_name_missing": "Give the shadow tariff a name, such as Night saver.",
+      "shadow_name_duplicate": "Another shadow tariff already has that name. Choose a different one."
     }
   },
   "selector": {

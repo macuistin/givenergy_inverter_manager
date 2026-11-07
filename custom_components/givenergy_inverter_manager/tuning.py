@@ -8,6 +8,11 @@ No imports, so no cycle. const.py re-exports every name.
 # year, and no existing constant measures time since a user action.
 TARIFF_REVIEW_STALE_DAYS = 365
 
+# ── Shadow tariffs ────────────────────────────────────────────────────────────
+# Each shadow tariff costs one pricing pass over the bill period per update, and no extra
+# storage. Three is enough to compare a few offers without crowding the device.
+MAX_SHADOW_TARIFFS = 3
+
 # ── Carbon intensity ──────────────────────────────────────────────────────────
 # Thresholds for status classification (g CO2/kWh).
 # Below LOW → "Low" (high renewable fraction, good time to import).

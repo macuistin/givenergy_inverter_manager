@@ -120,6 +120,7 @@ from ..const import (
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
+    CONF_SHADOW_TARIFFS,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SOLAR_POWER,
     CONF_STANDING_CHARGE,
@@ -165,6 +166,8 @@ RELOAD_KEYS: frozenset[str] = frozenset(
         # Read once at setup (forecast history seeding, entity units).
         CONF_FORECAST_ENTITY,
         CONF_CURRENCY,
+        # The Shadow tariffs device and a set of sensors for each tariff are added at setup.
+        CONF_SHADOW_TARIFFS,
     }
 )
 

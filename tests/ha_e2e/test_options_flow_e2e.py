@@ -67,7 +67,7 @@ def manager(hass):
     return hass.config_entries.options
 
 
-MENU = ["tariff_menu", "battery", "charge_planning", "hot_water", "ev"]
+MENU = ["tariff_menu", "shadow_menu", "battery", "charge_planning", "hot_water", "ev"]
 
 
 async def save(hass, result):
