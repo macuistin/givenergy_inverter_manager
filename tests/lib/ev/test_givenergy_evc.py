@@ -198,8 +198,11 @@ class TestTheDecision:
     def test_a_hybrid_charger_is_moved_to_solar_not_left_drawing_6_amps_from_the_grid(self):
         assert decide_ev_charger_action(self._charger("Hybrid"), 60.0, 3000.0)[0] == "Solar"
 
-    def test_without_surplus_nothing_is_sent(self):
-        assert decide_ev_charger_action(self._charger("Grid"), 60.0, 200.0)[0] is None
+    def test_without_surplus_a_charger_in_grid_is_taken_out_of_it(self):
+        assert decide_ev_charger_action(self._charger("Grid"), 60.0, 200.0)[0] == "Solar"
+
+    def test_without_surplus_a_charger_not_in_grid_is_left_alone(self):
+        assert decide_ev_charger_action(self._charger("Hybrid"), 60.0, 200.0)[0] is None
 
     def test_no_car_nothing_is_sent(self):
         assert decide_ev_charger_action(self._charger("Grid", plugged=False), 60.0, 3000.0)[0] is None
@@ -207,7 +210,7 @@ class TestTheDecision:
     def test_a_select_with_no_surplus_option_is_left_alone_and_says_so(self):
         charger = self._charger("Grid", options=("Grid", "Hybrid"))
         target, reason = decide_ev_charger_action(charger, 60.0, 3000.0)
-        assert target is None and "no surplus-only mode" in reason
+        assert target is None and "surplus-only mode" in reason
 
     def test_options_not_read_yet_use_the_brand_name(self):
         assert decide_ev_charger_action(self._charger("Grid", options=None), 60.0, 3000.0)[0] == "Solar"

@@ -133,6 +133,13 @@ STOP_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
     EVChargerBrand.ZAPPI: "Stopped",
 }
 
+# The brands whose charge mode select has an option that draws from the grid, but that is never
+# chosen automatically: a charger found in it is taken out of it when nothing asks for it
+# (core/rules.py). The cheap-rate table above is for modes that may also be chosen.
+GRID_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
+    EVChargerBrand.GIVENERGY: "Grid",
+}
+
 # A mode with any of these words in it is never selected, whatever else it says: it stops, pauses
 # or forces a charge, or draws from the grid.
 FORBIDDEN_MODE_WORDS = ("stop", "off", "pause", "fast", "boost", "grid", "max", "hybrid")
@@ -158,6 +165,17 @@ def pick_surplus_mode(options: Sequence[str]) -> str | None:
 def pick_cheap_rate_mode(brand: EVChargerBrand, options: Sequence[str]) -> str | None:
     """The option that charges from the grid at full speed, or None when the select offers none."""
     wanted = CHEAP_RATE_MODE_DEFAULTS.get(brand)
+    if wanted is None:
+        return None
+    for option in options:
+        if str(option).strip().lower() == wanted.lower():
+            return str(option)
+    return None
+
+
+def pick_grid_mode(brand: EVChargerBrand, options: Sequence[str]) -> str | None:
+    """The option that draws from the grid and is only ever left, None when the select has none."""
+    wanted = GRID_MODE_DEFAULTS.get(brand)
     if wanted is None:
         return None
     for option in options:
@@ -291,3 +309,17 @@ class EVCharger:
 
 
 # Status entities already warned about. Discovery repeats every 5 minutes while the
+
+    def grid_mode(self) -> str | None:
+        """The mode the integration takes the charger out of when nothing asks for it.
+
+        The cheap-rate mode when there is one, else the brand's grid mode that is never chosen
+        (Grid on a GivEnergy charger). None when the select offers neither.
+        """
+        if (chosen := self.cheap_rate_mode()) is not None:
+            return chosen
+        if self.charge_mode_entity is None:
+            return None
+        if self.charge_mode_options:
+            return pick_grid_mode(self.brand, self.charge_mode_options)
+        return GRID_MODE_DEFAULTS.get(self.brand)

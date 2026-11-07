@@ -1339,7 +1339,8 @@ def _owner_choice(
             return None, f"{why}, already charging in {grid_mode}"
         return grid_mode, f"{why} — switching to {grid_mode} to charge the car"
 
-    if not wanted and grid_mode is not None and current == grid_mode.lower():
+    leave_mode = charger.grid_mode()
+    if not wanted and leave_mode is not None and current == leave_mode.lower():
         return _leave_grid_mode(charger, solar_surplus_w)
 
     if request.mode_held and not wanted and stop_mode is not None and current == stop_mode.lower():
