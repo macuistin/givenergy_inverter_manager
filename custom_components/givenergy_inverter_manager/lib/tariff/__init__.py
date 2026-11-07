@@ -20,6 +20,7 @@ from .index import (
     parse_index,
     revision_in_force,
 )
+from .period_bill import PeriodBill, PeriodRules, bill_period_bounds, price_period, start_day_of
 from .periods import RatePeriod
 from .reprice import BillPeriod, Repriced, Rounding, import_by_band, reprice
 from .slot_history import SlotHistory
@@ -42,6 +43,11 @@ __all__ = [
     "definition_from_config",
     "band_at",
     "no_holidays",
+    "PeriodBill",
+    "PeriodRules",
+    "bill_period_bounds",
+    "price_period",
+    "start_day_of",
     "BillInputs",
     "CheckFailed",
     "Line",
