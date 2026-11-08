@@ -122,8 +122,17 @@ async def test_the_night_pause_comes_back_after_the_car_stops():
     assert coord._hold_store.saved[-1] is None
 
 
-async def test_nothing_is_written_with_the_switch_off():
+async def test_a_car_draining_the_battery_gets_a_hold_with_no_setting_saved():
     coord = _coordinator()
+    _car(coord, charging=True)
+
+    await _cycle(coord)
+
+    assert _pause(coord) == ("PauseDischarge", "10:15:00", "10:45:00")
+
+
+async def test_nothing_is_written_with_the_switch_off():
+    coord = _coordinator(**{CONF_EV_HOLD_BATTERY: False})
     _car(coord, charging=True)
 
     await _cycle(coord)
