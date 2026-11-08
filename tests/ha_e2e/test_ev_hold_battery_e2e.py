@@ -26,26 +26,26 @@ async def test_an_install_without_a_charger_has_no_hold_switch(hass, loaded_entr
     assert er.async_get(hass).async_get(ENTITY) is None
 
 
-async def test_the_switch_is_off_until_it_is_turned_on(hass, loaded_entry_with_charger):
+async def test_the_switch_is_on_until_it_is_turned_off(hass, loaded_entry_with_charger):
     entry = loaded_entry_with_charger
 
-    assert hass.states.get(ENTITY).state == STATE_OFF
-    assert not entry.options.get(CONF_EV_HOLD_BATTERY, False)
+    assert hass.states.get(ENTITY).state == STATE_ON
+    assert entry.options.get(CONF_EV_HOLD_BATTERY, True)
 
-    await hass.services.async_call("switch", "turn_on", {"entity_id": ENTITY}, blocking=True)
+    await hass.services.async_call("switch", "turn_off", {"entity_id": ENTITY}, blocking=True)
     await hass.async_block_till_done()
 
-    assert entry.options[CONF_EV_HOLD_BATTERY] is True
-    assert hass.states.get(ENTITY).state == STATE_ON
+    assert entry.options[CONF_EV_HOLD_BATTERY] is False
+    assert hass.states.get(ENTITY).state == STATE_OFF
 
 
-async def test_turning_it_on_does_not_reload_the_entry_and_the_value_survives_a_reload(
+async def test_turning_it_off_does_not_reload_the_entry_and_the_value_survives_a_reload(
     hass, loaded_entry_with_charger
 ):
     entry = loaded_entry_with_charger
     coordinator = entry.runtime_data
 
-    await hass.services.async_call("switch", "turn_on", {"entity_id": ENTITY}, blocking=True)
+    await hass.services.async_call("switch", "turn_off", {"entity_id": ENTITY}, blocking=True)
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
@@ -54,7 +54,7 @@ async def test_turning_it_on_does_not_reload_the_entry_and_the_value_survives_a_
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get(ENTITY).state == STATE_ON
+    assert hass.states.get(ENTITY).state == STATE_OFF
 
 
 async def test_the_switch_belongs_to_the_ev_charger_device(hass, loaded_entry_with_charger):
