@@ -19,7 +19,9 @@ from typing import Any
 from ..conf import CONF_SHADOW_TARIFFS
 from ..lib.tariff import (
     DefinitionError,
+    Line,
     Locale,
+    PeriodBill,
     SlotHistory,
     TariffDefinition,
     definition_from_config,
@@ -36,6 +38,15 @@ _ALWAYS = date(2000, 1, 1)
 
 
 @dataclass(frozen=True)
+class BandCost:
+    """The import in one band of a tariff and what it cost."""
+
+    band: str
+    kwh: float
+    cost: float
+
+
+@dataclass(frozen=True)
 class ShadowBill:
     """One shadow tariff's bill so far."""
 
@@ -45,6 +56,8 @@ class ShadowBill:
     difference: float  # the shadow's total less the active tariff's: positive costs more
     data_from: date | None  # first day inside the bill period the history holds
     coverage: float  # observed share of the days priced, 0 to 1
+    days_recorded: int  # days inside the bill period that the history holds
+    bands: tuple[BandCost, ...]  # import and cost by band, in the order the bands were met
 
 
 @dataclass(frozen=True)
@@ -116,9 +129,51 @@ def price_shadows(
             difference=round(float(bill.priced.total) - active_total, 2),
             data_from=bill.data_from,
             coverage=bill.coverage,
+            days_recorded=bill.days_recorded,
+            bands=_band_costs(bill),
         )
         for entry, bill in zip(entries, priced, strict=True)
     )
     return ShadowReport(
         active_total, real.first_day, through, real.days, real.period_days, real.data_from, bills
+    )
+
+
+def _band_costs(bill: PeriodBill) -> tuple[BandCost, ...]:
+    """Each band's kWh beside its cost, read from the energy line of the priced bill."""
+    energy = _energy_line(bill.priced.root)
+    if energy is None:
+        return ()
+    return tuple(
+        BandCost(band, float(kwh), float(energy.children[band].amount))
+        for band, kwh in bill.import_kwh_by_band.items()
+        if band in energy.children
+    )
+
+
+def _energy_line(line: Line) -> Line | None:
+    """The first energy-by-band line in the bill tree, or None when the tariff has none."""
+    if line.kind == "energy_by_band":
+        return line
+    for child in line.children.values():
+        found = _energy_line(child)
+        if found is not None:
+            return found
+    return None
+
+
+def bands_table(bill: ShadowBill, symbol: str) -> str:
+    """The bill's import by band as a markdown table, with a total row. Empty without bands."""
+    if not bill.bands:
+        return ""
+    rows = [f"| {b.band} | {b.kwh:.1f} | {symbol}{b.cost:.2f} |" for b in bill.bands]
+    total_kwh = sum(b.kwh for b in bill.bands)
+    total_cost = sum(b.cost for b in bill.bands)
+    return "\n".join(
+        [
+            "| Band | kWh | Energy cost |",
+            "| --- | ---: | ---: |",
+            *rows,
+            f"| **Total** | **{total_kwh:.1f}** | **{symbol}{total_cost:.2f}** |",
+        ]
     )

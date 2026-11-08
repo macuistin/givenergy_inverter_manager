@@ -55,7 +55,7 @@ class Registry:
         """Return the entity_id for one of our entities, or None if unusable."""
         uid = f"{self._entry_id}_{unique_id_suffix}"
         entity_id = None
-        for domain in ("sensor", "switch", "number"):
+        for domain in ("sensor", "binary_sensor", "switch", "number"):
             entity_id = self._reg.async_get_entity_id(domain, DOMAIN, uid)
             if entity_id:
                 break

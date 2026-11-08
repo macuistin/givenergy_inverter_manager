@@ -258,6 +258,7 @@ On a skipped night the target is labelled **Hold at**: the seasonal minimum plus
 
 - **This bill period**: what solar and the battery have saved on this bill so far, as a heading and a line. Then So far (Accrued Bill This Period), Heading for (Projected Bill This Period) and Days left, and Import cost, Export credit and Avg per kWh. Then **Each day: what you paid and would have paid**: a bar graph of the last 14 days, each day's Import Cost beside Cost Without Solar or Battery, what the same use would have cost from the grid. Both are the energy alone, so the standing charge and levy are left out of both. Then **Cost per day by use, last 31 days**: the import cost of each day as stacked bars of the house, the EV and the hot water (the last two only while that device exists). The graph reaches back 31 days because a bill period is a calendar month at most.
 - **Tariff**: a strip of which rate applied over the last day, then a table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day. The table is the Tariff In Use sensor's report, which follows a tariff change with no rebuild. Without that sensor the table is built from your options when the dashboard is built, with **Scheduled rate changes** under it: each dated change that has not started, and the date the tariff was last reviewed.
+- **Shadow tariffs** (only while a shadow tariff is set up and its sensors are enabled): the difference from your tariff for each shadow tariff. Tap the heading to open the Shadow tariffs sub-view.
 - **This bill, line by line**: the bill laid out like a supplier bill, each line with what you paid, what you would have paid with no solar and no battery, and what that saved.
 - **Each day**: each day of the period, newest first, with what was imported, You paid, Would have paid and Saved.
 - **Last bill**: the bill period before this one in three lines: You paid, Would have paid and Saved.
@@ -265,6 +266,15 @@ On a skipped night the target is labelled **Hold at**: the seasonal minimum plus
 The three tables read the Bill audit and Previous bill audit sensors, so they follow each day with no rebuild. See [Bill audit](concepts.md#bill-audit-and-the-cost-without-solar-or-battery). Accrued Bill This Period is worked out line by line from the month totals: energy less the supplier saving, standing charge, PSO levy and VAT, minus the export credit. Projected Bill This Period scales it to the whole period. See [Tariff](tariff.md#bill-sensors).
 
 Days Elapsed in Bill Period and Average Import Rate This Month are disabled by default. Enable them to see those figures.
+
+### Shadow tariffs (sub-view)
+
+Opened from the **Shadow tariffs** section of the Bill & tariff tab. Its back arrow returns to that tab. It shows only while a shadow tariff is set up and its sensors are enabled.
+
+- **Compared with your tariff**: a note that the figures are your measured usage priced under each tariff and are not bills, how many days of this bill period have recorded usage and the date it starts, then a table with your tariff and each shadow tariff: bill so far, difference and whether it would have cost less (Yes or No).
+- One section for each shadow tariff: its bill so far and difference, whether it would have cost less, the import and cost in each band so far, and its rates. A shadow tariff whose sensors are disabled is left out.
+
+The tables read the attributes of the shadow tariff sensors, so they follow each update with no rebuild. See [Shadow tariffs](tariff.md#shadow-tariffs).
 
 ### Hot water (sub-view)
 

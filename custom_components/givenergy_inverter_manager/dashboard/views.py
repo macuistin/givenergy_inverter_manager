@@ -26,9 +26,12 @@ from ..const import (
     ATTR_FULL_TEXT,
     CONF_FORECAST_ENTITY,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_SHADOW_TARIFFS,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.devices import Device
+from ..core.shadow_pricing import shadow_keys
+from ..core.shadow_tariffs import KEY_NAME, shadow_config, shadow_entries
 from ..core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -137,6 +140,7 @@ TAB_TOMORROW = "tomorrow"
 TAB_BILL = "bill"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
+SUB_SHADOW = "shadow-tariffs"
 CHARGE_NOW_NAME = "Charge now"
 PAUSE_NAME = "Pause"
 HOLD_BATTERY_NAME = "Hold battery"
@@ -1429,9 +1433,125 @@ class Builder:
         """Sub-view: the bill period and its charts, the tariff, then the bill's tables.
 
         On a laptop the tariff sits beside the period and the three tables fill the row below.
-        On a phone they stack in this order.
+        On a phone they stack in this order. Shadow tariffs, when there are any, open from a
+        small section after the period.
         """
-        return [self._bill_period(), self._tariff(), *self._bill_tables()]
+        return [
+            self._bill_period(),
+            self._shadow_link(),
+            self._tariff(),
+            *self._bill_tables(),
+        ]
+
+    # -- Shadow tariffs --
+
+    def _shadow_tariffs(self) -> list[dict[str, Any]]:
+        """Each shadow tariff whose bill sensor is usable: its name, entities and rates."""
+        entries = shadow_entries(self.cfg.get(CONF_SHADOW_TARIFFS))
+        found = []
+        for key, entry in zip(shadow_keys(entries), entries, strict=True):
+            bill = self.entity(f"shadow_{key}_bill")
+            if bill is None:
+                continue
+            found.append(
+                {
+                    "name": str(entry[KEY_NAME]),
+                    "bill": bill,
+                    "difference": self.entity(f"shadow_{key}_difference"),
+                    "entry": entry,
+                }
+            )
+        return found
+
+    def _shadow_link(self) -> dict[str, Any] | None:
+        """A small section that shows each shadow's difference and opens their detail."""
+        shadows = self._shadow_tariffs()
+        nav = self.go(SUB_SHADOW)
+        if not shadows or nav is None:
+            return None
+        return group(
+            heading_card("Shadow tariffs", "mdi:compare-horizontal", nav=nav),
+            [
+                markdown_card(
+                    "The same usage priced under other tariffs. Open for the detail. "
+                    "A positive figure means that tariff costs more than yours."
+                ),
+                glance_card(
+                    [entity_row(s["difference"], s["name"]) for s in shadows if s["difference"]]
+                ),
+            ],
+        )
+
+    def _shadow_summary(self, shadows: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """The caution about the figures, and a table of every tariff beside yours."""
+        first = shadows[0]["bill"]
+        symbol = self.symbol
+        rows = [
+            f"| {s['name']} | {symbol}{{{{ states('{s['bill']}') }}}} "
+            f"| {symbol}{{{{ states('{s['difference']}') }}}} "
+            f"| {{{{ state_attr('{s['bill']}', 'would_be_cheaper') }}}} |"
+            for s in shadows
+            if s["difference"]
+        ]
+        text = "\n".join(
+            [
+                "These are the same measured usage priced under each tariff. They are not bills.",
+                "",
+                f"The measured usage starts on {{{{ state_attr('{first}', 'data_from') }}}}: "
+                f"{{{{ state_attr('{first}', 'days_with_data') }}}} of "
+                f"{{{{ state_attr('{first}', 'days_in_bill_period') }}}} days of this bill "
+                "period have been recorded, so the figures are only complete when all "
+                "of them are.",
+                "",
+                "| Tariff | Bill so far | Difference | Cheaper |",
+                "|---|---:|---:|:---:|",
+                "| Your tariff | "
+                f"{symbol}{{{{ state_attr('{first}', 'active_tariff_total') }}}} | | |",
+                *rows,
+            ]
+        )
+        return group(
+            heading_card("Compared with your tariff", "mdi:compare-horizontal"),
+            [self.table(markdown_card(text))],
+            **WIDE,
+        )
+
+    def _shadow_detail(self, shadow: dict[str, Any]) -> dict[str, Any] | None:
+        """One shadow tariff: its figures, its import by band and its rates."""
+        bill = shadow["bill"]
+        rates = tariff_table(build_tariff(shadow_config(shadow["entry"], self.cfg)), self.cfg)
+        cheaper = markdown_card(
+            "Would it have cost less so far? "
+            f"**{{{{ state_attr('{bill}', 'would_be_cheaper') }}}}**"
+        )
+        return grid_section(
+            heading_block(
+                heading_card(shadow["name"], "mdi:receipt-text-outline"),
+                [
+                    glance_card(
+                        [
+                            entity_row(bill, "Bill so far"),
+                            entity_row(shadow["difference"], "Difference"),
+                        ]
+                    ),
+                    cheaper,
+                ],
+            ),
+            heading_block(
+                subheading_card("Import by band so far", "mdi:chart-bar"),
+                [self.table(self.attribute_card(bill, "bands_table"), total=True)],
+            ),
+            heading_block(
+                subheading_card("Rates", "mdi:clock-outline"), [self.table(markdown_card(rates))]
+            ),
+        )
+
+    def shadow_sections(self) -> list[Any]:
+        """Sub-view: every shadow tariff beside yours, then each one's bands and rates."""
+        shadows = self._shadow_tariffs()
+        if not shadows:
+            return []
+        return [self._shadow_summary(shadows), *(self._shadow_detail(s) for s in shadows)]
 
     # -- Hot water --
 
@@ -1900,6 +2020,9 @@ TAB_VIEWS = (
     ViewSpec("Bill & tariff", "mdi:receipt-text", TAB_BILL, Builder.bill_sections),
 )
 SUBVIEWS = (
+    ViewSpec(
+        "Shadow tariffs", "mdi:compare-horizontal", SUB_SHADOW, Builder.shadow_sections, TAB_BILL
+    ),
     ViewSpec("Hot water", "mdi:water-boiler", SUB_IMMERSION, Builder.immersion_sections, TAB_NOW),
     ViewSpec("EV charger", "mdi:ev-station", SUB_EV, Builder.ev_sections, TAB_NOW),
     ViewSpec(

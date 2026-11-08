@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.shadow_pricing import (
+    bands_table,
     price_shadows,
     shadow_key,
     shadow_keys,
@@ -173,3 +174,36 @@ def test_a_day_period_that_covers_the_peak_leaves_the_peak_at_the_day_rate() -> 
         ],
     )
     assert _total(_three_band_history(0, 0, 4), trap) == pytest.approx(30 * 4 * 0.35)
+
+
+def test_each_bill_lists_its_import_and_cost_by_band_and_the_days_with_data() -> None:
+    history = _three_band_history(10, 6, 4)
+    report = price_shadows(history, _cfg(_smart()), THROUGH, "Europe/Dublin")
+    assert report is not None
+    bill = report.bills[0]
+    assert bill.days_recorded == 30
+    costs = {band.band: (band.kwh, band.cost) for band in bill.bands}
+    assert costs == {
+        "Smart Night": pytest.approx((300.0, 60.0)),
+        "Day": pytest.approx((180.0, 63.0)),  # a shadow keeps the active base rate name
+        "Smart Peak": pytest.approx((120.0, 54.0)),
+    }
+
+
+def test_the_band_table_totals_the_energy_and_ends_in_a_total_row() -> None:
+    report = price_shadows(_three_band_history(10, 6, 4), _cfg(_smart()), THROUGH, "Europe/Dublin")
+    assert report is not None
+    lines = bands_table(report.bills[0], "€").splitlines()
+    assert lines[0] == "| Band | kWh | Energy cost |"
+    assert "| Smart Peak | 120.0 | €54.00 |" in lines
+    assert lines[-1] == "| **Total** | **600.0** | **€177.00** |"
+
+
+def test_days_without_history_are_not_counted_as_days_with_data() -> None:
+    history = _three_band_history(10, 6, 4)
+    for day in list(history._days)[:20]:
+        del history._days[day]
+    report = price_shadows(history, _cfg(_smart()), THROUGH, "Europe/Dublin")
+    assert report is not None
+    assert report.bills[0].days_recorded == 10
+    assert report.days == 30

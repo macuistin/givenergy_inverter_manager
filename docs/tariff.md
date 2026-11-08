@@ -56,14 +56,16 @@ Each shadow tariff adds three entities to a **Shadow tariffs** device, which is 
 |---|---|
 | `<name> bill so far` | what the usage of this bill period would cost under the shadow tariff, with the same standing charge, levy, VAT and discount steps as your bill |
 | `<name> difference from your tariff` | the shadow bill less your own bill priced the same way. Positive means the shadow tariff costs more |
-| `<name> would be cheaper so far` | on while the difference is below zero |
+| `<name> would be cheaper so far` | on while the difference is below zero. The sensor's `would_be_cheaper` attribute and the dashboard say Yes or No |
 
 How the figures are worked out:
 
 - Every figure is a re-pricing of the energy your inverter measured, taken from the [half-hourly energy history](concepts.md#half-hourly-energy-history). Nothing is estimated or forecast, and nothing is sent to your inverter.
 - Your tariff and each shadow tariff are priced by the same code over the same days, so the difference comes from the rates alone. Your real bill sensors are not used, because they add up costs as they happen and can be a cent or two away from a bill.
 - The days are the current bill period of your own tariff, from its bill start day to today. A shadow tariff follows your bill start day and base rate name.
-- The history starts the day the integration first saved it, so a shadow tariff added today shows the whole period since then at once. The `data_from` attribute gives the first day with data and `data_coverage` the share of the time that was observed. A figure over days with gaps is lower than the true cost.
+- The history starts the day the integration first saved it, so a shadow tariff added today shows the whole period since then at once. The `data_from` attribute gives the first day with data, `days_with_data` how many days of the period have any, and `data_coverage` the share of the time that was observed. The `bands_table` attribute lists the import and cost in each band. A figure over days with gaps is lower than the true cost.
+- A tariff with a day band that leaves out a peak band, such as Night 23:00 to 08:00, Peak 17:00 to 19:00 and Day for the rest, is set up with the day rate as the **base rate** and the other two as timed rates. Timed rates that overlap are won by the cheapest, so a Day rate entered as a timed rate over the peak would price the peak at the day rate.
+- The **Shadow tariffs** view on the dashboard's Bill & tariff tab shows them side by side (see [Dashboard](dashboard.md#shadow-tariffs-sub-view)).
 - Figures update about every five minutes and at once when a shadow tariff changes.
 
 ## Stale tariff repair
