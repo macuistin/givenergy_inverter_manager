@@ -112,6 +112,9 @@ async def test_the_sensors_re_price_the_stored_slots(hass_in_scenario):
     )
     assert bill.attributes["note"].startswith("Re-priced")
     assert bill.attributes["data_from"] == today.isoformat()
+    assert bill.attributes["days_with_data"] == 1
+    assert bill.attributes["would_be_cheaper"] in ("Yes", "No")
+    assert "| Band | kWh | Energy cost |" in bill.attributes["bands_table"]
     assert cheaper.state in ("on", "off")
 
     await hass.config_entries.async_unload(entry.entry_id)

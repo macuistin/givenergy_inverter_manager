@@ -11,7 +11,7 @@ dates. The bill covers the days from the period start to the day given, that day
 from __future__ import annotations
 
 import calendar
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -40,6 +40,8 @@ class PeriodBill:
     days: int  # days priced, from first_day to through
     period_days: int  # days in the whole bill period
     data_from: date | None  # first day in the history inside the period, None when none
+    days_recorded: int  # days inside the period the history holds
+    import_kwh_by_band: Mapping[str, Decimal]  # the import the bill priced, by band name
     coverage: float  # share of the priced days' time that was observed, 0 to 1
     priced: PricedBill
 
@@ -91,6 +93,8 @@ def price_period(
         days=length,
         period_days=(following - first).days,
         data_from=days[0].day if days else None,
+        days_recorded=len(days),
+        import_kwh_by_band=bands,
         coverage=sum(day.coverage for day in days) / length,
         priced=price_bill(definition, inputs),
     )

@@ -16,8 +16,14 @@ from homeassistant.components.sensor import SensorEntity
 
 from .const import DEFAULT_CURRENCY_SYMBOL
 from .core.devices import DeviceGroup
-from .core.shadow_pricing import ShadowBill, ShadowReport
+from .core.shadow_pricing import ShadowBill, ShadowReport, bands_table
 from .entity import GivEnergyEntity
+
+
+def _symbol(coordinator: Any) -> str:
+    data = coordinator.data
+    return DEFAULT_CURRENCY_SYMBOL if data is None else str(data.currency_symbol)
+
 
 RE_PRICED = "Re-priced from measured usage. Not a bill."
 
@@ -59,6 +65,9 @@ class ShadowEntity(GivEnergyEntity):
             "priced_through": report.through.isoformat(),
             "days_priced": report.days,
             "days_in_bill_period": report.period_days,
+            "days_with_data": bill.days_recorded,
+            "bands_table": bands_table(bill, _symbol(self.coordinator)),
+            "would_be_cheaper": "Yes" if bill.difference < 0 else "No",
             "data_from": bill.data_from.isoformat() if bill.data_from else None,
             "data_coverage": round(bill.coverage, 2),
             "active_tariff_total": round(report.active_total, 2),
