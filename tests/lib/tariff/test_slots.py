@@ -93,7 +93,9 @@ def test_an_interval_outside_the_day_is_refused() -> None:
 
 def test_storage_round_trips_to_the_watt_hour() -> None:
     day = SlotDay(date(2026, 6, 1), LONDON)
-    energy = SlotEnergy(flows={"import": 0.1234, "solar": 2.0}, loads={"house": 0.3, "heat_pump": 1.5})
+    energy = SlotEnergy(
+        flows={"import": 0.1234, "solar": 2.0}, loads={"house": 0.3, "heat_pump": 1.5}
+    )
     day.add(energy, _at(day.day, 9, 0), _at(day.day, 9, 20))
     day.set_soc(_at(day.day, 9, 10), 55.04)
     again = SlotDay.from_storage(day.to_storage(), LONDON)
@@ -149,6 +151,18 @@ def test_history_splits_an_interval_across_midnight_by_time() -> None:
     assert history.record(_imp(1.0), start, start + timedelta(minutes=4)) is True
     assert history.get(date(2026, 6, 1)).total("import") == pytest.approx(0.5)  # type: ignore[union-attr]
     assert history.get(date(2026, 6, 2)).total("import") == pytest.approx(0.5)  # type: ignore[union-attr]
+
+
+def test_history_books_an_interval_that_ends_in_the_repeated_hour_given_in_local_time() -> None:
+    history = SlotHistory(LONDON)
+    first_pass = datetime(2026, 10, 25, 1, 30, tzinfo=LONDON, fold=0)
+    second_pass = shift_real(first_pass, timedelta(minutes=30))  # 01:00 again, fold=1
+
+    assert history.record(_imp(0.4), first_pass, second_pass)
+
+    day = history.get(date(2026, 10, 25))
+    assert day is not None and day.flows["import"][3] == pytest.approx(0.4)
+    assert day.seconds[3] == pytest.approx(1800)
 
 
 def test_history_does_not_book_a_gap_or_an_empty_interval() -> None:
