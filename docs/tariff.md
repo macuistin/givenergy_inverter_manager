@@ -50,7 +50,7 @@ What a dated change covers and does not cover:
 
 A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three.
 
-Each shadow tariff adds three entities to a **Shadow tariffs** device, which is separate from the main device. They are off until you turn them on in **Settings → Devices & services → Entities**. Your real tariff, bill and entity IDs do not change.
+Each shadow tariff adds three entities to a **Shadow tariffs** device, which is separate from the main device. They are on as soon as you save. Your real tariff, bill and entity IDs do not change.
 
 | Entity | Meaning |
 |---|---|

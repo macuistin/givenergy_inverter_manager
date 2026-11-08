@@ -4,7 +4,7 @@ shadow_sensor.py - the sensors of the shadow tariffs, on their own Shadow tariff
 For each shadow tariff there are three entities: its bill so far this bill period, the difference
 from the active tariff's bill over the same days, and whether it would have been cheaper. Every
 figure is a re-pricing of usage the inverter already measured. These entities only read the
-report the coordinator keeps, and they are off until the user turns them on.
+report the coordinator keeps. They are on as soon as a shadow tariff is set up.
 """
 
 from __future__ import annotations
@@ -23,9 +23,8 @@ RE_PRICED = "Re-priced from measured usage. Not a bill."
 
 
 class ShadowEntity(GivEnergyEntity):
-    """One figure of one shadow tariff. Off until the user turns it on."""
+    """One figure of one shadow tariff."""
 
-    _attr_entity_registry_enabled_default = False
     _suffix = ""  # ends the unique id
     _label = ""  # follows the tariff's name in the entity's name
 

@@ -581,7 +581,7 @@
       },
       "shadow_menu": {
         "title": "Shadow tariffs",
-        "description": "A shadow tariff prices the energy you really used under another set of rates, so you can see whether it would have cost less. It changes nothing: your inverter, the charge plan and your real bill are not affected. Its sensors are off until you turn them on. You can set up at most {shadow_limit}.\n\nNow: {shadow_list}.",
+        "description": "A shadow tariff prices the energy you really used under another set of rates, so you can see whether it would have cost less. It changes nothing: your inverter, the charge plan and your real bill are not affected. You can set up at most {shadow_limit}.\n\nNow: {shadow_list}.",
         "menu_options": {
           "shadow_add": "Add a shadow tariff",
           "shadow_remove": "Remove a shadow tariff",

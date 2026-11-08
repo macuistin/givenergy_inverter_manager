@@ -51,7 +51,7 @@ def _entity_id(hass, domain: str, entry, suffix: str) -> str | None:
     )
 
 
-async def test_a_shadow_tariff_has_a_device_and_three_entities_that_start_disabled(
+async def test_a_shadow_tariff_has_a_device_and_three_entities_that_start_enabled(
     hass_in_scenario,
 ):
     hass = hass_in_scenario
@@ -68,7 +68,7 @@ async def test_a_shadow_tariff_has_a_device_and_three_entities_that_start_disabl
         "sensor.shadow_tariffs_flat_difference_from_your_tariff",
         "binary_sensor.shadow_tariffs_flat_would_be_cheaper_so_far",
     ]
-    assert all(registry.async_get(i).disabled_by is not None for i in ids)
+    assert all(registry.async_get(i).disabled_by is None for i in ids)
     devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
     assert "Shadow tariffs" in {d.name for d in devices}
     assert {registry.async_get(i).device_id for i in ids} != {None}
@@ -87,14 +87,9 @@ async def test_without_a_shadow_tariff_there_is_no_device_and_no_entity(hass_in_
     await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_the_sensors_re_price_the_slots_when_turned_on(hass_in_scenario):
+async def test_the_sensors_re_price_the_stored_slots(hass_in_scenario):
     hass = hass_in_scenario
     entry = await _set_up(hass)
-    registry = er.async_get(hass)
-    for suffix, domain in (("bill", "sensor"), ("difference", "sensor"), ("cheaper", "binary_sensor")):
-        registry.async_update_entity(_entity_id(hass, domain, entry, suffix), disabled_by=None)
-    await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
 
     coordinator = entry.runtime_data
     today = dt_util.now().date()
