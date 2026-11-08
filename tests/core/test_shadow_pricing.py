@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -12,7 +12,7 @@ from custom_components.givenergy_inverter_manager.core.shadow_pricing import (
     shadow_key,
     shadow_keys,
 )
-from custom_components.givenergy_inverter_manager.lib.tariff import SlotHistory
+from custom_components.givenergy_inverter_manager.lib.tariff import SlotDay, SlotHistory
 from tests.core.test_shadow_tariffs import ACTIVE, shadow
 from tests.lib.tariff.test_reprice import _october_bill_days
 
@@ -78,3 +78,98 @@ def test_the_keys_are_words_that_stay_apart() -> None:
     taken: set[str] = set()
     assert shadow_key("Flat", taken) == "flat"
     assert shadow_key("flat", taken) == "flat_2"
+
+
+# A three-band smart meter tariff: Night 23:00 to 08:00, Peak 17:00 to 19:00 and Day for the rest
+# (08:00 to 23:00 without the peak). Slot numbers are half hours from midnight.
+_NIGHT = [*range(0, 16), *range(46, 48)]
+_PEAK = range(34, 38)
+_DAY = [*range(16, 34), *range(38, 46)]
+
+
+def _three_band_history(night: float, day: float, peak: float) -> SlotHistory:
+    """Thirty days of 16 September to 15 October, each using the given kWh per band."""
+    history = SlotHistory(DUBLIN)
+    for offset in range(30):
+        slot_day = SlotDay(date(2026, 9, 16) + timedelta(days=offset), DUBLIN)
+        for slots, kwh in ((_NIGHT, night), (_DAY, day), (_PEAK, peak)):
+            for index in slots:
+                slot_day.flows["import"][index] += kwh / len(slots)
+                slot_day.seconds[index] = 1800
+        history._days[slot_day.day] = slot_day
+    return history
+
+
+def _smart(**changes):  # type: ignore[no-untyped-def]
+    fields = {
+        "base_rate": 0.35,
+        "export_rate": 0.0,
+        "rate_periods": [
+            {"name": "Smart Night", "rate": 0.20, "start": "23:00", "end": "08:00"},
+            {"name": "Smart Peak", "rate": 0.45, "start": "17:00", "end": "19:00"},
+        ],
+        "standing_charge_per_day": 0.0,
+        "pso_levy_per_month": 0.0,
+        "vat_rate": 0.0,
+        "discount_rate": 0.0,
+    }
+    return shadow("Smart", **{**fields, **changes})
+
+
+def _total(history: SlotHistory, entry) -> float:  # type: ignore[no-untyped-def]
+    report = price_shadows(history, _cfg(entry), THROUGH, "Europe/Dublin")
+    assert report is not None
+    return report.bills[0].total
+
+
+def test_a_three_band_tariff_prices_each_band_at_its_own_rate() -> None:
+    # 30 days of 10 kWh at night, 6 in the day and 4 at peak.
+    total = _total(_three_band_history(10, 6, 4), _smart())
+    assert total == pytest.approx(30 * (10 * 0.20 + 6 * 0.35 + 4 * 0.45))
+
+
+def test_the_peak_hours_are_not_priced_at_the_day_rate() -> None:
+    peak_only = _total(_three_band_history(0, 0, 4), _smart())
+    assert peak_only == pytest.approx(30 * 4 * 0.45)
+
+
+def test_the_edges_of_the_peak_belong_to_the_band_that_starts_there() -> None:
+    history = SlotHistory(DUBLIN)
+    for offset in range(30):
+        slot_day = SlotDay(date(2026, 9, 16) + timedelta(days=offset), DUBLIN)
+        for index in (33, 34, 37, 38):  # 16:30, 17:00, 18:30 and 19:00
+            slot_day.flows["import"][index] = 1.0
+            slot_day.seconds[index] = 1800
+        history._days[slot_day.day] = slot_day
+    assert _total(history, _smart()) == pytest.approx(30 * (0.35 + 0.45 + 0.45 + 0.35))
+
+
+def test_night_across_midnight_and_the_morning_edge_use_the_night_rate() -> None:
+    history = SlotHistory(DUBLIN)
+    for offset in range(30):
+        slot_day = SlotDay(date(2026, 9, 16) + timedelta(days=offset), DUBLIN)
+        for index in (0, 15, 16, 45, 46, 47):  # 00:00, 07:30, 08:00, 22:30, 23:00, 23:30
+            slot_day.flows["import"][index] = 1.0
+            slot_day.seconds[index] = 1800
+        history._days[slot_day.day] = slot_day
+    assert _total(history, _smart()) == pytest.approx(30 * (0.20 * 4 + 0.35 * 2))
+
+
+def test_vat_is_added_on_top_of_all_three_bands() -> None:
+    total = _total(_three_band_history(10, 6, 4), _smart(vat_rate=9.0))
+    assert total == pytest.approx(30 * (2.0 + 2.1 + 1.8) * 1.09)
+
+
+def test_a_day_period_that_covers_the_peak_leaves_the_peak_at_the_day_rate() -> None:
+    # Timed rates that overlap are won by the cheapest, as for the active tariff. Setting the day
+    # rate as a timed period from 08:00 to 23:00 therefore swallows a dearer peak inside it. The
+    # day rate belongs in the base rate instead, as the tests above do.
+    trap = _smart(
+        base_rate=0.99,
+        rate_periods=[
+            {"name": "Smart Night", "rate": 0.20, "start": "23:00", "end": "08:00"},
+            {"name": "Smart Day", "rate": 0.35, "start": "08:00", "end": "23:00"},
+            {"name": "Smart Peak", "rate": 0.45, "start": "17:00", "end": "19:00"},
+        ],
+    )
+    assert _total(_three_band_history(0, 0, 4), trap) == pytest.approx(30 * 4 * 0.35)

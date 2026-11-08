@@ -149,7 +149,7 @@ async def async_setup_entry(
 
 
 def _shadow_sensors(coordinator: GivEnergyCoordinator) -> list[SensorEntity]:
-    """The bill and difference sensors of each shadow tariff, off until turned on."""
+    """The bill and difference sensors of each shadow tariff."""
     cfg = effective_config(coordinator.entry)
     raw = cfg.get(CONF_SHADOW_TARIFFS)
     sensors: list[SensorEntity] = []
