@@ -196,7 +196,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -209,7 +209,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -326,7 +326,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -402,7 +402,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -418,7 +418,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -550,7 +550,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -650,7 +650,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -699,7 +699,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -765,7 +765,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -826,7 +826,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -1015,7 +1015,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -1213,7 +1213,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -1318,7 +1318,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -1331,7 +1331,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -1448,7 +1448,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -1524,7 +1524,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -1540,7 +1540,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -1672,7 +1672,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -1772,7 +1772,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -1821,7 +1821,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -1887,7 +1887,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -1948,7 +1948,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -2206,7 +2206,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -2404,7 +2404,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -2509,7 +2509,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -2525,7 +2525,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -2645,7 +2645,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -2721,7 +2721,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -2737,7 +2737,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -2869,7 +2869,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/day",
         "mode": "box"
        }
@@ -2969,7 +2969,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -3019,7 +3019,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -3085,7 +3085,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -3147,7 +3147,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -3405,7 +3405,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -3603,7 +3603,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -4178,7 +4178,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -4192,7 +4192,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -4253,7 +4253,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -4379,7 +4379,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/day",
       "mode": "box"
      }
@@ -4975,7 +4975,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -5246,7 +5246,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -5260,7 +5260,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/kWh",
       "mode": "box"
      }
@@ -5321,7 +5321,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -5447,7 +5447,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "EUR/day",
       "mode": "box"
      }
@@ -6037,7 +6037,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR",
         "mode": "box"
        }
@@ -6303,7 +6303,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "GBP/kWh",
       "mode": "box"
      }
@@ -6317,7 +6317,7 @@
      "number": {
       "min": 0.0,
       "max": 1.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "GBP/kWh",
       "mode": "box"
      }
@@ -6378,7 +6378,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "GBP/kWh",
         "mode": "box"
        }
@@ -6503,7 +6503,7 @@
      "number": {
       "min": 0.0,
       "max": 5.0,
-      "step": 0.001,
+      "step": "any",
       "unit_of_measurement": "GBP/day",
       "mode": "box"
      }
@@ -7096,7 +7096,7 @@
        "number": {
         "min": 0.001,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "GBP",
         "mode": "box"
        }
@@ -7279,7 +7279,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -7341,7 +7341,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
@@ -7403,7 +7403,7 @@
        "number": {
         "min": 0.0,
         "max": 5.0,
-        "step": 0.001,
+        "step": "any",
         "unit_of_measurement": "EUR/kWh",
         "mode": "box"
        }
