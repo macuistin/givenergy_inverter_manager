@@ -240,6 +240,19 @@ class TestNumberSelectorStepConstraint:
             )
 
 
+class TestPriceFieldsKeepLongDecimals:
+    """A tariff file can carry six decimals. The price boxes must not round or refuse them."""
+
+    @pytest.mark.parametrize("key", ["base_rate", "export_rate", "standing_charge_per_day"])
+    def test_price_selector_takes_six_decimals(self, real_ha_selector, real_vol, key):
+        schemas, _ = _wizard(real_ha_selector, real_vol)
+        from custom_components.givenergy_inverter_manager.wizard import selectors
+
+        sel = selectors.price_selector(key, "GBP")
+        assert sel(0.096512) == 0.096512
+        assert schemas is not None
+
+
 # ── Currency units follow the selected currency ───────────────────────────────
 
 

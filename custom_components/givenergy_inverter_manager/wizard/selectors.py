@@ -50,10 +50,14 @@ class Bounds:
 
     low: float
     high: float
-    step: float
+    step: float | str
     unit: str | None = None
     mode: str | None = None
 
+
+# Home Assistant rejects a step under 0.001, so a price takes "any" and keeps the figure as typed.
+# A tariff file can carry four decimals (0.0965), which a 0.001 step would refuse.
+ANY = "any"
 
 # A price, a cost or a size is typed in a box. A slider over thousands of steps, as a price to
 # 0.001 or a battery cost to 100 is, cannot be set to a figure read off a bill. A percentage,
@@ -61,9 +65,9 @@ class Bounds:
 BOX = "box"
 
 NUMBER_BOUNDS: dict[str, Bounds] = {
-    CONF_BASE_RATE: Bounds(0, 5, 0.001, mode=BOX),
-    CONF_EXPORT_RATE: Bounds(0, 1, 0.001, mode=BOX),
-    CONF_STANDING_CHARGE: Bounds(0, 5, 0.001, mode=BOX),
+    CONF_BASE_RATE: Bounds(0, 5, ANY, mode=BOX),
+    CONF_EXPORT_RATE: Bounds(0, 1, ANY, mode=BOX),
+    CONF_STANDING_CHARGE: Bounds(0, 5, ANY, mode=BOX),
     CONF_PSO_LEVY: Bounds(0, 20, 0.01, mode=BOX),
     CONF_VAT_RATE: Bounds(0, 30, 0.1, "%"),
     CONF_DISCOUNT_RATE: Bounds(0, 20, 0.1, "%"),
@@ -80,7 +84,7 @@ NUMBER_BOUNDS: dict[str, Bounds] = {
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: Bounds(5, 40, 0.1, "kWh/100km", BOX),
     CAR_KEY_BATTERY_KWH: Bounds(10, 200, 0.5, "kWh", BOX),
     # A box, not a slider: a slider cannot be left empty, and empty means no advice.
-    CONF_ALT_HEAT_COST: Bounds(0.001, 5, 0.001, mode=BOX),
+    CONF_ALT_HEAT_COST: Bounds(0.001, 5, ANY, mode=BOX),
 }
 
 # What each price field is quoted per. The currency code comes from the form.
