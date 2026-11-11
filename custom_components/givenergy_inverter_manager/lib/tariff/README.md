@@ -76,6 +76,10 @@ inputs, the bill as a tree and worked bills it must reproduce (`checks`).
   `per_period`, `adjust`, `tax` and `sum`. Nesting sets the order and the tax base. A `sum` holds
   its children by name, so no list position matters. An unknown kind or field is refused.
 - A zone has a unique priority, and the applicable zone of highest priority wins.
+- `export` has a `base` price and may have `zones`, written like the import zones, for an export
+  price that changes with the time of day. With no zones the export price is flat.
+- A check gives `export_kwh` as one figure, paid at the base export price, or as an object of
+  kWh by export band.
 - `complete` is allowed only with at least one entry in `checks`.
 - There is no checksum in the document. It belongs to the index entry for the file.
 
@@ -86,7 +90,10 @@ upward, unless it says `round: none`. `verify_checks(definition)` prices each wo
 document and raises `CheckFailed` if one gives another total. The engine reads band totals, not
 slots. `bands.import_by_band(days, definition, is_holiday)` turns stored slots into those totals:
 each slot takes the band in force at its start on the definition's clock, the zone of highest
-priority winning (`band_at` gives one moment's band). A zone past midnight belongs to the day it
+priority winning (`band_at` gives one moment's band). `bands.export_by_band` and `export_band_at`
+do the same for exported energy, and `price_period` uses them when the export has zones. In
+`BillInputs`, `export_kwh` is one figure or the kWh in each export band, and a banded credit lists
+its bands as child lines. A zone past midnight belongs to the day it
 began. Whether a date is a public holiday is passed in, because the package has no calendar. `tests/lib/tariff/test_engine.py` reproduces a worked October bill (187.35).
 
 `definition_from_config(config, Locale(currency, country, timezone_name, effective_from))` writes

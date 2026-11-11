@@ -1,8 +1,9 @@
 """bands.py: which price band each half-hour slot falls in, under a tariff definition.
 
-A slot belongs to the band in force at its start, read on the clock of the definition's time
-zone. The slots are real elapsed time, so on a clock-change day a skipped hour has no slots and a
-repeated hour is matched twice by the same clock times.
+Import and export each have their own bands. A slot belongs to the band in force at its start,
+read on the clock of the definition's time zone. The slots are real elapsed time, so on a
+clock-change day a skipped hour has no slots and a repeated hour is matched twice by the same
+clock times.
 
 A zone that runs past midnight belongs to the day it starts, so a Friday 23:00 to 08:00 zone
 still applies at 01:00 on Saturday. When a public holiday counts as a weekend day, it matches a
@@ -18,7 +19,7 @@ from decimal import Decimal
 
 from ..timeutil import shift_real
 from .defaults import SLOT_SECONDS
-from .definition import TariffDefinition, Zone
+from .definition import ExportPrices, ImportPrices, TariffDefinition, Zone
 from .slots import SlotDay
 
 _WEEKEND = frozenset({5, 6})
@@ -33,14 +34,27 @@ def band_at(
     moment: datetime,
     is_holiday: Callable[[date], bool] = no_holidays,
 ) -> str:
-    """The name of the band in force at *moment*: the applicable zone of highest priority, or the
-    base band."""
-    local = moment.astimezone(definition.timezone)
-    zones = sorted(definition.import_prices.zones, key=lambda zone: -zone.priority)
-    for zone in zones:
+    """The name of the import band in force at *moment*: the applicable zone of highest
+    priority, or the base band."""
+    return _band_of(definition.import_prices, moment.astimezone(definition.timezone), is_holiday)
+
+
+def export_band_at(
+    definition: TariffDefinition,
+    moment: datetime,
+    is_holiday: Callable[[date], bool] = no_holidays,
+) -> str:
+    """The name of the export band in force at *moment*, by the same rule as `band_at`."""
+    return _band_of(definition.export_prices, moment.astimezone(definition.timezone), is_holiday)
+
+
+def _band_of(
+    prices: ImportPrices | ExportPrices, local: datetime, is_holiday: Callable[[date], bool]
+) -> str:
+    for zone in sorted(prices.zones, key=lambda zone: -zone.priority):
         if _applies(zone, local, is_holiday):
             return zone.name
-    return definition.import_prices.base.name
+    return prices.base.name
 
 
 def import_by_band(
@@ -49,12 +63,31 @@ def import_by_band(
     is_holiday: Callable[[date], bool] = no_holidays,
 ) -> dict[str, Decimal]:
     """kWh imported in each band over *days*, in the order the bands are first met."""
+    return _by_band(days, "import", definition, is_holiday)
+
+
+def export_by_band(
+    days: Sequence[SlotDay],
+    definition: TariffDefinition,
+    is_holiday: Callable[[date], bool] = no_holidays,
+) -> dict[str, Decimal]:
+    """kWh exported in each export band over *days*, in the order the bands are first met."""
+    return _by_band(days, "export", definition, is_holiday)
+
+
+def _by_band(
+    days: Sequence[SlotDay],
+    flow: str,
+    definition: TariffDefinition,
+    is_holiday: Callable[[date], bool],
+) -> dict[str, Decimal]:
+    prices = definition.export_prices if flow == "export" else definition.import_prices
     totals: dict[str, float] = {}
     for day in days:
-        for index, kwh in enumerate(day.flows["import"]):
+        for index, kwh in enumerate(day.flows[flow]):
             if kwh:
                 start = shift_real(day.start, timedelta(seconds=index * SLOT_SECONDS))
-                band = band_at(definition, start, is_holiday)
+                band = _band_of(prices, start.astimezone(definition.timezone), is_holiday)
                 totals[band] = totals.get(band, 0.0) + kwh
     return {band: Decimal(repr(round(kwh, 6))) for band, kwh in totals.items()}
 

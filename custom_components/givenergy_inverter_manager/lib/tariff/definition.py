@@ -79,7 +79,10 @@ class ImportPrices:
 
 @dataclass(frozen=True)
 class ExportPrices:
+    """What exported energy is paid. With no zones it is one flat price."""
+
     base: Band
+    zones: tuple[Zone, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -118,7 +121,8 @@ class EnergyByBand:
 
 @dataclass(frozen=True)
 class ExportCredit:
-    """Export kWh times the export price, a credit."""
+    """Export kWh times the export price, or the kWh in each export band times its price. A
+    credit."""
 
     rounding: NodeRounding
 
@@ -178,7 +182,7 @@ class Check:
 
     period_days: int
     import_kwh_by_band: Mapping[str, Decimal]
-    export_kwh: Decimal
+    export_kwh: Decimal | Mapping[str, Decimal]  # one total, or the kWh in each export band
     expected_total: Decimal
 
 
