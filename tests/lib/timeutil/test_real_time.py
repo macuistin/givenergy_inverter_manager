@@ -1,9 +1,9 @@
-"""lib/timeutil gives real elapsed time across a clock change, and the old path still works."""
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
+"""lib/timeutil gives real elapsed time across a clock change."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from custom_components.givenergy_inverter_manager.core import timeutil as old_path
 from custom_components.givenergy_inverter_manager.lib import timeutil
 
 DUBLIN = ZoneInfo("Europe/Dublin")
@@ -25,6 +25,17 @@ def test_shift_real_moves_by_real_time_in_the_same_timezone():
     assert moved.tzinfo == DUBLIN
 
 
-def test_the_old_core_path_re_exports_the_same_functions():
-    for name in ("elapsed_seconds", "local_time_on", "real_time_after", "shift_real"):
-        assert getattr(old_path, name) is getattr(timeutil, name)
+
+def test_naive_times_are_subtracted_and_moved_as_they_are():
+    start = datetime(2026, 3, 29, 0, 30)
+
+    assert timeutil.elapsed_seconds(start, datetime(2026, 3, 29, 2, 30)) == 7200.0
+    assert timeutil.shift_real(start, timedelta(hours=1)) == datetime(2026, 3, 29, 1, 30)
+
+
+def test_local_time_on_gives_the_wall_clock_time_on_the_same_day_and_pass():
+    second_pass = datetime(2026, 10, 25, 1, 30, tzinfo=DUBLIN, fold=1)
+
+    at = timeutil.local_time_on(second_pass, time(1, 45))
+
+    assert (at.date(), at.time(), at.fold, at.tzinfo) == (second_pass.date(), time(1, 45), 1, DUBLIN)

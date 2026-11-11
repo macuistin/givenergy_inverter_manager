@@ -1,9 +1,8 @@
-"""lib/tariff prices energy from typed fields alone, and the old paths still return its objects."""
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
+"""lib/tariff prices energy from typed fields alone."""
 
 from datetime import datetime, time, timezone
 
-from custom_components.givenergy_inverter_manager import lib
-from custom_components.givenergy_inverter_manager.core import stored_energy, tariff
 from custom_components.givenergy_inverter_manager.lib.tariff import (
     RatePeriod,
     TariffConfig,
@@ -42,8 +41,3 @@ def test_money_rounds_halves_upward_to_cents():
     assert money(0.125) == 0.13
     assert money(2.675) == 2.68
 
-
-def test_the_old_paths_return_the_library_objects():
-    for name in ("RatePeriod", "TariffConfig", "EnergyAccumulator", "CounterMemory", "BillBreakdown"):
-        assert getattr(tariff, name) is getattr(lib.tariff, name)
-    assert stored_energy.stored_energy_change is lib.tariff.stored_energy_change

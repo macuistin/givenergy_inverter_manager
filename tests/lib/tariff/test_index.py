@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The tariff index: built from files, read back, and used to load the revision in force."""
 
 from __future__ import annotations

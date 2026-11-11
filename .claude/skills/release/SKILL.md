@@ -28,10 +28,13 @@ and the six version strings. Commit title: `chore(release): bump version to X.Y.
 5. Run `python scripts/set_version.py --check vX.Y.Z` and `python -m pytest tests/test_metadata.py -q`.
    Both fail if one of the six places disagrees.
 6. Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite.
+   Check `lib/tariff`, `lib/timeutil` and `lib/tariffstore` are the tariff store's latest: merge any open Copy tariffstore pull
+   request first, or run `python scripts/copy_tariffstore.py --check <checkout of the store>`.
+   The release workflow refuses a new release whose copy is behind.
 7. Commit, then open the PR with `.github/PULL_REQUEST_TEMPLATE.md`. The PR body says what the
    release contains, taken from the changelog.
 8. After the PR merges, the maintainer runs Actions > Release > Run workflow on `main` with
-   `X.Y.Z`, or pushes the tag `vX.Y.Z`. `.github/workflows/release.yml` checks the six places,
+   `X.Y.Z`, or pushes the tag `vX.Y.Z`. `.github/workflows/release.yml` checks the six places and the copied tariff libraries,
    tags the commit and publishes the GitHub release with the changelog section as notes. HACS lists
    GitHub releases as versions. A beta (`X.Y.ZbN`) needs no changelog section of its own: it
    uses `## Unreleased`, and the workflow can run from any branch for it. Do not run the workflow,

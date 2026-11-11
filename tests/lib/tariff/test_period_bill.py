@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """A bill period priced from the slot history agrees with the existing bill to the cent."""
 
 from __future__ import annotations

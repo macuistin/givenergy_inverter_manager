@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The tariff definition: a good document parses, and each way to be wrong is refused by name."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """example_definition.py: the worked tariff document the definition tests start from."""
 
 from __future__ import annotations

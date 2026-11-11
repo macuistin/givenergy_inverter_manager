@@ -70,6 +70,20 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: python scripts/set_version.py --check "${TAG}"
+      # lib/tariffstore is a copy of the tariff store's client. A release ships the copy as it
+      # stands, so a copy that is behind is refused. A release that is already published is only
+      # having its notes replaced, and is not held to a store that has moved on since.
+      - name: The tariff libraries are the store's latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+            echo "${TAG} is already published, so the copy is not checked again."
+            exit 0
+          fi
+          git clone --quiet --depth 1 https://github.com/macuistin/utility-tariffs "${RUNNER_TEMP}/store"
+          python scripts/copy_tariffstore.py --check "${RUNNER_TEMP}/store"
       - name: Release notes from the changelog
         env:
           TAG: ${{ steps.tag.outputs.tag }}

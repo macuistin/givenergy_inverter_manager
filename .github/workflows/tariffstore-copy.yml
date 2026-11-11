@@ -1,0 +1,103 @@
+name: Copy tariffstore
+
+# Keeps the tariff libraries in step with the tariff store they are written in: lib/tariff (the
+# bill engine), lib/timeutil and lib/tariffstore (the store client). Copies them and their tests
+# from macuistin/utility-tariffs and opens a pull request when anything changed. A person
+# reviews and merges it. HACS ships this repository as it stands, so there is no build step to
+# copy at: the copy has to be committed.
+on:
+  schedule:
+    - cron: "23 6 * * 1"   # Mondays 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never a pull request run, so nothing here is cancelled: a second run waits for the first.
+concurrency:
+  group: tariffstore-copy
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only this job can write: it pushes a branch, opens a pull request and starts the checks.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      # A fine-grained token in the COPY_TOKEN secret makes the pull request start CI on its own.
+      # Without it the built-in token is used and the checks are started by hand below.
+      GH_TOKEN: ${{ secrets.COPY_TOKEN || github.token }}
+      STORE: https://github.com/macuistin/utility-tariffs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ secrets.COPY_TOKEN || github.token }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Copy the libraries and their tests
+        id: copy
+        run: |
+          git clone --quiet --depth 1 "$STORE" "$RUNNER_TEMP/store"
+          python scripts/copy_tariffstore.py "$RUNNER_TEMP/store"
+          echo "commit=$(git -C "$RUNNER_TEMP/store" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git status --porcelain)" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Open the pull request
+        if: steps.copy.outputs.changed == 'true'
+        env:
+          COMMIT: ${{ steps.copy.outputs.commit }}
+          OWN_TOKEN: ${{ secrets.COPY_TOKEN != '' }}
+        run: |
+          short="${COMMIT:0:7}"
+          branch="chore/tariffstore-copy-$short"
+          title="chore(lib): copy the tariff libraries at $short"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "A pull request for $short was already opened." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Summary"
+            echo
+            echo "Copies \`lib/tariff\`, \`lib/timeutil\`, \`lib/tariffstore\` and their tests from $STORE/commit/$COMMIT."
+            echo "Opened by the Copy tariffstore workflow. The files are never edited here."
+            echo
+            echo "## Changes"
+            echo
+            echo '```'
+            git status --short
+            echo '```'
+            echo
+            echo "## Testing"
+            echo
+            echo "The checks on this pull request run the copied tests against the copy."
+            echo
+            echo "## Impact"
+            echo
+            echo "Read the diff for a change in how a bill is priced or what the client does, and add a changelog entry for one a user can see."
+          } > "$RUNNER_TEMP/body.md"
+          git config user.name "tariffstore-copy"
+          git config user.email "tariffstore-copy@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add custom_components/givenergy_inverter_manager/lib tests/lib
+          git commit -m "$title"
+          git push origin "$branch"
+          gh label create tariffstore-copy --color 0E8A16 --description "Opened by the Copy tariffstore workflow" 2>/dev/null || true
+          older=$(gh pr list --label tariffstore-copy --state open --json number --jq '.[].number')
+          url=$(gh pr create --base main --head "$branch" --label tariffstore-copy \
+                  --title "$title" --body-file "$RUNNER_TEMP/body.md")
+          # Each run copies the store's newest commit, so it replaces an older copy.
+          for number in $older; do
+            gh pr close "$number" --delete-branch --comment "Replaced by $url, which copies a newer commit."
+          done
+          if [ "$OWN_TOKEN" != "true" ]; then
+            gh workflow run tests.yml --ref "$branch"
+            gh workflow run hassfest.yml --ref "$branch"
+            gh workflow run hacs.yml --ref "$branch"
+          fi
