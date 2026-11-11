@@ -1,12 +1,16 @@
 """Copy lib/tariffstore and its tests from a checkout of the tariff store.
 
     python scripts/copy_tariffstore.py ../utility-tariffs
+    python scripts/copy_tariffstore.py --check ../utility-tariffs
 
 The folder in this repository is never edited by hand. This writes the library files as they
 stand at the checkout's HEAD commit and rewrites UPSTREAM.json, which
 tests/lib/tariffstore/test_upstream.py checks the files against. It also writes the store's own
 tests of the library, with their imports pointed at the copy, so a change there is tested here.
 `.github/workflows/tariffstore-copy.yml` runs this weekly and opens a pull request.
+
+With --check nothing is written. It exits 1 and names each file that differs from the checkout,
+which is how the release workflow refuses to publish a copy that is behind the store.
 """
 
 from __future__ import annotations
@@ -63,7 +67,32 @@ def copy_tests(source: Path, target: Path) -> None:
         (target / name).write_text(ported(text), encoding="utf-8")
 
 
+def behind(checkout: Path) -> list[str]:
+    """The files here that differ from the checkout, or that only one side has."""
+    source = checkout / SOURCE_PATH
+    names = {p.name for p in source.glob("*.py")} | {p.name for p in TARGET.glob("*.py")}
+    wanted = {TARGET / name: _bytes(source / name) for name in sorted(names)}
+    for name in COPIED_TESTS:
+        wanted[TESTS / name] = ported((checkout / "tests" / name).read_text("utf-8")).encode()
+    return [str(path.relative_to(ROOT)) for path, data in wanted.items() if _bytes(path) != data]
+
+
+def _bytes(path: Path) -> bytes | None:
+    return path.read_bytes() if path.exists() else None
+
+
+def check(checkout: Path) -> int:
+    differing = behind(checkout)
+    for name in differing:
+        print(f"{name}: not the store's current file")
+    if differing:
+        print("Run the Copy tariffstore workflow and merge its pull request, then try again.")
+    return 1 if differing else 0
+
+
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--check"] and len(argv) == 2:
+        return check(Path(argv[1]).resolve())
     if len(argv) != 1:
         print(__doc__)
         return 2

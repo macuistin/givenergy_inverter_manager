@@ -70,6 +70,48 @@ def test_the_copy_script_replaces_the_files_and_records_them(tmp_path, monkeypat
     )
 
 
+def test_check_passes_on_a_fresh_copy_and_names_a_file_that_fell_behind(
+    tmp_path, monkeypatch, capsys: pytest.CaptureFixture[str]
+):
+    checkout = tmp_path / "store"
+    library = checkout / "lib" / "tariffstore"
+    library.mkdir(parents=True)
+    (checkout / "tests").mkdir()
+    (library / "client.py").write_text("NEW = 1\n")
+    for name in copy_tariffstore.COPIED_TESTS:
+        (checkout / "tests" / name).write_text("from lib.tariffstore import Store\n")
+    _git(checkout, "init", "-q")
+    _git(checkout, "add", ".")
+    _git(checkout, "commit", "-qm", "x")
+    target, tests = tmp_path / "pkg" / "lib", tmp_path / "pkg" / "tests"
+    target.mkdir(parents=True)
+    tests.mkdir()
+    monkeypatch.setattr(copy_tariffstore, "ROOT", tmp_path / "pkg")
+    monkeypatch.setattr(copy_tariffstore, "TARGET", target)
+    monkeypatch.setattr(copy_tariffstore, "TESTS", tests)
+    assert copy_tariffstore.main([str(checkout)]) == 0
+
+    assert copy_tariffstore.main(["--check", str(checkout)]) == 0
+
+    (library / "client.py").write_text("NEW = 2\n")
+    (library / "added.py").write_text("X = 1\n")
+    (target / "stale.py").write_text("OLD = 1\n")
+    (checkout / "tests" / "test_index.py").write_text("from lib.tariffstore import index\n")
+    capsys.readouterr()
+
+    assert copy_tariffstore.main(["--check", str(checkout)]) == 1
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:-1] == [
+        "lib/added.py: not the store's current file",
+        "lib/client.py: not the store's current file",
+        "lib/stale.py: not the store's current file",
+        "tests/test_index.py: not the store's current file",
+    ]
+    assert "Copy tariffstore" in lines[-1]
+    assert (target / "client.py").read_text() == "NEW = 1\n"  # a check writes nothing
+
+
 def test_the_copy_script_explains_itself_without_a_path(capsys: pytest.CaptureFixture[str]):
     assert copy_tariffstore.main([]) == 2
     assert "copy_tariffstore.py" in capsys.readouterr().out

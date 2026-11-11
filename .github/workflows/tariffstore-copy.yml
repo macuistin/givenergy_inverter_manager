@@ -10,29 +10,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
+# Never a pull request run, so nothing here is cancelled: a second run waits for the first.
 concurrency:
   group: tariffstore-copy
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   copy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Only this job can write: it pushes a branch, opens a pull request and starts the checks.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     env:
       # A fine-grained token in the COPY_TOKEN secret makes the pull request start CI on its own.
       # Without it the built-in token is used and the checks are started by hand below.
       GH_TOKEN: ${{ secrets.COPY_TOKEN || github.token }}
       STORE: https://github.com/macuistin/utility-tariffs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           token: ${{ secrets.COPY_TOKEN || github.token }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 

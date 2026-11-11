@@ -11,6 +11,7 @@ file, and `tests/lib/tariffstore/test_upstream.py` fails when a file here no lon
 - Never edit a file here. Change it in the store's repository. The Copy tariffstore workflow
   copies the folder and its tests each week and opens a pull request. To copy by hand, run
   `python scripts/copy_tariffstore.py <path to a checkout>`, which also rewrites `UPSTREAM.json`.
+- A release is refused while the copy is behind the store (`--check` in the release workflow).
 - The store's lint holds the code to this repository's limits, so the copy passes here unchanged.
 
 ## Public names
