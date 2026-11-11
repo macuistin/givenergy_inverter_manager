@@ -1,8 +1,9 @@
 """engine.py: price a bill from a tariff definition, with an amount on every node of the tree.
 
-The engine reads only totals: the kWh in each import band, the export kWh and the days of the
-bill. Turning slots into band totals is a separate step, so the same arithmetic prices a worked
-check, a re-priced history or a live month. It does all sums in `Decimal`.
+The engine reads only totals: the kWh in each import band, the export kWh (one figure, or the
+kWh in each export band) and the days of the bill. Turning slots into band totals is a separate
+step, so the same arithmetic prices a worked check, a re-priced history or a live month. It does
+all sums in `Decimal`.
 
 Each node is worked out after everything inside it, so the tree sets the order and the tax base.
 A node is rounded to the currency's smallest unit, halves upward, unless it says `round: none`.
@@ -43,7 +44,8 @@ class BillInputs:
     days: int  # days the bill covers
     period_days: int  # days in the whole bill period, which sets the share of a period charge
     import_kwh_by_band: Mapping[str, Decimal]
-    export_kwh: Decimal
+    # One total, paid at the base export price, or the kWh in each export band.
+    export_kwh: Decimal | Mapping[str, Decimal]
 
 
 @dataclass(frozen=True)
@@ -89,7 +91,10 @@ class _Pricer:
         self._unit = Decimal(1).scaleb(-definition.rounding_places)
         self._prices = {definition.import_prices.base.name: definition.import_prices.base.price}
         self._prices.update({zone.name: zone.price for zone in definition.import_prices.zones})
-        self._export_price = definition.export_prices.base.price
+        exported = definition.export_prices
+        self._export_base = exported.base.name
+        self._export_prices = {exported.base.name: exported.base.price}
+        self._export_prices.update({zone.name: zone.price for zone in exported.zones})
         self._inputs = inputs
 
     def _round(self, value: Decimal, rounding: NodeRounding) -> Decimal:
@@ -101,8 +106,7 @@ class _Pricer:
         if isinstance(node, EnergyByBand):
             return self._energy(node)
         if isinstance(node, ExportCredit):
-            credit = -self._inputs.export_kwh * self._export_price
-            return Line("export_credit", self._round(credit, node.rounding))
+            return self._export(node)
         if isinstance(node, PerDay):
             amount = node.amount * self._inputs.days
             return Line("per_day", self._round(amount, node.rounding))
@@ -122,6 +126,18 @@ class _Pricer:
         children = {band: Line("band", cost) for band, cost in costs.items()}
         amount = self._round(sum(costs.values(), Decimal(0)), node.rounding)
         return Line("energy_by_band", amount, children=children)
+
+    def _export(self, node: ExportCredit) -> Line:
+        exported = self._inputs.export_kwh
+        if not isinstance(exported, Mapping):
+            exported = {self._export_base: exported}
+        credits = {band: -kwh * self._export_prices[band] for band, kwh in exported.items()}
+        amount = self._round(sum(credits.values(), Decimal(0)), node.rounding)
+        # A flat export keeps the line it always had. Bands are listed only when there are some.
+        if len(self._export_prices) == 1:
+            return Line("export_credit", amount)
+        children = {band: Line("band", credit) for band, credit in credits.items()}
+        return Line("export_credit", amount, children=children)
 
     def _per_period(self, node: PerPeriod) -> Line:
         amount = node.amount

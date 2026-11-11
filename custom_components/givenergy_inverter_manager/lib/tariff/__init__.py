@@ -1,7 +1,7 @@
 """Tariff model, energy and cost accumulation, and bill maths. No knowledge of Home Assistant."""
 
 from .accumulator import CounterMemory, EnergyAccumulator
-from .bands import band_at, no_holidays
+from .bands import band_at, export_band_at, export_by_band, no_holidays
 from .billing import BillBreakdown, money
 from .compile import Locale, definition_from_config
 from .config import TariffConfig, cheapest_period
@@ -42,6 +42,8 @@ __all__ = [
     "Locale",
     "definition_from_config",
     "band_at",
+    "export_band_at",
+    "export_by_band",
     "no_holidays",
     "PeriodBill",
     "PeriodRules",

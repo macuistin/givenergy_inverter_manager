@@ -9,7 +9,7 @@ Shape, top level (every key is required unless marked optional):
     schema, id, revision, supersedes (null or an earlier revision), name, service, customer_class,
     provider {id, name}, country, region (null or ISO 3166-2), currency, timezone,
     effective_from, effective_to (null), source_url (null), last_verified (null), completeness,
-    inputs {name: {type, min, max, default}}, import {base, zones}, export {base},
+    inputs {name: {type, min, max, default}}, import {base, zones}, export {base, zones?},
     bill {period {rule, start_day}, total <node>}, checks {name: {...}} (optional)
 
 The bill tree and the vocabulary of node kinds are described in definition.py. Prices, amounts,
@@ -24,7 +24,7 @@ import re
 from collections.abc import Callable, Collection, Iterable, Mapping
 from datetime import date, time
 from decimal import Decimal
-from typing import Any
+from typing import Any, NamedTuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .defaults import MAX_TARIFF_TREE_DEPTH
@@ -108,7 +108,7 @@ def parse_definition(data: object) -> TariffDefinition:
     inputs = _inputs(doc.child("inputs"))
     import_prices, export_prices = _prices(doc)
     period, total = _bill(doc.child("bill"), inputs)
-    checks = _checks(doc, import_prices)
+    checks = _checks(doc, import_prices, export_prices)
     complete = doc.choice("completeness", ("complete", "partial")) == "complete"
     if complete and not checks:
         raise DefinitionError("completeness", "complete needs at least one entry in checks")
@@ -324,15 +324,28 @@ def _input_spec(fields: Fields) -> InputSpec:
 def _prices(doc: Fields) -> tuple[ImportPrices, ExportPrices]:
     imported = doc.child("import")
     imported.only(required=("base", "zones"))
-    zones = tuple(_zone_of(item) for item in _zone_fields(imported))
-    _unique(zones, imported, "name")
-    _unique(zones, imported, "priority")
-    base = _band(imported.child("base"))
-    if any(zone.name == base.name for zone in zones):
-        raise DefinitionError(imported.at("zones"), f"a zone is named {base.name!r}, like the base")
+    zones = _zones(imported)
     exported = doc.child("export")
-    exported.only(required=("base",))
-    return ImportPrices(base, zones), ExportPrices(_band(exported.child("base")))
+    exported.only(required=("base",), optional=("zones",))
+    export_zones = _zones(exported) if exported.has("zones") else ()
+    return (
+        ImportPrices(_base(imported, zones), zones),
+        ExportPrices(_base(exported, export_zones), export_zones),
+    )
+
+
+def _zones(prices: Fields) -> tuple[Zone, ...]:
+    zones = tuple(_zone_of(item) for item in _zone_fields(prices))
+    _unique(zones, prices, "name")
+    _unique(zones, prices, "priority")
+    return zones
+
+
+def _base(prices: Fields, zones: tuple[Zone, ...]) -> Band:
+    base = _band(prices.child("base"))
+    if any(zone.name == base.name for zone in zones):
+        raise DefinitionError(prices.at("zones"), f"a zone is named {base.name!r}, like the base")
+    return base
 
 
 def _zone_fields(imported: Fields) -> list[Fields]:
@@ -513,10 +526,12 @@ _NODE_PARSERS: dict[str, Callable[[Fields, int], Node]] = {
 }
 
 
-def _checks(doc: Fields, import_prices: ImportPrices) -> dict[str, Check]:
+def _checks(
+    doc: Fields, import_prices: ImportPrices, export_prices: ExportPrices
+) -> dict[str, Check]:
     if not doc.has("checks"):
         return {}
-    bands = {import_prices.base.name, *(zone.name for zone in import_prices.zones)}
+    bands = _Bands(_names(import_prices), _names(export_prices))
     fields = doc.child("checks")
     checks: dict[str, Check] = {}
     for name, _ in fields.items():
@@ -526,17 +541,36 @@ def _checks(doc: Fields, import_prices: ImportPrices) -> dict[str, Check]:
     return checks
 
 
-def _check(fields: Fields, bands: Collection[str]) -> Check:
+class _Bands(NamedTuple):
+    imported: Collection[str]
+    exported: Collection[str]
+
+
+def _names(prices: ImportPrices | ExportPrices) -> set[str]:
+    return {prices.base.name, *(zone.name for zone in prices.zones)}
+
+
+def _check(fields: Fields, bands: _Bands) -> Check:
     fields.only(required=("period_days", "import_kwh_by_band", "export_kwh", "expected_total"))
-    by_band = fields.child("import_kwh_by_band")
+    # A plain export figure is paid at the base export price. An object names the bands.
+    export: Decimal | dict[str, Decimal]
+    if isinstance(fields.raw("export_kwh"), Mapping):
+        export = _kwh_by_band(fields.child("export_kwh"), bands.exported, "an export band")
+    else:
+        export = fields.money("export_kwh")
+    imported = _kwh_by_band(fields.child("import_kwh_by_band"), bands.imported, "a band")
+    return Check(
+        period_days=fields.whole("period_days", 1, 366),
+        import_kwh_by_band=imported,
+        export_kwh=export,
+        expected_total=fields.signed("expected_total"),
+    )
+
+
+def _kwh_by_band(by_band: Fields, bands: Collection[str], what: str) -> dict[str, Decimal]:
     kwh: dict[str, Decimal] = {}
     for band, _ in by_band.items():
         if band not in bands:
-            raise DefinitionError(by_band.at(band), "is not a band of this tariff")
+            raise DefinitionError(by_band.at(band), f"is not {what} of this tariff")
         kwh[band] = by_band.money(band)
-    return Check(
-        period_days=fields.whole("period_days", 1, 366),
-        import_kwh_by_band=kwh,
-        export_kwh=fields.money("export_kwh"),
-        expected_total=fields.signed("expected_total"),
-    )
+    return kwh

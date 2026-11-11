@@ -1,6 +1,6 @@
 """period_bill.py: the bill so far for the current bill period, priced from the slot history.
 
-    slots  ->  bands.import_by_band  ->  engine.price_bill  ->  bill
+    slots  ->  bands.import_by_band, export_by_band  ->  engine.price_bill  ->  bill
 
 The history holds energy and no price, so any tariff definition can be priced over the same days
 with the same engine and the same rounding. The bill period comes from the definition's own start
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from .bands import import_by_band, no_holidays
+from .bands import export_by_band, import_by_band, no_holidays
 from .definition import TariffDefinition
 from .engine import BillInputs, PricedBill, price_bill
 from .slot_history import SlotHistory
@@ -83,7 +83,12 @@ def price_period(
     first, following = bill_period_bounds(rules.start_day or start_day_of(definition), through)
     days = history.between(first, through)
     bands = import_by_band(days, definition, rules.is_holiday)
-    export = _decimal(sum(day.total("export") for day in days))
+    # A flat export stays one total, so its credit is unchanged to the last decimal place.
+    export: Decimal | dict[str, Decimal]
+    if definition.export_prices.zones:
+        export = export_by_band(days, definition, rules.is_holiday)
+    else:
+        export = _decimal(sum(day.total("export") for day in days))
     length = (through - first).days + 1
     inputs = BillInputs(length, (following - first).days, bands, export)
     return PeriodBill(

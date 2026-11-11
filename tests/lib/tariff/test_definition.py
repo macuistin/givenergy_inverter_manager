@@ -216,7 +216,7 @@ def test_input_and_period_refusals(edit: Edit, where: str, text: str) -> None:
         (lambda d: d["import"]["zones"][0].update(valid="2026"), "import.zones[0].valid", "not a known"),
         (lambda d: d["import"].update(zones="x"), "import.zones", "list"),
         (lambda d: d["import"]["zones"].append(5), "import.zones[2]", "object"),
-        (lambda d: d["export"].update(zones=[]), "export.zones", "not a known"),
+        (lambda d: d["export"].update(tiers=[]), "export.tiers", "not a known"),
     ],
 )
 def test_price_refusals(edit: Edit, where: str, text: str) -> None:
