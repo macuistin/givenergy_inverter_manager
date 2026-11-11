@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """Slots matched to the bands of a definition, and checked against the existing tariff model."""
 
 from __future__ import annotations

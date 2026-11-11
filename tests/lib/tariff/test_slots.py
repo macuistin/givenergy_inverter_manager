@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """One local day in half-hour slots: boundaries, clock changes, coverage and storage."""
 
 from __future__ import annotations

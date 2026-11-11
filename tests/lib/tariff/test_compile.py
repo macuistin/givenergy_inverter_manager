@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The options written as a definition bill the same as the existing bill maths."""
 
 from __future__ import annotations

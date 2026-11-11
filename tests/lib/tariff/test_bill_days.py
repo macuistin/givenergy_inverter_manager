@@ -1,11 +1,11 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The stored rows of a bill period: what a day holds and when the tariff is recorded."""
 
 from __future__ import annotations
 
 from datetime import date
 
-from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
+from custom_components.givenergy_inverter_manager.lib.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.lib.tariff.bill_days import (
     day_row,
     tariff_changes,
@@ -13,9 +13,17 @@ from custom_components.givenergy_inverter_manager.lib.tariff.bill_days import (
     tariff_in_effect,
     with_day,
 )
-from tests.conftest import _nightboost_cfg
 
-OLD = tariff_snapshot(_nightboost_cfg())
+# What a tariff snapshot holds: the fields that price a bill. Round figures, no supplier's.
+OLD = {
+    "base_rate": 0.3334,
+    "base_rate_name": "Day",
+    "rate_periods": [{"name": "Night", "rate": 0.16, "start": "23:00", "end": "08:00"}],
+    "export_rate": 0.195,
+    "standing_charge_per_day": 0.8,
+    "vat_rate": 9.0,
+    "bill_start_day": 16,
+}
 NEW = {**OLD, "base_rate": 0.40}
 
 
@@ -70,24 +78,6 @@ class TestDayRow:
         import json
 
         json.dumps(day_row(_acc(import_kwh_by_period={"Night": 1.234567891}), date(2026, 10, 1)))
-
-
-class TestTariffSnapshot:
-    def test_it_keeps_only_what_prices_a_bill(self):
-        snap = tariff_snapshot({**_nightboost_cfg(), "target_soc_entity": "number.x"})
-
-        assert "target_soc_entity" not in snap
-        assert snap["base_rate"] == 0.3334
-        assert [p["name"] for p in snap["rate_periods"]] == ["Night", "Nightboost"]
-        assert snap["standing_charge_per_day"] == 0.8259
-        assert snap["bill_start_day"] == 16
-
-    def test_a_snapshot_is_a_copy_of_the_options(self):
-        cfg = _nightboost_cfg()
-        snap = tariff_snapshot(cfg)
-
-        snap["rate_periods"][0]["rate"] = 99
-        assert cfg["rate_periods"][0]["rate"] != 99
 
 
 class TestRecordingTheTariff:

@@ -6,10 +6,10 @@ definition that `lib/tariff` prices. It also validates a custom tariff a user ty
 
 This folder is a copy. It is written and tested in `macuistin/utility-tariffs`, folder
 `lib/tariffstore`. `UPSTREAM.json` records the commit it was copied from and a SHA-256 of each
-file, and `tests/lib/tariffstore/test_upstream.py` fails when a file here no longer matches.
+file, and `tests/lib/test_upstream.py` fails when a file here no longer matches.
 
 - Never edit a file here. Change it in the store's repository. The Copy tariffstore workflow
-  copies the folder and its tests each week and opens a pull request. To copy by hand, run
+  copies it, `lib/tariff`, `lib/timeutil` and their tests each week and opens a pull request. To copy by hand, run
   `python scripts/copy_tariffstore.py <path to a checkout>`, which also rewrites `UPSTREAM.json`.
 - A release is refused while the copy is behind the store (`--check` in the release workflow).
 - The store's lint holds the code to this repository's limits, so the copy passes here unchanged.

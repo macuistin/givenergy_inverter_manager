@@ -462,7 +462,7 @@ def _release_runs() -> list[str]:
     return [step.get("run", "") for step in _workflow("release.yml")["jobs"]["release"]["steps"]]
 
 
-def test_a_new_release_is_refused_when_the_tariff_store_client_is_behind():
+def test_a_new_release_is_refused_when_a_copied_tariff_library_is_behind():
     runs = _release_runs()
     check = next(i for i, run in enumerate(runs) if "copy_tariffstore.py --check" in run)
     tagging = next(i for i, run in enumerate(runs) if "git tag" in run)

@@ -1,7 +1,8 @@
 name: Copy tariffstore
 
-# Keeps lib/tariffstore in step with the tariff store it is written in. Copies the library and its
-# tests from macuistin/utility-tariffs and opens a pull request when anything changed. A person
+# Keeps the tariff libraries in step with the tariff store they are written in: lib/tariff (the
+# bill engine), lib/timeutil and lib/tariffstore (the store client). Copies them and their tests
+# from macuistin/utility-tariffs and opens a pull request when anything changed. A person
 # reviews and merges it. HACS ships this repository as it stands, so there is no build step to
 # copy at: the copy has to be committed.
 on:
@@ -40,7 +41,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Copy the library and its tests
+      - name: Copy the libraries and their tests
         id: copy
         run: |
           git clone --quiet --depth 1 "$STORE" "$RUNNER_TEMP/store"
@@ -56,7 +57,7 @@ jobs:
         run: |
           short="${COMMIT:0:7}"
           branch="chore/tariffstore-copy-$short"
-          title="chore(lib): copy tariffstore at $short"
+          title="chore(lib): copy the tariff libraries at $short"
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
             echo "A pull request for $short was already opened." >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -64,7 +65,7 @@ jobs:
           {
             echo "## Summary"
             echo
-            echo "Copies \`lib/tariffstore\` and its tests from $STORE/commit/$COMMIT."
+            echo "Copies \`lib/tariff\`, \`lib/timeutil\`, \`lib/tariffstore\` and their tests from $STORE/commit/$COMMIT."
             echo "Opened by the Copy tariffstore workflow. The files are never edited here."
             echo
             echo "## Changes"
@@ -79,12 +80,12 @@ jobs:
             echo
             echo "## Impact"
             echo
-            echo "Read the diff for a change in what the client does. A copy alone changes nothing a user sees."
+            echo "Read the diff for a change in how a bill is priced or what the client does, and add a changelog entry for one a user can see."
           } > "$RUNNER_TEMP/body.md"
           git config user.name "tariffstore-copy"
           git config user.email "tariffstore-copy@users.noreply.github.com"
           git checkout -b "$branch"
-          git add custom_components/givenergy_inverter_manager/lib/tariffstore tests/lib/tariffstore
+          git add custom_components/givenergy_inverter_manager/lib tests/lib
           git commit -m "$title"
           git push origin "$branch"
           gh label create tariffstore-copy --color 0E8A16 --description "Opened by the Copy tariffstore workflow" 2>/dev/null || true

@@ -73,7 +73,7 @@ jobs:
       # lib/tariffstore is a copy of the tariff store's client. A release ships the copy as it
       # stands, so a copy that is behind is refused. A release that is already published is only
       # having its notes replaced, and is not held to a store that has moved on since.
-      - name: The tariff store client is the store's latest
+      - name: The tariff libraries are the store's latest
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}

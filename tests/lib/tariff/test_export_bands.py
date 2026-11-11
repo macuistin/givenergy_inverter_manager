@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """An export price that changes with the time of day: the document, the slots and the credit."""
 
 from __future__ import annotations

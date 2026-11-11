@@ -1,3 +1,4 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The engine prices a definition: the worked October bill, and each node on its own."""
 
 from __future__ import annotations
