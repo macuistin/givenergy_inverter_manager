@@ -102,8 +102,15 @@ def _compile_problems(doc: Doc, block: Doc, meta: Doc) -> list[str]:
     return found
 
 
+def _holiday_problem(doc: Doc, block: Doc) -> list[str]:
+    """A band priced by public holidays needs the country to hold them."""
+    if "holidays" in block or not any("holidays" in band for band in doc["bands"]):
+        return []
+    return ["a band counts public holidays, and the country block holds none"]
+
+
 def _file_problems(doc: Doc, meta: Doc, block: Doc, tariffs: Tariffs) -> list[str]:
-    found = check_references(doc, block)
+    found = check_references(doc, block) + _holiday_problem(doc, block)
     found += _export_problem(doc, meta["revision"], tariffs, meta["country"])
     if doc.get("direction") != "export":
         found += _compile_problems(doc, block, meta)

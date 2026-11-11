@@ -7,7 +7,7 @@ import unittest
 from custom_components.givenergy_inverter_manager.lib.tariffstore import index as idx
 from custom_components.givenergy_inverter_manager.lib.tariffstore import layout
 from custom_components.givenergy_inverter_manager.lib.tariffstore.schema import checksum
-from .fixtures import country, export, flat, tariff
+from .fixtures import country, export, flat, holidays, tariff
 
 UNAVAILABLE = {"schema": 1, "countries": {"XX": {"reason": "No source", "checked": "2026-11-10"}}}
 
@@ -25,6 +25,14 @@ class Problems(unittest.TestCase):
                       problems({}, {k: v for k, v in country().items() if k != "currency"}))
         self.assertEqual(idx.problems("GB", country(), {}), ["country block: country must be GB"])
         self.assertIn("p/plan/1.json: schema: must be 1", problems({"p/plan/1.json": tariff(schema=3)}))
+
+    def test_a_band_that_counts_holidays_needs_the_country_to_hold_them(self) -> None:
+        bands = [{"name": "Day"}, {"name": "Night", "hours": "23:00-08:00", "days": ["sat", "sun"],
+                                   "holidays": "weekend"}]
+        files = {"p/plan/1.json": tariff(bands=bands)}
+        self.assertEqual(problems(files), [
+            "p/plan/1: a band counts public holidays, and the country block holds none"])
+        self.assertEqual(problems(files, {**country(), "holidays": holidays()}), [])
 
     def test_a_file_in_the_wrong_place_is_named(self) -> None:
         for path in ("plan.json", "p/plan/one.json", "p/plan/0.json", "P/plan/1.json", "p/x/y/1.json"):

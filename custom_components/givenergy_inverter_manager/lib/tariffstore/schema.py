@@ -25,7 +25,9 @@ TARIFF_REQUIRED = {"schema", "name", "provider", "effective_from", "source", "ba
 TARIFF_OPTIONAL = {"effective_to", "service", "customer_class", "timezone", "direction", "export",
                    "prices_include_tax", "bill", "inputs", "checks"}
 COUNTRY_RESERVED = {"schema", "country", "currency", "timezone", "vat_percent", "bill", "inputs",
-                    "availability", "reason", "providers"}
+                    "availability", "reason", "holidays", "providers"}
+YEAR = re.compile(r"^\d{4}$")
+REGION = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,3}$")
 BAND_FIELDS = {"name", "hours", "days", "months", "holidays"}
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 # How much of a country's rates the repository holds. A country with tariff files is available or
@@ -44,6 +46,7 @@ MAX_DEPTH = 8
 OPEN = "9999-12-31"
 COUNTRY_REQUIRED = ("country", "currency", "timezone", "vat_percent", "bill")
 AREA_FIELDS = {"label", "region", "standing", "rates"}
+HOLIDAY_FIELDS = {"source", "years", "regions"}
 Doc = dict[str, Any]
 
 
@@ -310,6 +313,43 @@ def _availability(block: Doc, errors: list[str]) -> None:
         errors.append("reason: a partial country says what is missing")
 
 
+def _day_in(day: object, year: str) -> bool:
+    return isinstance(day, str) and len(day) == 10 and stamp_ok(day) and day.startswith(year)
+
+
+def _holiday_years(years: object, where: str, errors: list[str]) -> None:
+    """One list of dates for each year held. A year that is missing is not known, never empty."""
+    if not isinstance(years, dict) or not years:
+        errors.append(f"{where}: must be an object of year to dates")
+        return
+    for year, days in years.items():
+        if not (YEAR.match(str(year)) and isinstance(days, list) and days):
+            errors.append(f"{where}.{year}: must be a year with a list of dates")
+        elif not all(_day_in(day, str(year)) for day in days):
+            errors.append(f"{where}.{year}: every entry must be a date in {year}")
+        elif days != sorted(set(days)):
+            errors.append(f"{where}.{year}: dates must be in order with none repeated")
+
+
+def _holidays(block: Doc, errors: list[str]) -> None:
+    """The public holidays a band with `"holidays": "weekend"` is priced by."""
+    held = block["holidays"]
+    if not isinstance(held, dict) or not {"source", "years"} <= set(held) <= HOLIDAY_FIELDS:
+        errors.append("holidays: needs source and years, and may have regions")
+        return
+    if not str(held["source"]).startswith("https://"):
+        errors.append("holidays.source: must be the https address the dates are published at")
+    _holiday_years(held["years"], "holidays.years", errors)
+    regions = held.get("regions", {})
+    if not isinstance(regions, dict):
+        errors.append("holidays.regions: must be an object of region to years")
+        return
+    for code, years in regions.items():
+        if not (REGION.match(str(code)) and str(code).startswith(f"{block['country']}-")):
+            errors.append(f"holidays.regions.{code}: must be an ISO 3166-2 code of this country")
+        _holiday_years(years, f"holidays.regions.{code}", errors)
+
+
 def validate_country(block: object) -> list[str]:
     """Refusals for the hand-maintained top block of a country index."""
     if not isinstance(block, dict):
@@ -329,6 +369,8 @@ def validate_country(block: object) -> list[str]:
     if "inputs" in block:
         _inputs(block["inputs"], errors)
     _availability(block, errors)
+    if "holidays" in block:
+        _holidays(block, errors)
     return errors
 
 
@@ -364,3 +406,14 @@ def vat_on(block: Doc, on: str) -> str | None:
         if entry.get("effective_from", "0000-01-01") <= on < entry.get("effective_to", OPEN):
             found = entry["percent"]
     return found
+
+
+def holiday_years(block: Doc, region: str | None = None) -> dict[int, frozenset[str]] | None:
+    """{year: ISO dates} of the public holidays a country block holds, or None when it holds none.
+
+    A region that has its own list uses it whole. Any other region has the country's list."""
+    held = block.get("holidays")
+    if held is None:
+        return None
+    years = held.get("regions", {}).get(region, held["years"])
+    return {int(year): frozenset(days) for year, days in years.items()}
