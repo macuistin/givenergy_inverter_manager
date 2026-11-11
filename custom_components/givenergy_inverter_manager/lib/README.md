@@ -29,4 +29,5 @@ inside that folder until it is published somewhere installable.
 | `heating` | Hot-water heating planner: ready-by plans, the cheapest window, the learned heating rate | `timeutil`, `tariff` |
 | `guards` | Screening of inverter energy counters, and the list of settings the inverter did not take | `timeutil`, `tariff` |
 | `solar` | Solar forecast shape, the settled solar day and rebuilding forecast accuracy from history | `timeutil` |
+| `tariffstore` | Client for the open tariff store: find, fetch, check, cache and compile a tariff. A copy, see its README | none |
 | `givtcp` | GivTCP client: discovery, reads, verified writes and write order, plus its value types and system model | `timeutil` |

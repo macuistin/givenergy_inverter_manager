@@ -6,6 +6,9 @@ on:
   pull_request:
   schedule:
     - cron: "41 3 * * *"
+  # The tariffstore copy workflow starts this on the branch it pushes, because a pull request
+  # opened with the built-in token does not start workflows on its own.
+  workflow_dispatch:
 
 permissions:
   contents: read
