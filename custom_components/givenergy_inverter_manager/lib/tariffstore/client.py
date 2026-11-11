@@ -57,7 +57,8 @@ def url_reader(base: str, timeout: float = 30) -> Callable[[str], bytes]:
     def read(path: str) -> bytes:
         request = urllib.request.Request(f"{base.rstrip('/')}/{path}",
                                          headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        # The base is https, checked above, so no file or other scheme can reach this call.
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310
             body: bytes = response.read()
         return body
     return read
