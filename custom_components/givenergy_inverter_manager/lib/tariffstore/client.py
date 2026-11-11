@@ -30,7 +30,7 @@ from pathlib import Path
 
 from .compile import CompileError, compile_area
 from .index import SCHEMA, block_of
-from .schema import Doc, checksum, validate_country, validate_tariff
+from .schema import Doc, checksum, holiday_years, validate_country, validate_tariff
 
 OPEN = "9999-12-31"
 USER_AGENT = "tariffstore-client/1"
@@ -275,6 +275,23 @@ class Store:
                     self._checked(path, revision["checksum"])
                     count += 1
         return count
+
+    def is_holiday(self, code: str, region: str | None = None) -> Callable[[date], bool]:
+        """Whether a day is a public holiday in the country, for the engine to price a band that
+        treats one as a weekend day. `region` is an ISO 3166-2 code, for a country whose regions
+        keep different days.
+
+        A country that holds no holidays is refused here. A day in a year that is not held is
+        refused when it is asked about, because a missing year is not a year without holidays."""
+        years = holiday_years(self.country(code), region)
+        if years is None:
+            raise StoreError(f"{code.upper()}: no public holidays are held")
+
+        def is_holiday(day: date) -> bool:
+            if day.year not in years:
+                raise StoreError(f"{code.upper()}: no public holidays are held for {day.year}")
+            return day.isoformat() in years[day.year]
+        return is_holiday
 
     def areas(self, code: str, provider: str, tariff: str, on: date) -> dict[str, str]:
         """{area key: label} a customer chooses from. A tariff with one price has the area `all`."""

@@ -12,7 +12,7 @@ from unittest import mock
 
 from custom_components.givenergy_inverter_manager.lib.tariffstore import FolderCache, MemoryCache, Store, StoreError, client, folder_reader, url_reader
 from .building import build_store
-from .fixtures import country, export, flat, tariff, write_store
+from .fixtures import country, export, flat, holidays, tariff, write_store
 
 DAY = date(2026, 11, 10)
 FILES = {"p/plan/1.json": tariff(export="p/out"), "p/out/1.json": export(),
@@ -34,6 +34,36 @@ class StoreCase(unittest.TestCase):
             return reader(path)
         self.cache = MemoryCache()
         self.store = Store(read, self.cache)
+
+
+class Holidays(unittest.TestCase):
+    def store(self, block: dict) -> Store:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tariffs = write_store(Path(tmp.name), FILES, block=block)
+        build_store(self.tariffs)
+        return Store(folder_reader(self.tariffs))
+
+    def test_a_day_is_a_holiday_when_the_country_lists_it(self) -> None:
+        is_holiday = self.store({**country(), "holidays": holidays()}).is_holiday("ie")
+        self.assertTrue(is_holiday(date(2026, 10, 26)))
+        self.assertFalse(is_holiday(date(2026, 10, 27)))
+
+    def test_a_region_with_its_own_days_uses_them_and_any_other_uses_the_countrys(self) -> None:
+        held = holidays(IE_D={"2026": ["2026-01-02"]})
+        store = self.store({**country(), "holidays": held})
+        self.assertTrue(store.is_holiday("IE", "IE-D")(date(2026, 1, 2)))
+        self.assertFalse(store.is_holiday("IE", "IE-D")(date(2026, 1, 1)))
+        self.assertTrue(store.is_holiday("IE", "IE-C")(date(2026, 1, 1)))
+
+    def test_a_year_that_is_not_held_is_refused_and_not_read_as_no_holidays(self) -> None:
+        is_holiday = self.store({**country(), "holidays": holidays()}).is_holiday("IE")
+        with self.assertRaisesRegex(StoreError, "IE: no public holidays are held for 2027"):
+            is_holiday(date(2027, 1, 1))
+
+    def test_a_country_that_holds_no_holidays_is_refused(self) -> None:
+        with self.assertRaisesRegex(StoreError, "IE: no public holidays are held$"):
+            self.store(country()).is_holiday("ie")
 
 
 class Finding(StoreCase):

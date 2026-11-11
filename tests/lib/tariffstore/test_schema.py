@@ -6,7 +6,7 @@ import unittest
 
 from custom_components.givenergy_inverter_manager.lib.tariffstore.schema import (canonical, checksum, stamp_ok, validate_country, validate_tariff,
                                     validate_unavailable, vat_on)
-from .fixtures import country, export, tariff
+from .fixtures import country, export, holidays, tariff
 
 
 def errors_for(**changes) -> list[str]:
@@ -162,6 +162,42 @@ class CountryBlock(unittest.TestCase):
     def test_any_other_value_is_a_decimal_a_bill_can_use(self) -> None:
         self.assertEqual(validate_country({**country(), "pso_levy": "3.23"}), [])
         self.assertIn("pso_levy: must be a decimal string", validate_country({**country(), "pso_levy": 3.23}))
+
+    def test_public_holidays_are_held_by_year_with_their_source(self) -> None:
+        self.assertEqual(validate_country({**country(), "holidays": holidays()}), [])
+        regional = holidays(IE_D={"2026": ["2026-01-01", "2026-01-02"]})
+        self.assertEqual(validate_country({**country(), "holidays": regional}), [])
+
+    def test_malformed_public_holidays_are_named(self) -> None:
+        def refusals(**changes) -> list[str]:
+            return validate_country({**country(), "holidays": {**holidays(), **changes}})
+        self.assertEqual(validate_country({**country(), "holidays": ["2026-01-01"]}),
+                         ["holidays: needs source and years, and may have regions"])
+        self.assertEqual(refusals(note="x"), ["holidays: needs source and years, and may have regions"])
+        self.assertIn("holidays.source: must be the https address the dates are published at",
+                      refusals(source="a calendar"))
+        self.assertEqual(refusals(years={}), ["holidays.years: must be an object of year to dates"])
+        self.assertEqual(refusals(years={"2026": []}),
+                         ["holidays.years.2026: must be a year with a list of dates"])
+        self.assertEqual(refusals(years={"26": ["2026-01-01"]}),
+                         ["holidays.years.26: must be a year with a list of dates"])
+        self.assertEqual(refusals(years={"2026": ["2027-01-01"]}),
+                         ["holidays.years.2026: every entry must be a date in 2026"])
+        self.assertEqual(refusals(years={"2026": ["2026-01-01T00:00:00Z"]}),
+                         ["holidays.years.2026: every entry must be a date in 2026"])
+        for days in (["2026-12-25", "2026-01-01"], ["2026-01-01", "2026-01-01"]):
+            self.assertEqual(refusals(years={"2026": days}),
+                             ["holidays.years.2026: dates must be in order with none repeated"])
+
+    def test_a_region_of_another_country_or_a_malformed_one_is_refused(self) -> None:
+        def refusals(regions: object) -> list[str]:
+            return validate_country({**country(), "holidays": {**holidays(), "regions": regions}})
+        self.assertEqual(refusals(["IE-D"]), ["holidays.regions: must be an object of region to years"])
+        for code in ("GB-SCT", "Dublin"):
+            self.assertEqual(refusals({code: {"2026": ["2026-01-01"]}}),
+                             [f"holidays.regions.{code}: must be an ISO 3166-2 code of this country"])
+        self.assertEqual(refusals({"IE-D": {"2026": "all"}}),
+                         ["holidays.regions.IE-D.2026: must be a year with a list of dates"])
 
     def test_vat_can_change_by_date_and_falls_back(self) -> None:
         dated = [{"percent": "5"},

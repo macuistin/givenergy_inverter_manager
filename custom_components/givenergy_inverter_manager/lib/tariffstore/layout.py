@@ -9,7 +9,7 @@ import json
 from typing import Any
 
 INDEX_FIRST = ("schema", "country", "currency", "timezone", "vat_percent", "availability", "reason",
-               "inputs", "bill")
+               "inputs", "bill", "holidays")
 TARIFF_FIRST = ("schema", "name", "provider", "service", "customer_class", "direction", "timezone",
                 "effective_from", "effective_to", "source", "prices_include_tax", "export")
 TARIFF_LAST = ("bands", "areas")

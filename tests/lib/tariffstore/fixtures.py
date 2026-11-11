@@ -22,6 +22,15 @@ def country(vat="9", code="IE") -> dict:
             "bill": copy.deepcopy(BILL), "inputs": copy.deepcopy(INPUTS)}
 
 
+def holidays(**regions) -> dict:
+    """Public holidays for a country block: three days of 2026, and a region's own list if given."""
+    held = {"source": "https://example.test/public-holidays",
+            "years": {"2026": ["2026-01-01", "2026-10-26", "2026-12-25"]}}
+    if regions:
+        held["regions"] = {code.replace("_", "-"): years for code, years in regions.items()}
+    return held
+
+
 def tariff(**changes) -> dict:
     doc = {"schema": 1, "name": "Plan", "provider": "P Energy", "effective_from": "2026-11-01",
            "source": dict(SOURCE),
