@@ -2,7 +2,8 @@
 tariff_source.py - copy a store tariff into the saved tariff options, and prove the copy is right.
 
 The saved options describe a flat tariff: a base rate, timed rates where the cheapest wins, one
-export rate, a standing charge, a monthly levy, a saving and VAT added on top of the prices. A
+export rate, a standing charge, a monthly levy, a saving and VAT, either added on top of the prices
+or already inside them (`vat_included`). A
 tariff from the store is a document with richer rules. `materialise` turns the document into those
 options when, and only when, the options can price it the same. `prices_match` is the proof: it
 prices both over probe usage and compares the totals to the smallest currency unit.
@@ -16,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import time
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any
 
 from ..conf import (
@@ -28,6 +29,7 @@ from ..conf import (
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
     CONF_STANDING_CHARGE,
+    CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
 )
 from ..lib.tariff import (
@@ -52,7 +54,6 @@ from ..lib.tariff.definition import (
 from .tariff_config import build_tariff
 
 MAX_TIMED_RATES = 5  # the options form holds this many timed rates
-PRICE_PLACES = Decimal("0.000001")  # the store holds prices to six places
 SLOTS_PER_DAY = 48
 PROBE_DAYS = 30
 
@@ -164,23 +165,16 @@ def _cheapest_is_not_last(zones: tuple[Zone, ...]) -> bool:
     return False
 
 
-def _ex_vat(price: Decimal, vat: Tax | None) -> Decimal:
-    """A published price without the VAT inside it, to the store's six places."""
-    if vat is None or vat.mode is not TaxMode.INCLUDED:
-        return price
-    return (price / (1 + vat.percent / 100)).quantize(PRICE_PLACES, ROUND_HALF_UP)
-
-
 def _number(value: Decimal) -> float:
     return float(value)
 
 
-def _periods(definition: TariffDefinition, vat: Tax | None) -> list[dict[str, Any]]:
+def _periods(definition: TariffDefinition) -> list[dict[str, Any]]:
     ordered = sorted(definition.import_prices.zones, key=lambda z: z.priority)
     return [
         {
             "name": z.name,
-            "rate": _number(_ex_vat(z.price, vat)),
+            "rate": _number(z.price),
             "start": _clock(z.start),
             "end": _clock(z.end),
         }
@@ -204,13 +198,14 @@ def materialise(definition: TariffDefinition) -> dict[str, Any]:
         raise NotRepresentable(reasons)
     vat = found.vat
     return {
-        CONF_BASE_RATE: _number(_ex_vat(definition.import_prices.base.price, vat)),
+        CONF_BASE_RATE: _number(definition.import_prices.base.price),
         CONF_BASE_RATE_NAME: definition.import_prices.base.name,
-        CONF_RATE_PERIODS: _periods(definition, vat),
+        CONF_RATE_PERIODS: _periods(definition),
         CONF_EXPORT_RATE: _number(definition.export_prices.base.price),
-        CONF_STANDING_CHARGE: _number(_ex_vat(found.standing.amount, vat)),
+        CONF_STANDING_CHARGE: _number(found.standing.amount),
         CONF_PSO_LEVY: _number(found.levy.amount) if found.levy else 0.0,
         CONF_VAT_RATE: _number(vat.percent) if vat else 0.0,
+        CONF_VAT_INCLUDED: bool(vat and vat.mode is TaxMode.INCLUDED),
         CONF_DISCOUNT_RATE: _number(-found.saving.percent) if found.saving else 0.0,
         CONF_CURRENCY: definition.currency,
     }

@@ -33,6 +33,12 @@ class TariffConfig:
     vat_rate: float  # % e.g. 9.0
     discount_rate: float  # % e.g. 5.5
     bill_start_day: int  # day of month billing period starts
+    vat_included: bool = False  # True when the prices already include VAT (vat_rate is inside them)
+
+    @property
+    def _vat_factor(self) -> float:
+        """What VAT multiplies a price by: nothing when the prices already include it."""
+        return 1.0 if self.vat_included else 1 + self.vat_rate / 100
 
     @property
     def _base_rate_period(self) -> RatePeriod:
@@ -101,7 +107,7 @@ class TariffConfig:
         """Calculate cost of importing energy at the current rate."""
         rate = self.get_current_rate(dt)
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
-        return gross * (1 + self.vat_rate / 100)
+        return gross * self._vat_factor
 
     def effective_import_rate(self, rate: float) -> float:
         """What one kWh costs at this unit rate once the discount and VAT are applied.
@@ -109,7 +115,7 @@ class TariffConfig:
         Uses the same two factors as calculate_import_cost, so a price compared with it is
         compared with what the cost sensors charge.
         """
-        return rate * (1 - self.discount_rate / 100) * (1 + self.vat_rate / 100)
+        return rate * (1 - self.discount_rate / 100) * self._vat_factor
 
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
@@ -117,7 +123,7 @@ class TariffConfig:
 
     def energy_cost_from_import_cost(self, import_cost: float) -> float:
         """Reverse the discount and VAT applied to accumulated import cost."""
-        factor = (1 - self.discount_rate / 100) * (1 + self.vat_rate / 100)
+        factor = (1 - self.discount_rate / 100) * self._vat_factor
         return import_cost / factor if factor > 0 else 0.0
 
     def calculate_bill(
@@ -131,7 +137,8 @@ class TariffConfig:
 
         The supplier saving applies to energy only. VAT applies to energy less the
         saving, plus standing charge and PSO levy. The export credit carries no VAT
-        and comes off after VAT.
+        and comes off after VAT. When the prices include VAT, the VAT figure is the part
+        already inside the total and nothing is added.
         """
         energy = money(energy_cost)
         saving = money(energy_cost * self.discount_rate / 100)
@@ -142,7 +149,12 @@ class TariffConfig:
             share = min(1.0, days / _AVERAGE_DAYS_PER_MONTH)
         pso = money(self.pso_levy * share)
         before_vat = money(energy - saving + standing + pso)
-        vat = money(before_vat * self.vat_rate / 100)
+        if self.vat_included:
+            vat = money(before_vat * self.vat_rate / (100 + self.vat_rate))  # already inside
+            payable = before_vat
+        else:
+            vat = money(before_vat * self.vat_rate / 100)
+            payable = money(before_vat + vat)
         export = money(export_credit)
         return BillBreakdown(
             energy=energy,
@@ -151,7 +163,7 @@ class TariffConfig:
             pso_levy=pso,
             vat=vat,
             export_credit=export,
-            total=money(before_vat + vat - export),
+            total=money(payable - export),
         )
 
     def _bill_start_date(self, year: int, month: int) -> date:

@@ -60,6 +60,7 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "standing_charge_per_day": (0.8, 0.9, LIVE),
     "pso_levy_per_month": (1.4, 1.5, LIVE),
     "vat_rate": (9.0, 13.5, LIVE),
+    "vat_included": (False, True, LIVE),
     "discount_rate": (5.5, 6.0, LIVE),
     "bill_start_day": (1, 16, LIVE),
     "tariff_changes": (

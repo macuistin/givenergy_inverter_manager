@@ -136,3 +136,19 @@ def test_a_start_day_past_the_end_of_a_month_uses_its_last_day():
 
     assert tariff.days_in_bill_period(february) == 28
     assert tariff.days_in_current_bill_period(february) == 11
+
+
+def test_prices_that_include_vat_add_none_to_the_import_cost():
+    tariff = _tariff(vat_included=True)
+    # 10 kWh at 0.33 less 5%: the 10% VAT is already inside the price, so nothing is added.
+    assert tariff.calculate_import_cost(10.0, _at(12)) == pytest.approx(3.135)
+    assert tariff.effective_import_rate(0.20) == pytest.approx(0.19)
+    assert tariff.energy_cost_from_import_cost(3.135) == pytest.approx(3.30)
+
+
+def test_a_bill_with_vat_included_reports_the_vat_inside_the_total():
+    bill = _tariff(vat_included=True).calculate_bill(100.0, 30, period_days=30, export_credit=5.0)
+
+    # 100 - 5 + 24 + 1.50 = 120.50 is the whole charge. The VAT inside it is 120.50 x 10 / 110.
+    assert bill.vat == 10.95
+    assert bill.total == 115.5  # 120.50 - 5.00 export credit, with nothing added
