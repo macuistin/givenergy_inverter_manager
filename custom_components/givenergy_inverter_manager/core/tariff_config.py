@@ -21,6 +21,7 @@ from ..conf import (
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
     CONF_STANDING_CHARGE,
+    CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
 )
 from ..defaults import (
@@ -32,6 +33,7 @@ from ..defaults import (
     DEFAULT_PSO_LEVY,
     DEFAULT_RATE_PERIODS,
     DEFAULT_STANDING_CHARGE,
+    DEFAULT_VAT_INCLUDED,
     DEFAULT_VAT_RATE,
 )
 from ..lib.tariff import RatePeriod, TariffConfig
@@ -72,6 +74,7 @@ def build_tariff(cfg: dict[str, Any]) -> TariffConfig:
         standing_charge=float(cfg.get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE)),
         pso_levy=float(cfg.get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)),
         vat_rate=float(cfg.get(CONF_VAT_RATE, DEFAULT_VAT_RATE)),
+        vat_included=bool(cfg.get(CONF_VAT_INCLUDED, DEFAULT_VAT_INCLUDED)),
         discount_rate=float(cfg.get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE)),
         bill_start_day=int(cfg.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY)),
     )

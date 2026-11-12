@@ -127,14 +127,16 @@ def test_a_second_tax_is_refused() -> None:
         materialise(parse_definition(document))
 
 
-def test_prices_that_include_vat_are_converted_and_checked() -> None:
+def test_prices_that_include_vat_are_kept_as_published_and_match_exactly() -> None:
     document = _document()
     document["bill"]["total"]["mode"] = "included"
+    document["bill"]["total"]["of"]["of"]["credit"] = {"kind": "export_credit"}  # paid, untaxed
     definition = parse_definition(document)
     options = materialise(definition)
-    assert options["base_rate"] == pytest.approx(0.365 / 1.09, abs=1e-6)
-    # The conversion can differ by a cent over a bill, so the check, not the conversion, decides.
-    assert isinstance(prices_match(definition, options), list)
+    assert options["base_rate"] == 0.365  # not converted: the VAT stays inside the price
+    assert options["vat_included"] is True
+    assert options["vat_rate"] == 9.0
+    assert prices_match(definition, options) == []
 
 
 def test_a_wrong_copy_is_caught() -> None:
@@ -142,3 +144,10 @@ def test_a_wrong_copy_is_caught() -> None:
     options = materialise(definition)
     options["standing_charge_per_day"] = 0.9
     assert prices_match(definition, options)
+
+
+def test_the_saved_vat_included_option_reaches_the_tariff() -> None:
+    from custom_components.givenergy_inverter_manager.core.tariff_config import build_tariff
+
+    assert build_tariff({}).vat_included is False
+    assert build_tariff({"vat_included": True}).vat_included is True

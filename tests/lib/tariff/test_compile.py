@@ -40,6 +40,8 @@ def compiled(**changes):  # type: ignore[no-untyped-def]
         {"standing_charge": 0.0, "export_rate": 0.0},
         {"base_rate": 0.3334, "discount_rate": 3.25},
         {"rate_periods": []},
+        {"vat_included": True},
+        {"vat_included": True, "discount_rate": 0.0, "base_rate": 0.3334},
     ],
 )
 def test_bill_matches_calculate_bill(changes: dict, days: int) -> None:

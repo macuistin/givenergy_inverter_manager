@@ -107,7 +107,7 @@ def _total(config: TariffConfig) -> dict[str, Any]:
         "kind": "tax",
         "name": "VAT",
         "percent": _text(config.vat_rate),
-        "mode": "added",
+        "mode": "included" if config.vat_included else "added",
         "of": {
             "kind": "sum",
             "of": {

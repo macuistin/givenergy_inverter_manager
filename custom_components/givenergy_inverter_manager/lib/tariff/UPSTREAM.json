@@ -1,7 +1,7 @@
 {
   "repository": "macuistin/utility-tariffs",
   "path": "lib/tariff",
-  "commit": "cf70cfd08504aaa09a6ca6670b23286fe73bce4b",
+  "commit": "0b8f73e82be34e59e86fe2be49fc34af68234d10",
   "files": {
     "README.md": "9dced4eb652507b44f1384142d96be24ca134b84588b5f5354e3355a13b18fae",
     "__init__.py": "86bc9d1d67de6a93a5036bd3e1d8e94bea754712e1f5910454d7653e59c37683",
@@ -9,8 +9,8 @@
     "bands.py": "77e06792ea0fc1a033d7d1e48c09561cc67501cfdab90d6bc2e1b4651d3f5d17",
     "bill_days.py": "094a1f4bd7532bacb109f3bc460759c85c7c1059515c776ec36af6f9dd75cacd",
     "billing.py": "fed6f577818dcae10c557266785d8d1f947e030b61c5b4e865c4c84321ee6a0d",
-    "compile.py": "63c0bfc9025f7db8c9d346881b148aa300eea37eb218c0d6b699e719133ab633",
-    "config.py": "e5f9136adc48319caaf5ee78be298a7f6c3ee1f292a1bae6c87e3f7e296649df",
+    "compile.py": "3ac92b38fe90c275d6dbbf607364eb8bafb04f30f2648afcc660a9ce62dda0c4",
+    "config.py": "5934cf381201603671706a69f6e08e1953e4cec1c663f290992b47be21bc0a7a",
     "defaults.py": "eb3bc6d5f4ce41e15190dc98af3c5db2de8851766ec3c506d269e0b37cf21f8b",
     "definition.py": "077261336708947675defc93690366e75bdb968f0bd1b139144dbfc4491f5d42",
     "definition_parse.py": "f007d63fe28728edd05bd06c9dbba471ec63ede213c508e64c4c810e57e561a0",
