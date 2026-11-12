@@ -35,6 +35,10 @@ The prices come from an open, published list. Only the file requests for the lis
 
 Choosing from the list copies the prices into the same settings you can type in, so the planner, the sensors and Configure work as before. The copy is checked: it must price a set of test bills to the smallest currency unit the same as the published plan. A plan that fails the check, or that the settings cannot hold, is not used. The screen says why and offers **Enter it myself**.
 
+### Change it later
+
+**Configure → Tariff → Tariff source** says where the tariff came from and has the same list. Choosing a plan there replaces the saved rates and bill figures when you save, and shows the change before it does. For a tariff that follows the list, **Stop following the store** keeps the rates and lets you edit them by hand. Changing a rate or a bill figure by hand on a tariff that follows the list stops it following. The change list before you save shows this as a change of tariff source. A tariff set up by hand has no source and nothing here changes it.
+
 When a plan's published prices already include VAT, they are saved as published and the VAT is not added again. Setup records the plan it came from in the `tariff_source` option.
 
 ## Change the rates from a date

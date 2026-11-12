@@ -27,6 +27,7 @@ from homeassistant.util import dt as dt_util
 from ..const import (
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
+    CONF_BILL_START_DAY,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_FORECAST_ENTITY,
@@ -66,7 +67,7 @@ from .selectors import (
     entity_selector,
     number_selector,
 )
-from .store_steps import StoreSteps
+from .store_steps import FROM_LIST, StoreSteps
 from .wiring import MANUAL_SERIAL, limit_sources_from, wiring_from, with_serial
 
 CHOSEN_INVERTER = "discovered_inverter"
@@ -300,6 +301,24 @@ class SetupSteps(StoreSteps, WizardPages):
             last_step=False,
             description_placeholders={"progress": self._progress()},
         )
+
+    # ── tariff_source ─────────────────────────────────────────────────────────
+
+    async def async_step_tariff_source(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Choose from the list, or enter the rates by hand."""
+        self._picked = {}
+        return self._menu("", [FROM_LIST, "tariff"])
+
+    def _hand_entry(self) -> str:
+        return "tariff"
+
+    def _bill_day_default(self) -> int:
+        return int(SETUP_BILL_DEFAULTS[CONF_BILL_START_DAY])
+
+    async def _store_finished(self, options: dict[str, Any]) -> Any:
+        self._values.update(options)
+        self._rate_count = 0
+        return await self._next()
 
     # ── tariff ────────────────────────────────────────────────────────────────
 

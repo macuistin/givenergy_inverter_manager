@@ -66,8 +66,14 @@ def test_the_checklists_name_only_pages_that_exist():
     assert OPTION_PAGES == ("tariff", "battery", "charge_planning", "hot_water", "ev")
 
 
-def test_the_tariff_page_runs_four_steps_charge_planning_two_and_the_others_one():
-    assert PAGE_STEPS["tariff"] == ("tariff", "tariff_rates", "bill", "schedule_change")
+def test_the_tariff_page_runs_five_steps_charge_planning_two_and_the_others_one():
+    assert PAGE_STEPS["tariff"] == (
+        "tariff",
+        "tariff_rates",
+        "bill",
+        "schedule_change",
+        "tariff_source",
+    )
     assert PAGE_STEPS["charge_planning"] == ("charge_planning", "forecast")
     assert set(PAGE_STEPS) == {"tariff", "charge_planning"}
 

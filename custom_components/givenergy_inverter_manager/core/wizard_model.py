@@ -58,6 +58,8 @@ from ..const import (
     CONF_STANDING_CHARGE,
     CONF_TARIFF_CHANGES,
     CONF_TARIFF_REVIEWED_ON,
+    CONF_TARIFF_SOURCE,
+    CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_ALT_HEAT_UNIT,
@@ -80,6 +82,7 @@ from ..const import (
     DEFAULT_PSO_LEVY,
     DEFAULT_RATE_PERIODS,
     DEFAULT_STANDING_CHARGE,
+    DEFAULT_VAT_INCLUDED,
     DEFAULT_VAT_RATE,
 )
 from ..discovery import ForecastSensors
@@ -101,6 +104,7 @@ OPTION_PAGES: tuple[str, ...] = ("tariff", "battery", "charge_planning", "hot_wa
 PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "tariff": (CONF_BASE_RATE, CONF_EXPORT_RATE),
     "tariff_rates": (CONF_RATE_PERIODS,),
+    "tariff_source": (CONF_TARIFF_SOURCE, CONF_VAT_INCLUDED),
     "bill": (
         CONF_CURRENCY,
         CONF_BASE_RATE_NAME,
@@ -152,7 +156,7 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
 # The steps each checklist page runs through. The tariff has up to four. Charge planning has two:
 # the planning settings, then the solar forecast sensors, because the forecast shapes the plan.
 PAGE_STEPS: dict[str, tuple[str, ...]] = {
-    "tariff": ("tariff", "tariff_rates", "bill", "schedule_change"),
+    "tariff": ("tariff", "tariff_rates", "bill", "schedule_change", "tariff_source"),
     "charge_planning": ("charge_planning", "forecast"),
 }
 
@@ -173,6 +177,7 @@ KEY_DEFAULTS: dict[str, Any] = {
     CONF_STANDING_CHARGE: DEFAULT_STANDING_CHARGE,
     CONF_PSO_LEVY: DEFAULT_PSO_LEVY,
     CONF_VAT_RATE: DEFAULT_VAT_RATE,
+    CONF_VAT_INCLUDED: DEFAULT_VAT_INCLUDED,
     CONF_DISCOUNT_RATE: DEFAULT_DISCOUNT_RATE,
     CONF_BILL_START_DAY: DEFAULT_BILL_START_DAY,
     CONF_CURRENCY: DEFAULT_CURRENCY,

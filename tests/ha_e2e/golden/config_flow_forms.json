@@ -4308,12 +4308,17 @@
   "errors": null,
   "placeholders": {
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th.",
-   "reviewed": ""
+   "reviewed": "",
+   "source": "Tariff source: Entered by hand.\n\n"
   },
   "fields": [
    {
     "type": "select",
     "options": [
+     [
+      "tariff_source",
+      "tariff_source"
+     ],
      [
       "tariff",
       "tariff"
@@ -4344,6 +4349,7 @@
    }
   ],
   "menu_options": [
+   "tariff_source",
    "tariff",
    "tariff_rates",
    "bill",
@@ -5376,12 +5382,17 @@
   "errors": null,
   "placeholders": {
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th.",
-   "reviewed": ""
+   "reviewed": "",
+   "source": "Tariff source: Entered by hand.\n\n"
   },
   "fields": [
    {
     "type": "select",
     "options": [
+     [
+      "tariff_source",
+      "tariff_source"
+     ],
      [
       "tariff",
       "tariff"
@@ -5412,6 +5423,7 @@
    }
   ],
   "menu_options": [
+   "tariff_source",
    "tariff",
    "tariff_rates",
    "bill",
@@ -6438,12 +6450,17 @@
   "errors": null,
   "placeholders": {
    "tariff_summary": "Cheapest rate in your saved tariff: Standard at 0.3334 GBP/kWh, all day. Your bill runs from the 16th to the 15th.",
-   "reviewed": ""
+   "reviewed": "",
+   "source": "Tariff source: Entered by hand.\n\n"
   },
   "fields": [
    {
     "type": "select",
     "options": [
+     [
+      "tariff_source",
+      "tariff_source"
+     ],
      [
       "tariff",
       "tariff"
@@ -6470,6 +6487,7 @@
    }
   ],
   "menu_options": [
+   "tariff_source",
    "tariff",
    "bill",
    "schedule_change",

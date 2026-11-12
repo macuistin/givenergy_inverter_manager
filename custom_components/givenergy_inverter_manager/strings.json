@@ -623,8 +623,9 @@
       },
       "tariff_menu": {
         "title": "Tariff",
-        "description": "{tariff_summary}{reviewed}",
+        "description": "{source}{tariff_summary}{reviewed}",
         "menu_options": {
+          "tariff_source": "Tariff source",
           "tariff": "Rates",
           "tariff_rates": "Time-of-day rates",
           "bill": "Bill details",
@@ -633,6 +634,7 @@
           "init": "Back"
         },
         "menu_option_descriptions": {
+          "tariff_source": "Choose your supplier and plan from the list, or see where this tariff came from.",
           "tariff": "The base rate, the export rate and how many time-of-day rates there are.",
           "tariff_rates": "The name, price and hours of each time-of-day rate.",
           "bill": "Currency, standing charge, levy, VAT, discount and the day your bill starts.",
@@ -773,6 +775,70 @@
         },
         "data_description": {
           "shadow_remove": "The tariff to remove."
+        }
+      },
+      "tariff_source": {
+        "title": "Tariff source",
+        "description": "{source}\n\n{note}",
+        "menu_options": {
+          "store_country": "Choose from the list",
+          "store_detach": "Stop following the store",
+          "tariff_menu": "Back"
+        },
+        "menu_option_descriptions": {
+          "store_country": "Pick your country, supplier and plan. The rates replace the ones saved now when you save your changes.",
+          "store_detach": "Keep the rates as they are and edit them by hand from now on.",
+          "tariff_menu": "Back to the tariff."
+        }
+      },
+      "store_country": {
+        "title": "Country",
+        "description": "Where is your electricity supplied?",
+        "data": {
+          "country": "Country"
+        },
+        "data_description": {
+          "country": "Only countries with published tariffs are listed."
+        }
+      },
+      "store_provider": {
+        "title": "Supplier",
+        "description": "Who do you buy electricity from? Type to search the list.",
+        "data": {
+          "provider": "Supplier"
+        },
+        "data_description": {
+          "provider": "Your supplier is named on your bill."
+        }
+      },
+      "store_plan": {
+        "title": "Plan",
+        "description": "Which plan are you on? Only plans with prices in force today are listed.",
+        "data": {
+          "tariff": "Plan"
+        },
+        "data_description": {
+          "tariff": "The plan is named on your bill or contract."
+        }
+      },
+      "store_area": {
+        "title": "Area",
+        "description": "This plan has different prices in different areas. Choose yours.",
+        "data": {
+          "area": "Area"
+        },
+        "data_description": {
+          "area": "Your bill names the area or region. It is never guessed from where you live."
+        }
+      },
+      "store_review": {
+        "title": "{name}",
+        "description": "These rates will be saved as your tariff:\n\n{review}\n\nSaving your changes at the end replaces the rates now saved.",
+        "data": {
+          "bill_start_day": "Bill start day"
+        },
+        "data_description": {
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
         }
       }
     },

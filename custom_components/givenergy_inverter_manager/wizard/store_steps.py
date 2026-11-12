@@ -35,14 +35,12 @@ from ..core.wizard_store import (
 from ..lib.tariff import TariffDefinition
 from ..lib.tariffstore import StoreError
 from ..tariff_store import TariffStoreAccess
-from .schemas import SETUP_BILL_DEFAULTS
 from .selectors import number_selector, store_choice_selector
 
 _LOG = logging.getLogger(__name__)
 
 # What reading or parsing a store file can raise. A timeout is an OSError.
 STORE_ERRORS = (StoreError, OSError, ValueError, KeyError, TypeError)
-ENTER_MYSELF = "tariff"
 FROM_LIST = "store_country"
 
 
@@ -63,11 +61,31 @@ class StoreSteps:
             self._access = TariffStoreAccess(self.hass)
         return self._access
 
+    # What the two wizards do differently. Each flow supplies its own.
+    def _hand_entry(self) -> str:
+        """The step that leaves the list: typing the rates in (setup) or the tariff menu."""
+        raise NotImplementedError  # pragma: no cover
+
+    def _source_text(self) -> str:
+        """Where the tariff in force came from, for the menu. Setup has none yet."""
+        return ""
+
+    def _bill_day_default(self) -> int:
+        raise NotImplementedError  # pragma: no cover
+
+    async def _store_finished(self, options: dict[str, Any]) -> Any:
+        """Keep the chosen tariff's options and go on to the next screen."""
+        raise NotImplementedError  # pragma: no cover
+
     def _menu(self, note: str, options: list[str]) -> Any:
         return self.async_show_menu(  # type: ignore[attr-defined]
             step_id="tariff_source",
             menu_options=options,
-            description_placeholders={"progress": self._progress(), "note": note},  # type: ignore[attr-defined]
+            description_placeholders={
+                "progress": self._progress(),  # type: ignore[attr-defined]
+                "note": note,
+                **({"source": self._source_text()} if self._source_text() else {}),
+            },
         )
 
     def _store_failed(self, err: Exception) -> Any:
@@ -76,7 +94,7 @@ class StoreSteps:
         return self._menu(
             "The list of tariffs could not be read, so enter the rates yourself. "
             "You can choose from the list later in Configure.",
-            [ENTER_MYSELF],
+            [self._hand_entry()],
         )
 
     def _pick_form(
@@ -88,11 +106,6 @@ class StoreSteps:
             data_schema=vol.Schema({key: store_choice_selector(options)}),
             description_placeholders={"progress": self._progress(), **self._picked},  # type: ignore[attr-defined]
         )
-
-    async def async_step_tariff_source(self, user_input: dict[str, Any] | None = None) -> Any:
-        """Choose from the list, or enter the rates by hand."""
-        self._picked = {}
-        return self._menu("", [FROM_LIST, ENTER_MYSELF])
 
     # ── country, supplier, plan ───────────────────────────────────────────────
 
@@ -135,7 +148,7 @@ class StoreSteps:
             return self._menu(
                 "That supplier has no plan with prices in force today. Choose another, or "
                 "enter the rates yourself.",
-                [FROM_LIST, ENTER_MYSELF],
+                [FROM_LIST, self._hand_entry()],
             )
         if user_input is not None:
             self._picked["tariff"] = user_input["tariff"]
@@ -170,7 +183,7 @@ class StoreSteps:
             dt_util.now().date(),
             area=picked["area"],
         )
-        self._choice = choose_tariff(self._definition, SETUP_BILL_DEFAULTS[CONF_BILL_START_DAY])
+        self._choice = choose_tariff(self._definition, self._bill_day_default())
 
     async def async_step_store_review(self, user_input: dict[str, Any] | None = None) -> Any:
         """The rates as a bill reads them. Submitting copies them into the tariff options."""
@@ -185,8 +198,8 @@ class StoreSteps:
             return await self._store_chosen(definition, int(user_input[CONF_BILL_START_DAY]))
         text = review_text(definition, self._choice)
         if not self._choice.usable:
-            return self._menu(text, [FROM_LIST, ENTER_MYSELF])
-        default = SETUP_BILL_DEFAULTS[CONF_BILL_START_DAY]
+            return self._menu(text, [FROM_LIST, self._hand_entry()])
+        default = self._bill_day_default()
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id="store_review",
             data_schema=vol.Schema(
@@ -207,6 +220,4 @@ class StoreSteps:
         record = source_record(self._picked, definition)
         options = source_options(record, self._choice)
         options[CONF_BILL_START_DAY] = bill_start_day
-        self._values.update(options)
-        self._rate_count = 0
-        return await self._next()  # type: ignore[attr-defined]
+        return await self._store_finished(options)
