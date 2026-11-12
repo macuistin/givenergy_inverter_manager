@@ -3646,6 +3646,195 @@
   },
   "fields": []
  },
+ "setup_store.tariff_source": {
+  "step_id": "tariff_source",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3.",
+   "note": ""
+  },
+  "fields": [
+   {
+    "type": "select",
+    "options": [
+     [
+      "store_country",
+      "store_country"
+     ],
+     [
+      "tariff",
+      "tariff"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
+   }
+  ],
+  "menu_options": [
+   "store_country",
+   "tariff"
+  ]
+ },
+ "setup_store.store_country": {
+  "step_id": "store_country",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3."
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "IE",
+        "label": "Ireland"
+       }
+      ],
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "country",
+    "required": true,
+    "default": "IE"
+   }
+  ]
+ },
+ "setup_store.store_provider": {
+  "step_id": "store_provider",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3.",
+   "country": "IE"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "p",
+        "label": "P Energy"
+       }
+      ],
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "provider",
+    "required": true
+   }
+  ]
+ },
+ "setup_store.store_plan": {
+  "step_id": "store_plan",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3.",
+   "country": "IE",
+   "provider": "p"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "plan",
+        "label": "Plan"
+       }
+      ],
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "tariff",
+    "required": true
+   }
+  ]
+ },
+ "setup_store.store_area": {
+  "step_id": "store_area",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3.",
+   "country": "IE",
+   "provider": "p",
+   "tariff": "plan"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "rural",
+        "label": "Rural"
+       },
+       {
+        "value": "urban",
+        "label": "Urban"
+       }
+      ],
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "area",
+    "required": true
+   }
+  ]
+ },
+ "setup_store.store_review": {
+  "step_id": "store_review",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "progress": "Step 2 of about 3.",
+   "name": "Plan (Rural)",
+   "review": "- Day: 0.32 EUR per kWh\n- Night: 0.16 EUR per kWh, 23:00 to 08:00\n- Export: 0 EUR per kWh\n- Standing charge: 1.1 EUR per day\n- VAT: 9%, already in the prices\n\nPrices in force from 1 January 2026, as published. Source: https://example.test/prices. Check them against your bill."
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "required": true,
+    "default": 1
+   }
+  ]
+ },
+ "setup_store.confirm": {
+  "step_id": "confirm",
+  "last_step": true,
+  "errors": null,
+  "placeholders": {
+   "summary": "- Inverter: ab1234g567.\n- Cheapest rate in your saved tariff: Night at 0.1600 EUR/kWh, 23:00 to 08:00. Your bill runs from the 16th to the 15th.\n- Base rate: Day 0.3200. Timed rates: Night 0.1600 (23:00 to 08:00).\n- Battery 9.5 kWh, inverter 5 kW.\n- EV charger: none found, one is picked up when it appears.\n- Solar forecast: none, a seasonal estimate is used.\n- Hot water: no immersion switch.\n- Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you turn off the Dry run switch.",
+   "warnings": "",
+   "progress": "Step 3 of about 3."
+  },
+  "fields": []
+ },
  "reconfigure.reconfigure": {
   "step_id": "reconfigure",
   "last_step": null,

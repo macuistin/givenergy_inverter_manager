@@ -4,6 +4,7 @@ setup_flow.py - the setup wizard: a short path from the inverter to a working in
   system             what was found, the battery and inverter fields GivTCP did not report, and a
                      checklist of what to set up now. The only screen that is always shown.
   inverter_entities  the five inverter entities, when discovery found no complete inverter
+  tariff_source      choose a tariff from the store (wizard/store_steps.py) or enter it myself
   tariff             base and export rate, how many time-of-day rates, bill details
   tariff_rates       exactly that many rows (only when the count is above zero)
   forecast           only offered when no Solcast or Forecast.Solar sensor was found
@@ -65,18 +66,21 @@ from .selectors import (
     entity_selector,
     number_selector,
 )
+from .store_steps import StoreSteps
 from .wiring import MANUAL_SERIAL, limit_sources_from, wiring_from, with_serial
 
 CHOSEN_INVERTER = "discovered_inverter"
+FIRST_STEP = {"tariff": "tariff_source"}
 
 
-class SetupSteps(WizardPages):
+class SetupSteps(StoreSteps, WizardPages):
     """The steps of the setup wizard. Mixed in before ConfigFlow."""
 
     hass: Any
 
     def _init_setup(self) -> None:
         self._init_wizard()
+        self._init_store()
         self._wiring: dict[str, str] = {}
         self._queue: list[str] = []
         self._ticked: list[str] = []
@@ -133,7 +137,9 @@ class SetupSteps(WizardPages):
         """Go to the next ticked page, or to the confirm step when none is left."""
         self._step_no += 1
         if self._queue:
-            return await getattr(self, f"async_step_{self._queue.pop(0)}")()
+            page = self._queue.pop(0)
+            # The tariff page opens with the choice between the store and typing it in.
+            return await getattr(self, f"async_step_{FIRST_STEP.get(page, page)}")()
         return await self.async_step_confirm()
 
     async def _after_page(self, step_id: str, flat: dict[str, Any]) -> Any:

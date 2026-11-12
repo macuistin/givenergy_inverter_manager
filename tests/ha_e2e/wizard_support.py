@@ -79,9 +79,18 @@ def _drop_none(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def submit(manager, result, **overrides: Any):
-    """Submit *result*'s form with its defaults and *overrides*."""
+async def submit_raw(manager, result, **overrides: Any):
+    """Submit *result*'s form with its defaults and *overrides*, and return what comes next."""
     return await manager.async_configure(result["flow_id"], user_input=payload(result, **overrides))
+
+
+async def submit(manager, result, **overrides: Any):
+    """Submit *result*'s form. The setup wizard's choice between the tariff list and typing the
+    rates in is answered "enter it myself", so tests of the other screens do not see it."""
+    result = await submit_raw(manager, result, **overrides)
+    if result["type"] is FlowResultType.MENU and result["step_id"] == "tariff_source":
+        return await choose(manager, result, "tariff")
+    return result
 
 
 PAGE_OF_STEP = {

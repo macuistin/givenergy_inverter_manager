@@ -39,6 +39,9 @@ CONF_BILL_START_DAY = "bill_start_day"
 # True when the prices already include VAT, so VAT is not added to them. Set when a store tariff
 # that publishes prices with VAT is copied in. The VAT rate is then the part inside the prices.
 CONF_VAT_INCLUDED = "vat_included"
+# Where the saved tariff came from: a dict with the store country, supplier, plan, area and the
+# revision's start date. Absent means it was typed in. The rate keys stay the working copy.
+CONF_TARIFF_SOURCE = "tariff_source"
 CONF_CURRENCY = "currency"  # symbol used in cost sensor units
 # Dated rate changes: a list of dicts, each an "effective" date (YYYY-MM-DD) plus a full set of
 # the TARIFF_RATE_KEYS values. The latest change on or before today replaces those saved values.
