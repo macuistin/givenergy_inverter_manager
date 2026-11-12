@@ -103,6 +103,27 @@ def test_fixed_start_day_and_optional_fields() -> None:
     assert d.checks == {} and not d.complete and d.effective_to == date(2027, 1, 1)
 
 
+def test_a_period_is_one_month_unless_it_says_more() -> None:
+    doc = example_document()
+    d = parse_definition(doc)
+    assert (d.period.months.fixed, d.period.start_month.fixed) == (1, 1)
+    doc["inputs"]["first_month"] = {"type": "integer", "min": 1, "max": 12, "default": 2}
+    doc["bill"]["period"].update(months=2, start_month={"input": "first_month"})
+    d = parse_definition(doc)
+    assert d.period.months.fixed == 2 and d.period.start_month.input == "first_month"
+    assert d.period_value(d.period.start_month) == 2
+
+
+def test_a_period_charge_can_be_for_each_month() -> None:
+    doc = example_document()
+    levy = doc["bill"]["total"]["of"]["charges"]["of"]["of"]["levy"]
+    assert parse_definition(doc).total.children["charges"].child.children["levy"].per == "period"  # type: ignore[union-attr]
+    levy["per"] = "month"
+    assert parse_definition(doc).total.children["charges"].child.children["levy"].per == "month"  # type: ignore[union-attr]
+    refused(lambda d: d["bill"]["total"]["of"]["charges"]["of"]["of"]["levy"].update(per="year"),
+            "bill.total.of.charges.of.of.levy.per", "one of")
+
+
 def test_zone_days_months_and_holidays() -> None:
     doc = example_document()
     doc["import"]["zones"][0].update(
@@ -191,6 +212,22 @@ def test_complete_needs_a_check() -> None:
         (lambda d: d["bill"]["period"].update(start_day=31), "bill.period.start_day", ""),
         (lambda d: d["bill"]["period"].update(start_day="1"), "bill.period.start_day", "whole"),
         (lambda d: d["bill"]["period"].update(rule="weekly"), "bill.period.rule", "one of"),
+        (lambda d: d["bill"]["period"].update(months=5), "bill.period.months", "one of 1, 2, 3"),
+        (lambda d: d["bill"]["period"].update(months=24), "bill.period.months", "1 to 12"),
+        (lambda d: d["bill"]["period"].update(start_month=0), "bill.period.start_month", "1 to 12"),
+        (
+            lambda d: d["bill"]["period"].update(months={"input": "start_day"}),
+            "bill.period.months.input",
+            "within 1 to 12",
+        ),
+        (
+            lambda d: (
+                d["inputs"].update(months={"type": "integer", "min": 1, "max": 12, "default": 5}),
+                d["bill"]["period"].update(months={"input": "months"}),
+            ),
+            "bill.period.months",
+            "one of 1, 2, 3",
+        ),
     ],
 )
 def test_input_and_period_refusals(edit: Edit, where: str, text: str) -> None:

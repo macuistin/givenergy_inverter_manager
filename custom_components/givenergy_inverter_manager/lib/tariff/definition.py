@@ -95,17 +95,28 @@ class InputSpec:
 
 
 @dataclass(frozen=True)
-class StartDay:
-    """The day of the month a bill period starts: fixed by the tariff, or an input."""
+class PeriodValue:
+    """One whole number of the bill period: fixed by the tariff, or an input."""
 
     fixed: int | None
     input: str | None
 
 
+StartDay = PeriodValue  # the name the start day had before the period gained other values
+
+
 @dataclass(frozen=True)
 class PeriodRule:
-    rule: str  # "monthly" is the only rule so far
-    start_day: StartDay
+    """When a bill period starts and how long it runs.
+
+    A period is *months* calendar months long and starts on *start_day* of a month. *start_month*
+    names one month a period starts in, which places a period of two months or more in the year.
+    """
+
+    rule: str  # "monthly": the period is a whole number of calendar months
+    start_day: PeriodValue
+    months: PeriodValue = PeriodValue(1, None)
+    start_month: PeriodValue = PeriodValue(1, None)
 
 
 # The bill tree. Each node is worked out after everything inside it, so nesting sets the order.
@@ -137,11 +148,15 @@ class PerDay:
 
 @dataclass(frozen=True)
 class PerPeriod:
-    """An amount for the bill period, of which a bill carries the share of its days."""
+    """An amount for the bill period, of which a bill carries the share of its days.
+
+    With *per* "month" the amount is for one month, so a longer period charges it once a month.
+    """
 
     amount: Decimal
     share: str  # "days_in_period" or "whole"
     rounding: NodeRounding
+    per: str = "period"  # "period" or "month"
 
 
 @dataclass(frozen=True)
@@ -214,3 +229,10 @@ class TariffDefinition:
     rounding_places: int  # decimal places of the currency's smallest unit
     total: Node
     checks: Mapping[str, Check]
+
+    def period_value(self, value: PeriodValue) -> int:
+        """The number *value* stands for: its fixed number, or the default of its input."""
+        if value.fixed is not None:
+            return value.fixed
+        assert value.input is not None  # parse_definition accepts a fixed number or an input
+        return self.inputs[value.input].default

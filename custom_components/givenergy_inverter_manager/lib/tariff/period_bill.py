@@ -4,8 +4,9 @@
 
 The history holds energy and no price, so any tariff definition can be priced over the same days
 with the same engine and the same rounding. The bill period comes from the definition's own start
-day, or from a start day the caller passes, so a re-priced bill can follow the active tariff's
-dates. The bill covers the days from the period start to the day given, that day included.
+day, length in months and start month, or from the ones the caller passes, so a re-priced bill
+can follow the active tariff's dates. The bill covers the days from the period start to the day
+given, that day included.
 """
 
 from __future__ import annotations
@@ -26,7 +27,10 @@ from .slot_history import SlotHistory
 class PeriodRules:
     """What the caller decides about the period, beyond the definition itself."""
 
-    start_day: int | None = None  # follow another tariff's bill dates; None uses the definition's
+    # Follow another tariff's bill dates. None uses the definition's own.
+    start_day: int | None = None
+    months: int | None = None  # calendar months in one bill period
+    start_month: int | None = None  # a month a period starts in
     is_holiday: Callable[[date], bool] = no_holidays
 
 
@@ -48,24 +52,34 @@ class PeriodBill:
 
 def start_day_of(definition: TariffDefinition) -> int:
     """The day of the month the definition's bill period starts."""
-    start = definition.period.start_day
-    if start.fixed is not None:
-        return start.fixed
-    assert start.input is not None  # parse_definition accepts a fixed day or an input
-    return definition.inputs[start.input].default
+    return definition.period_value(definition.period.start_day)
 
 
-def bill_period_bounds(start_day: int, on: date) -> tuple[date, date]:
+def months_of(definition: TariffDefinition) -> int:
+    """The calendar months in one of the definition's bill periods."""
+    return definition.period_value(definition.period.months)
+
+
+def start_month_of(definition: TariffDefinition) -> int:
+    """A month, 1 to 12, in which one of the definition's bill periods starts."""
+    return definition.period_value(definition.period.start_month)
+
+
+def bill_period_bounds(
+    start_day: int, on: date, months: int = 1, start_month: int = 1
+) -> tuple[date, date]:
     """The first day of the bill period holding *on*, and the first day of the next period.
 
-    A start day past the end of a short month falls on that month's last day.
+    A period is *months* calendar months long, and one starts in *start_month*. A start day past
+    the end of a short month falls on that month's last day.
     """
-    this_start = _start_in_month(start_day, on.year, on.month)
-    if on >= this_start:
-        year, month = (on.year + 1, 1) if on.month == 12 else (on.year, on.month + 1)
-        return this_start, _start_in_month(start_day, year, month)
-    year, month = (on.year - 1, 12) if on.month == 1 else (on.year, on.month - 1)
-    return _start_in_month(start_day, year, month), this_start
+    if months < 1 or 12 % months:
+        raise ValueError("months must divide a year: 1, 2, 3, 4, 6 or 12")
+    index = on.year * 12 + on.month - 1  # months counted from year 0
+    first = index - (index - (start_month - 1)) % months
+    if on < _start_in_month(start_day, first):
+        first -= months
+    return _start_in_month(start_day, first), _start_in_month(start_day, first + months)
 
 
 def price_period(
@@ -76,11 +90,18 @@ def price_period(
 ) -> PeriodBill:
     """The bill so far for the period holding *through*, priced under *definition*.
 
-    *rules.start_day* overrides the definition's own bill start day. Days with no history count as
-    days of the bill with no import, so *coverage* tells a quiet day from a missing one.
+    *rules* overrides the definition's own start day, length in months and start month. Days with
+    no history count as days of the bill with no import, so *coverage* tells a quiet day from a
+    missing one.
     """
     rules = rules or PeriodRules()
-    first, following = bill_period_bounds(rules.start_day or start_day_of(definition), through)
+    months = rules.months or months_of(definition)
+    first, following = bill_period_bounds(
+        rules.start_day or start_day_of(definition),
+        through,
+        months,
+        rules.start_month or start_month_of(definition),
+    )
     days = history.between(first, through)
     bands = import_by_band(days, definition, rules.is_holiday)
     # A flat export stays one total, so its credit is unchanged to the last decimal place.
@@ -90,7 +111,7 @@ def price_period(
     else:
         export = _decimal(sum(day.total("export") for day in days))
     length = (through - first).days + 1
-    inputs = BillInputs(length, (following - first).days, bands, export)
+    inputs = BillInputs(length, (following - first).days, bands, export, months)
     return PeriodBill(
         first_day=first,
         next_first_day=following,
@@ -105,7 +126,8 @@ def price_period(
     )
 
 
-def _start_in_month(start_day: int, year: int, month: int) -> date:
+def _start_in_month(start_day: int, index: int) -> date:
+    year, month = index // 12, index % 12 + 1
     last = calendar.monthrange(year, month)[1]
     return date(year, month, max(1, min(start_day, last)))
 
