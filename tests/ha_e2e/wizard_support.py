@@ -88,7 +88,8 @@ async def submit(manager, result, **overrides: Any):
     """Submit *result*'s form. The setup wizard's choice between the tariff list and typing the
     rates in is answered "enter it myself", so tests of the other screens do not see it."""
     result = await submit_raw(manager, result, **overrides)
-    if result["type"] is FlowResultType.MENU and result["step_id"] == "tariff_source":
+    setup_choice = "tariff_menu" not in result.get("menu_options", [])
+    if result["type"] is FlowResultType.MENU and result["step_id"] == "tariff_source" and setup_choice:
         return await choose(manager, result, "tariff")
     return result
 

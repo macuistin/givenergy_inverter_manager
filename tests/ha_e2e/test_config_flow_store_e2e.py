@@ -86,6 +86,8 @@ async def test_a_plan_chosen_from_the_list_is_saved_with_where_it_came_from(
         "provider": "p",
         "tariff": "plan",
         "area": "rural",
+        "name": "Plan (Rural)",
+        "provider_name": "P Energy",
         "effective_from": "2026-01-01",
         "auto_update": True,
     }

@@ -56,6 +56,8 @@ from ..const import (
     CONF_STANDING_CHARGE,
     CONF_TARIFF_CHANGES,
     CONF_TARIFF_REVIEWED_ON,
+    CONF_TARIFF_SOURCE,
+    CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
 )
 from ..lib.ev import (
@@ -65,6 +67,7 @@ from .reload_policy import Effect, change_effect, changed_keys, reload_keys
 from .shadow_tariffs import shadow_names
 from .wizard_model import KEY_DEFAULTS, is_unset
 from .wizard_pages import battery_summary, forecast_summary, hot_water_summary
+from .wizard_store import source_text
 from .wizard_tariff import periods_text, tariff_summary
 
 LABELS: dict[str, str] = {
@@ -77,6 +80,8 @@ LABELS: dict[str, str] = {
     CONF_STANDING_CHARGE: "Standing charge per day",
     CONF_PSO_LEVY: "Fixed levy per billing period",
     CONF_VAT_RATE: "VAT",
+    CONF_VAT_INCLUDED: "Prices include VAT",
+    CONF_TARIFF_SOURCE: "Tariff source",
     CONF_DISCOUNT_RATE: "Supplier discount",
     CONF_TARIFF_CHANGES: "Scheduled rate changes (start dates)",
     CONF_TARIFF_REVIEWED_ON: "Tariff last confirmed",
@@ -198,6 +203,7 @@ _SPECIAL_SHOWS: dict[str, Callable[[Any], str]] = {
     CONF_CHARGE_SHOULDER_MONTHS: _month_names,
     CONF_RATE_PERIODS: _periods,
     CONF_TARIFF_CHANGES: _changes,
+    CONF_TARIFF_SOURCE: source_text,
 }
 
 

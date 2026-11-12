@@ -11,6 +11,7 @@ from custom_components.givenergy_inverter_manager.core.wizard_store import (
     review_text,
     source_options,
     source_record,
+    source_text,
 )
 from custom_components.givenergy_inverter_manager.lib.tariff import (
     Locale,
@@ -87,6 +88,8 @@ def test_the_source_record_and_options_carry_where_the_tariff_came_from() -> Non
         "provider": "p",
         "tariff": "t",
         "area": "all",
+        "name": definition.name,
+        "provider_name": definition.provider.name,
         "effective_from": "2026-01-01",
         "auto_update": True,
     }
@@ -114,3 +117,19 @@ def test_the_review_of_a_tariff_that_cannot_be_used_says_why_and_what_to_do() ->
     assert "cannot be used as your tariff yet" in text
     assert "- a timed rate starts or ends between half hours" in text
     assert "Enter it myself" in text
+
+
+def test_the_source_is_described_for_each_kind() -> None:
+    record = {
+        "kind": "store",
+        "provider_name": "P Energy",
+        "name": "Plan",
+        "effective_from": "2026-01-01",
+        "auto_update": True,
+    }
+    assert source_text(None) == "Entered by hand"
+    assert source_text({"kind": "other"}) == "Entered by hand"
+    assert source_text(record) == "P Energy Plan, prices from 2026-01-01, from the store"
+    assert source_text({**record, "kind": "based_on"}) == (
+        "P Energy Plan, prices from 2026-01-01, then edited by hand"
+    )

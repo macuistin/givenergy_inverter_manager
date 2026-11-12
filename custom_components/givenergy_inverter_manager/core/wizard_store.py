@@ -99,6 +99,8 @@ def source_record(picked: Mapping[str, str], definition: TariffDefinition) -> di
         "provider": picked["provider"],
         "tariff": picked["tariff"],
         "area": picked["area"],
+        "name": definition.name,
+        "provider_name": definition.provider.name,
         "effective_from": definition.effective_from.isoformat(),
         "auto_update": True,
     }
@@ -144,3 +146,14 @@ def _described(options: Mapping[str, Any], definition: TariffDefinition) -> str:
     source = f" Source: {definition.source_url}." if definition.source_url else ""
     rates = "\n".join(f"- {line}" for line in lines)
     return f"{rates}\n\n{since}{source} Check them against your bill."
+
+
+def source_text(record: Mapping[str, Any] | None) -> str:
+    """Where the saved tariff came from, in a sentence, for the menus and the change list."""
+    if not isinstance(record, Mapping) or record.get("kind") not in {SOURCE_KIND, "based_on"}:
+        return "Entered by hand"
+    plan = f"{record.get('provider_name', record.get('provider'))} {record.get('name', '')}".strip()
+    since = f"prices from {record.get('effective_from')}"
+    if record["kind"] == "based_on":
+        return f"{plan}, {since}, then edited by hand"
+    return f"{plan}, {since}, from the store"

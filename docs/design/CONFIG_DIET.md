@@ -19,6 +19,8 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Fixed levy (`pso_levy_per_month`) | Bill details | Keep | On the bill. The key name is kept, the screen says per billing period |
 | VAT (`vat_rate`) | Bill details | Keep | On the bill |
 | Supplier discount (`discount_rate`) | Bill details | Keep | On the bill |
+| Tariff source (`tariff_source`) | Tariff source | Keep | Records which plan from the list the tariff came from. Set by choosing a plan, never typed |
+| Prices include VAT (`vat_included`) | Tariff source | Keep | Set when a plan from the list publishes prices with VAT inside. Never typed |
 | Battery capacity sensor (`battery_capacity_entity`) | System, Battery | Detect | Setup picks the GivTCP capacity sensor when it reads a number. The coordinator reads it every cycle, so a battery that grows is picked up. The Battery page can point at another sensor or clear it |
 | Battery capacity (`battery_capacity_kwh`) | System, Battery | Detect | The typed value, used when no sensor is set or the sensor reads nothing. Setup asks only when GivTCP reports no capacity |
 | Inverter maximum output sensor (`inverter_max_output_entity`) | System, Battery | Detect | Setup picks GivTCP's maximum inverter rate sensor (watts) when it reads a number. A sensor in kW also works |

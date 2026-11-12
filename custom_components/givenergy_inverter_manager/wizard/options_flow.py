@@ -27,10 +27,13 @@ from homeassistant.util import dt as dt_util
 from ..config_helpers import effective_config, merge_config
 from ..const import (
     CONF_BASE_RATE_NAME,
+    CONF_BILL_START_DAY,
     CONF_RATE_PERIODS,
     CONF_SHADOW_TARIFFS,
     CONF_TARIFF_REVIEWED_ON,
+    CONF_TARIFF_SOURCE,
     DEFAULT_BASE_RATE_NAME,
+    DEFAULT_BILL_START_DAY,
     MAX_SHADOW_TARIFFS,
 )
 from ..core.reload_policy import Effect, change_effect
@@ -64,6 +67,7 @@ from ..core.wizard_pages import (
     validate_battery,
     validate_charge_planning,
 )
+from ..core.wizard_store import source_text
 from ..core.wizard_tariff import (
     clean_bill,
     clean_tariff,
@@ -97,6 +101,7 @@ from .schemas import (
 )
 from .selectors import currency_code
 from .shadow_form import entry_from_form, starting_entry, validate_form, validate_rows
+from .store_steps import FROM_LIST, StoreSteps
 
 # The main menu, in order. The tariff opens a menu of its own.
 MENU_PAGES: tuple[str, ...] = (
@@ -112,7 +117,7 @@ _TARIFF_KEYS = frozenset(
 )
 
 
-class OptionsSteps(WizardPages):
+class OptionsSteps(StoreSteps, WizardPages):
     """The steps of the options wizard. Mixed in before OptionsFlow."""
 
     hass: Any
@@ -120,6 +125,8 @@ class OptionsSteps(WizardPages):
 
     def _init_options(self) -> None:
         self._init_wizard()
+        self._init_store()
+        self._store_touched = False
         self._rate_count: int | None = None
         self._edit_date: date | None = None
         self._cancel_scheduled = False
@@ -337,7 +344,7 @@ class OptionsSteps(WizardPages):
 
     async def async_step_tariff_menu(self, user_input: dict[str, Any] | None = None) -> Any:
         """What to change in the tariff. Time-of-day rates shows while there is at least one."""
-        options = ["tariff"]
+        options = ["tariff_source", "tariff"]
         if self._current_rate_count() > 0:
             options.append("tariff_rates")
         options += ["bill", "schedule_change", "tariff_reviewed", "init"]
@@ -355,8 +362,66 @@ class OptionsSteps(WizardPages):
             description_placeholders={
                 "tariff_summary": f"{summary}\n\n{scheduled}" if scheduled else summary,
                 "reviewed": reviewed,
+                "source": f"{self._source_text()}\n\n",
             },
         )
+
+    # ── tariff source ─────────────────────────────────────────────────────────
+
+    def _source_record(self) -> dict[str, Any] | None:
+        """The tariff source as it stands, including a change not saved yet."""
+        if CONF_TARIFF_SOURCE in self._values:
+            record = self._values[CONF_TARIFF_SOURCE]
+        else:
+            record = effective_config(self.config_entry).get(CONF_TARIFF_SOURCE)
+        return record if isinstance(record, dict) else None
+
+    def _source_text(self) -> str:
+        record = self._source_record()
+        text = f"Tariff source: {source_text(record)}."
+        if record and record.get("kind") == "store":
+            text += " Changing a rate or a bill figure here detaches it from the store."
+        return text
+
+    def _hand_entry(self) -> str:
+        return "tariff_menu"
+
+    def _bill_day_default(self) -> int:
+        return int(self._ctx().current.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
+
+    async def async_step_tariff_source(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Where the tariff came from, and how to change that."""
+        self._picked = {}
+        record = self._source_record()
+        options = [FROM_LIST]
+        if record and record.get("kind") == "store":
+            options.append("store_detach")
+        return self._menu("", [*options, "tariff_menu"])
+
+    async def _store_finished(self, options: dict[str, Any]) -> Any:
+        self._values.update(options)
+        self._store_touched = True
+        self._tariff_touched = True
+        self._rate_count = None  # counted again from the new rates
+        return await self.async_step_tariff_menu()
+
+    def _change_source(self, **changes: Any) -> None:
+        record = self._source_record() or {}
+        self._values[CONF_TARIFF_SOURCE] = {**record, **changes}
+        self._store_touched = True
+        self._tariff_touched = True
+
+    async def async_step_store_detach(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Keep the rates as they are and stop following the store."""
+        self._change_source(kind="based_on")
+        return await self.async_step_tariff_menu()
+
+    def _detached_by_editing(self, sub: Any, effective: dict[str, Any]) -> bool:
+        """True when a hand edit changes a tariff that follows the store."""
+        record = effective.get(CONF_TARIFF_SOURCE)
+        follows = isinstance(record, dict) and record.get("kind") == "store"
+        edited = bool(sub.updates) or sub.effective is not None
+        return follows and edited and not self._store_touched
 
     async def async_step_tariff_reviewed(self, user_input: dict[str, Any] | None = None) -> Any:
         """Record today as the day the tariff was checked, so the yearly reminder resets."""
@@ -531,6 +596,8 @@ class OptionsSteps(WizardPages):
             sub = tariff_submission(self._tariff_part(), effective, in_force, dated)
             if sub.updates or sub.effective is not None or sub.cancel_scheduled:
                 options = options_after_tariff_save(options, in_force, sub, today)
+            if self._detached_by_editing(sub, effective):
+                options[CONF_TARIFF_SOURCE] = {**effective[CONF_TARIFF_SOURCE], "kind": "based_on"}
             if self._confirm_current:
                 options[CONF_TARIFF_REVIEWED_ON] = today.isoformat()
         other = {k: v for k, v in self._values.items() if k not in _TARIFF_KEYS}
