@@ -114,7 +114,10 @@ class TariffFile(unittest.TestCase):
             "levy": {"kind": "adjust", "name": "Levy", "percent": "$country.levy",
                      "of": {"kind": "per_day", "amount": "0.1"}}}}}
         self.assertEqual(errors_for(bill=good), [])
-        self.assertIn("bill: needs total and optional period", errors_for(bill={"period": {}}))
+        self.assertIn("bill: needs total, period or both", errors_for(bill={}))
+        self.assertIn("bill: needs total, period or both", errors_for(bill={"tree": good["total"]}))
+        self.assertIn("bill.total.per: must be month or period", errors_for(
+            bill={"total": {"kind": "per_period", "amount": "5", "share": "whole", "per": "year"}}))
         self.assertIn("bill.total: unknown node kind", errors_for(bill={"total": {"kind": "formula"}}))
         self.assertIn("bill.total.script: not allowed on per_day",
                       errors_for(bill={"total": {"kind": "per_day", "script": "x"}}))
@@ -135,8 +138,27 @@ class TariffFile(unittest.TestCase):
         self.assertEqual(errors_for(bill={"period": {"rule": "monthly", "start_day": 5}, "total": total}), [])
         self.assertIn("bill.period: rule must be monthly",
                       errors_for(bill={"period": {"rule": "weekly", "start_day": 1}, "total": total}))
-        self.assertIn("bill.period.start_day: must be a day number or a reference",
+        self.assertIn("bill.period.start_day: must be a day number from 1 to 28 or a reference",
                       errors_for(bill={"period": {"rule": "monthly", "start_day": "first"}, "total": total}))
+
+    def test_a_bill_period_longer_than_a_month(self) -> None:
+        def period(**values) -> list[str]:
+            return errors_for(bill={"period": {"rule": "monthly", "start_day": 1, **values}})
+
+        self.assertEqual(period(months=2, start_month=2), [])
+        self.assertEqual(period(months="$input.bill_months", start_month="$input.first_month"), [])
+        self.assertIn("bill.period.months: must be 1, 2, 3, 4, 6 or 12, or a reference",
+                      period(months=5))
+        self.assertIn("bill.period.months: must be 1, 2, 3, 4, 6 or 12, or a reference",
+                      period(months=True))
+        self.assertIn("bill.period.start_month: must be a month number or a reference",
+                      period(start_month=13))
+        self.assertIn("bill.period.every: not allowed", period(every=2))
+
+    def test_a_country_bill_needs_its_tree(self) -> None:
+        block = country()
+        del block["bill"]["total"]
+        self.assertEqual(validate_country(block), ["bill: needs total and optional period"])
         self.assertEqual(errors_for(inputs={"day": {"type": "integer", "min": 1, "max": 28, "default": 1}}), [])
         self.assertIn("inputs: must be an object", errors_for(inputs=[]))
         self.assertTrue(any(e.startswith("inputs.day") for e in errors_for(inputs={"day": {"type": "text"}})))

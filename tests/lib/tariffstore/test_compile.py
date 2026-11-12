@@ -82,7 +82,7 @@ class Compile(unittest.TestCase):
     def test_an_input_is_only_the_bill_start_day(self) -> None:
         block = country()
         block["bill"]["total"]["percent"] = "$input.bill_start_day"
-        with self.assertRaisesRegex(CompileError, "only allowed as the bill start day"):
+        with self.assertRaisesRegex(CompileError, "only allowed in the bill period"):
             self.compiled(block=block)
         block = country()
         block["bill"]["period"]["start_day"] = "$input.unknown"
@@ -100,6 +100,21 @@ class Compile(unittest.TestCase):
         out = self.compiled(doc=doc, block={**country(), "pso_levy": "3.23"})
         self.assertEqual(out["bill"]["total"]["of"]["levy"]["amount"], "3.23")
         self.assertEqual(out["bill"]["period"]["start_day"], {"input": "bill_start_day"})
+
+    def test_a_tariff_can_change_the_period_and_keep_the_country_bill(self) -> None:
+        period = {"rule": "monthly", "start_day": 5, "months": "$input.bill_months",
+                  "start_month": 2}
+        months = {"type": "integer", "min": 1, "max": 12, "default": 2}
+        doc = tariff(bill={"period": period}, inputs={"bill_months": months})
+        self.assertEqual(validate_tariff(doc), [])
+        out = self.compiled(doc=doc)
+        self.assertEqual(out["bill"]["period"], {
+            "rule": "monthly", "start_day": 5, "months": {"input": "bill_months"},
+            "start_month": 2})
+        self.assertEqual(out["bill"]["total"]["kind"], "tax")
+        doc["bill"]["period"]["start_month"] = "$input.unknown"
+        with self.assertRaisesRegex(CompileError, "bill.period.start_month"):
+            self.compiled(doc=doc)
 
     def test_a_worked_bill_makes_it_complete(self) -> None:
         doc = tariff(checks={"october": {"period_days": 30}})

@@ -87,6 +87,26 @@ def test_period_charge_share() -> None:
     assert levy.children["of"].children["levy"].amount == D("1.46")
 
 
+def _levy_amount(doc: dict[str, Any], inputs: BillInputs) -> Decimal:
+    charges = price_bill(parse_definition(doc), inputs).root.children["charges"]
+    return charges.children["of"].children["levy"].amount
+
+
+def test_a_monthly_charge_is_made_for_each_month_of_a_longer_period() -> None:
+    doc = example_document()
+    del doc["checks"]
+    doc["completeness"] = "partial"
+    doc["bill"]["period"]["months"] = 2
+    whole = BillInputs(61, 61, october().import_kwh_by_band, D(0))
+    assert _levy_amount(doc, whole) == D("1.46")  # an amount for the period is charged once
+    doc["bill"]["total"]["of"]["charges"]["of"]["of"]["levy"]["per"] = "month"
+    assert _levy_amount(doc, whole) == D("2.92")  # 1.46 for each of two months
+    part = BillInputs(30, 61, october().import_kwh_by_band, D(0))
+    assert _levy_amount(doc, part) == D("1.44")  # 2.92 * 30 / 61
+    quarter = BillInputs(92, 92, october().import_kwh_by_band, D(0), period_months=3)
+    assert _levy_amount(doc, quarter) == D("4.38")  # the caller's period length wins
+
+
 def test_zero_decimal_currency_rounds_to_whole_units() -> None:
     doc = example_document()
     doc["currency"] = "JPY"
