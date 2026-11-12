@@ -235,7 +235,7 @@ from .tuning import (
 )
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.24.0b6"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.24.0b7"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
