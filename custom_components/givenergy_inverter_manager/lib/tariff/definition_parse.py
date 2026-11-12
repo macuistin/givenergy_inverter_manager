@@ -10,7 +10,8 @@ Shape, top level (every key is required unless marked optional):
     provider {id, name}, country, region (null or ISO 3166-2), currency, timezone,
     effective_from, effective_to (null), source_url (null), last_verified (null), completeness,
     inputs {name: {type, min, max, default}}, import {base, zones}, export {base, zones?},
-    bill {period {rule, start_day}, total <node>}, checks {name: {...}} (optional)
+    bill {period {rule, start_day, months?, start_month?}, total <node>},
+    checks {name: {...}} (optional)
 
 The bill tree and the vocabulary of node kinds are described in definition.py. Prices, amounts,
 percentages and kWh are strings such as "0.365", so no float ever stands for money. A JSON number
@@ -43,9 +44,9 @@ from .definition import (
     NodeRounding,
     PerDay,
     PeriodRule,
+    PeriodValue,
     PerPeriod,
     Provider,
-    StartDay,
     Sum,
     TariffDefinition,
     Tax,
@@ -67,7 +68,10 @@ _SERVICES = ("electricity",)  # others (gas) are added with their own nodes
 _CUSTOMER_CLASSES = ("residential", "commercial")
 _PERIOD_RULES = ("monthly",)
 _SHARES = ("days_in_period", "whole")
+_PER = ("period", "month")
 _START_DAYS = (1, 28)  # a month always has these days
+_PERIOD_MONTHS = (1, 2, 3, 4, 6, 12)  # lengths that start in the same months every year
+_MONTHS = (1, 12)
 
 # ISO 4217 minor units that are not two places. Any other currency is taken as two.
 _MINOR_UNIT_PLACES = {
@@ -420,25 +424,46 @@ def _bill(fields: Fields, inputs: Mapping[str, InputSpec]) -> tuple[PeriodRule, 
 
 
 def _period(fields: Fields, inputs: Mapping[str, InputSpec]) -> PeriodRule:
-    fields.only(required=("rule", "start_day"))
+    fields.only(required=("rule", "start_day"), optional=("months", "start_month"))
     rule = fields.choice("rule", _PERIOD_RULES)
-    path = fields.at("start_day")
-    value = fields.raw("start_day")
+    start_day = _period_value(fields, "start_day", inputs, _START_DAYS)
+    months = _period_value(fields, "months", inputs, _MONTHS)
+    _check_months(months, fields, inputs)
+    start_month = _period_value(fields, "start_month", inputs, _MONTHS)
+    return PeriodRule(rule, start_day, months, start_month)
+
+
+def _period_value(
+    fields: Fields, key: str, inputs: Mapping[str, InputSpec], limits: tuple[int, int]
+) -> PeriodValue:
+    """A fixed whole number or `{"input": name}`. A value left out is 1."""
+    if not fields.has(key):
+        return PeriodValue(1, None)
+    value = fields.raw(key)
     if isinstance(value, Mapping):
-        return PeriodRule(rule, _start_day_input(fields.child("start_day"), inputs))
-    return PeriodRule(rule, StartDay(_whole(value, path, *_START_DAYS), None))
+        return _period_input(fields.child(key), inputs, limits)
+    return PeriodValue(_whole(value, fields.at(key), *limits), None)
 
 
-def _start_day_input(fields: Fields, inputs: Mapping[str, InputSpec]) -> StartDay:
+def _period_input(
+    fields: Fields, inputs: Mapping[str, InputSpec], limits: tuple[int, int]
+) -> PeriodValue:
     fields.only(required=("input",))
     name = fields.text("input")
     spec = inputs.get(name)
     if spec is None:
         raise DefinitionError(fields.at("input"), f"{name!r} is not declared in inputs")
-    low, high = _START_DAYS
+    low, high = limits
     if spec.minimum < low or spec.maximum > high:
         raise DefinitionError(fields.at("input"), f"{name!r} must stay within {low} to {high}")
-    return StartDay(None, name)
+    return PeriodValue(None, name)
+
+
+def _check_months(months: PeriodValue, fields: Fields, inputs: Mapping[str, InputSpec]) -> None:
+    length = months.fixed if months.input is None else inputs[months.input].default
+    if length not in _PERIOD_MONTHS:
+        allowed = ", ".join(str(n) for n in _PERIOD_MONTHS)
+        raise DefinitionError(fields.at("months"), f"must be one of {allowed}")
 
 
 # The bill tree. Each parser reads one node kind and refuses any field it does not own.
@@ -481,8 +506,11 @@ def _per_day(fields: Fields, depth: int) -> Node:
 
 
 def _per_period(fields: Fields, depth: int) -> Node:
-    fields.only(required=("kind", "amount", "share"), optional=("round",))
-    return PerPeriod(fields.money("amount"), fields.choice("share", _SHARES), _rounding(fields))
+    fields.only(required=("kind", "amount", "share"), optional=("per", "round"))
+    per = fields.choice("per", _PER) if fields.has("per") else "period"
+    return PerPeriod(
+        fields.money("amount"), fields.choice("share", _SHARES), _rounding(fields), per
+    )
 
 
 def _adjust(fields: Fields, depth: int) -> Node:

@@ -11,7 +11,7 @@ read option keys.
 - `EnergyAccumulator`, `CounterMemory`: running totals for a billing period
 - `BillBreakdown`, `money`: a bill rounded to cents, halves upward (`Decimal`, `ROUND_HALF_UP`)
 - `reprice`, `import_by_band`, `BillPeriod`, `Rounding`, `Repriced`: price slots under a tariff (see below)
-- `price_period`, `PeriodRules`, `PeriodBill`, `bill_period_bounds`, `start_day_of`: the bill so far for the current bill period, priced from the slot history (see below)
+- `price_period`, `PeriodRules`, `PeriodBill`, `bill_period_bounds`, `start_day_of`, `months_of`, `start_month_of`: the bill so far for the current bill period, priced from the slot history (see below)
 - `SlotDay`, `SlotEnergy`, `SlotHistory`, `FLOWS`, `DEFAULT_LOADS`: energy in half-hour slots, a local day at a time, kept for
   about 400 days (see below)
 - `StoredEnergy`, `stored_energy_change`, `value_per_stored_kwh`: the value of stored energy
@@ -54,8 +54,10 @@ has a worked bill as a test case.
 `price_period(history, definition, through)` prices the bill period holding the day `through` under
 a `TariffDefinition`: slots go through `bands.import_by_band`, then `engine.price_bill`. The bill
 covers the period start to `through`, that day included, and the share of the monthly levy follows
-the length of the whole period. `PeriodRules(start_day=...)` takes the bill dates from another
-tariff, so two definitions are priced over the same days. `PeriodRules(is_holiday=...)` says which
+the length of the whole period. A period is `months` calendar months long (1, 2, 3, 4, 6 or 12)
+and one starts in `start_month`, so `bill_period_bounds(16, on, 2, 2)` is a bill every two months
+from the 16th of February. `PeriodRules(start_day=..., months=..., start_month=...)` takes the
+bill dates from another tariff, so two definitions are priced over the same days. `PeriodRules(is_holiday=...)` says which
 dates are public holidays. `PeriodBill.data_from` is the first day the history holds inside the
 period and `coverage` is the observed share of the days priced. A definition from
 `definition_from_config` agrees with the bill the options give, to the cent on the worked October
@@ -75,6 +77,9 @@ inputs, the bill as a tree and worked bills it must reproduce (`checks`).
 - The bill is a tree of a closed set of node kinds: `energy_by_band`, `export_credit`, `per_day`,
   `per_period`, `adjust`, `tax` and `sum`. Nesting sets the order and the tax base. A `sum` holds
   its children by name, so no list position matters. An unknown kind or field is refused.
+- `bill.period` has a `start_day`, and optional `months` and `start_month`. Each is a whole
+  number or `{"input": name}`. A `per_period` amount is for the whole period, or for each month
+  of it with `"per": "month"`.
 - A zone has a unique priority, and the applicable zone of highest priority wins.
 - `export` has a `base` price and may have `zones`, written like the import zones, for an export
   price that changes with the time of day. With no zones the export price is flat.

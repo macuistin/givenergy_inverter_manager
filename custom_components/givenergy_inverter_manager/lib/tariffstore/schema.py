@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Collection
 from datetime import date
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -37,12 +38,14 @@ NODE_FIELDS = {
     "energy_by_band": {"kind", "round_bands", "round"},
     "export_credit": {"kind", "round"},
     "per_day": {"kind", "amount", "round"},
-    "per_period": {"kind", "amount", "share", "round"},
+    "per_period": {"kind", "amount", "share", "per", "round"},
     "adjust": {"kind", "name", "percent", "of", "round"},
     "tax": {"kind", "name", "percent", "mode", "of", "round"},
     "sum": {"kind", "of", "round"},
 }
 MAX_DEPTH = 8
+PERIOD_FIELDS = {"rule", "start_day", "months", "start_month"}
+PERIOD_MONTHS = (1, 2, 3, 4, 6, 12)  # lengths that start in the same months every year
 OPEN = "9999-12-31"
 COUNTRY_REQUIRED = ("country", "currency", "timezone", "vat_percent", "bill")
 AREA_FIELDS = {"label", "region", "standing", "rates"}
@@ -117,6 +120,8 @@ def _node(node: object, path: str, depth: int, errors: list[str]) -> None:
             _number(node[key], f"{path}.{key}", errors)
     if kind == "tax" and node.get("mode") not in ("added", "included"):
         errors.append(f"{path}.mode: must be added or included")
+    if node.get("per", "month") not in ("month", "period"):
+        errors.append(f"{path}.per: must be month or period")
     _children(node, path, depth, errors)
 
 
@@ -150,22 +155,37 @@ def _timezone(value: object, field: str, errors: list[str]) -> None:
         errors.append(f"{field}: not an IANA time zone")
 
 
+def _period_number(value: object, allowed: Collection[int]) -> bool:
+    """A whole number from `allowed`, or a reference the compile step resolves."""
+    if isinstance(value, str):
+        return bool(REF.match(value))
+    return type(value) is int and value in allowed
+
+
 def _period(period: object, errors: list[str]) -> None:
     if not isinstance(period, dict) or period.get("rule") != "monthly":
         errors.append("bill.period: rule must be monthly")
         return
-    start = period.get("start_day")
-    if not (isinstance(start, int) or (isinstance(start, str) and REF.match(start))):
-        errors.append("bill.period.start_day: must be a day number or a reference")
+    errors += [f"bill.period.{key}: not allowed" for key in period if key not in PERIOD_FIELDS]
+    if not _period_number(period.get("start_day"), range(1, 29)):
+        errors.append("bill.period.start_day: must be a day number from 1 to 28 or a reference")
+    if not _period_number(period.get("months", 1), PERIOD_MONTHS):
+        errors.append("bill.period.months: must be 1, 2, 3, 4, 6 or 12, or a reference")
+    if not _period_number(period.get("start_month", 1), range(1, 13)):
+        errors.append("bill.period.start_month: must be a month number or a reference")
 
 
-def _bill(bill: object, errors: list[str]) -> None:
-    if not isinstance(bill, dict) or "total" not in bill or set(bill) - {"period", "total"}:
-        errors.append("bill: needs total and optional period")
+def _bill(bill: object, errors: list[str], *, country: bool = False) -> None:
+    """A country's bill needs a tree. A tariff's may give a tree, a period or both."""
+    if not isinstance(bill, dict) or set(bill) - {"period", "total"} \
+            or not ({"total"} if country else {"period", "total"}) & set(bill):
+        errors.append("bill: needs total and optional period" if country
+                      else "bill: needs total, period or both")
         return
     if bill.get("period") is not None:
         _period(bill["period"], errors)
-    _node(bill["total"], "bill.total", 0, errors)
+    if "total" in bill:
+        _node(bill["total"], "bill.total", 0, errors)
 
 
 def _inputs(inputs: object, errors: list[str]) -> None:
@@ -365,7 +385,7 @@ def validate_country(block: object) -> list[str]:
     _vat(block["vat_percent"], errors)
     for key in block.keys() - COUNTRY_RESERVED:
         _price(block[key], key, errors)
-    _bill(block["bill"], errors)
+    _bill(block["bill"], errors, country=True)
     if "inputs" in block:
         _inputs(block["inputs"], errors)
     _availability(block, errors)

@@ -22,7 +22,7 @@ class CompileError(ValueError):
 
 def _country_value(match: re.Match[str], block: Doc, on: str, path: str) -> Any:
     if match.group(1) != "country":
-        raise CompileError(f"{path}: $input is only allowed as the bill start day")
+        raise CompileError(f"{path}: $input is only allowed in the bill period")
     name = match.group(2)
     value = vat_on(block, on) if name == "vat_percent" else block.get(name)
     if value is None or isinstance(value, (dict, list)):
@@ -83,14 +83,17 @@ def export_prices(export_file: Doc, area: str = "all") -> Doc:
 
 
 def _period(bill: Doc, block: Doc, inputs: Doc) -> Doc:
-    """The bill period, with a `$input.name` start day turned into the engine's input reference."""
+    """The bill period, with each `$input.name` turned into the engine's input reference.
+
+    A tariff's own period replaces the country's whole period, so the two are never mixed."""
     period: Doc = bill.get("period") or copy.deepcopy(block["bill"]["period"])
-    start = period["start_day"]
-    if isinstance(start, str):
-        match = REF.match(start)
-        if not match or match.group(1) != "input" or match.group(2) not in inputs:
-            raise CompileError(f"bill.period.start_day: {start} is not a declared input")
-        period["start_day"] = {"input": match.group(2)}
+    for key in ("start_day", "months", "start_month"):
+        value = period.get(key)
+        if isinstance(value, str):
+            match = REF.match(value)
+            if not match or match.group(1) != "input" or match.group(2) not in inputs:
+                raise CompileError(f"bill.period.{key}: {value} is not a declared input")
+            period[key] = {"input": match.group(2)}
     return period
 
 
@@ -111,7 +114,7 @@ def compile_area(tariff: Doc, area: str, *, block: Doc, meta: Doc,  # noqa: PLR0
     if area not in tariff["areas"]:
         raise CompileError(f"no area {area}; this tariff has {', '.join(tariff['areas'])}")
     row = tariff["areas"][area]
-    bill = copy.deepcopy(tariff.get("bill") or block["bill"])
+    bill = copy.deepcopy({**block["bill"], **tariff.get("bill", {})})
     inputs = {**copy.deepcopy(block.get("inputs", {})), **tariff.get("inputs", {})}
     period = _period(bill, block, inputs)
     total = _total(bill, block, on, row["standing"])

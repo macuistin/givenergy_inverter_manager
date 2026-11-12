@@ -20,7 +20,15 @@ from .index import (
     parse_index,
     revision_in_force,
 )
-from .period_bill import PeriodBill, PeriodRules, bill_period_bounds, price_period, start_day_of
+from .period_bill import (
+    PeriodBill,
+    PeriodRules,
+    bill_period_bounds,
+    months_of,
+    price_period,
+    start_day_of,
+    start_month_of,
+)
 from .periods import RatePeriod
 from .reprice import BillPeriod, Repriced, Rounding, import_by_band, reprice
 from .slot_history import SlotHistory
@@ -50,6 +58,8 @@ __all__ = [
     "bill_period_bounds",
     "price_period",
     "start_day_of",
+    "months_of",
+    "start_month_of",
     "BillInputs",
     "CheckFailed",
     "Line",

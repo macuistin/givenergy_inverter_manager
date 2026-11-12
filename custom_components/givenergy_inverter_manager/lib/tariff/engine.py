@@ -46,6 +46,8 @@ class BillInputs:
     import_kwh_by_band: Mapping[str, Decimal]
     # One total, paid at the base export price, or the kWh in each export band.
     export_kwh: Decimal | Mapping[str, Decimal]
+    # Months in the whole bill period, for a charge made once a month. None uses the definition's.
+    period_months: int | None = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,7 @@ class _Pricer:
         self._export_prices = {exported.base.name: exported.base.price}
         self._export_prices.update({zone.name: zone.price for zone in exported.zones})
         self._inputs = inputs
+        self._months = inputs.period_months or definition.period_value(definition.period.months)
 
     def _round(self, value: Decimal, rounding: NodeRounding) -> Decimal:
         if rounding is NodeRounding.NONE:
@@ -140,7 +143,7 @@ class _Pricer:
         return Line("export_credit", amount, children=children)
 
     def _per_period(self, node: PerPeriod) -> Line:
-        amount = node.amount
+        amount = node.amount * self._months if node.per == "month" else node.amount
         if node.share == "days_in_period":
             amount = amount * self._inputs.days / self._inputs.period_days
         return Line("per_period", self._round(amount, node.rounding))
