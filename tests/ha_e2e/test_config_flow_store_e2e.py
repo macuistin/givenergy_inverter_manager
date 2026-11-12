@@ -17,6 +17,7 @@ from wizard_support import choose, submit, submit_raw
 from custom_components.givenergy_inverter_manager.lib.tariffstore import (
     FolderCache,
     Store,
+    StoreError,
     folder_reader,
 )
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
@@ -149,4 +150,112 @@ async def test_a_plan_the_options_cannot_hold_says_why_and_offers_typing_it_in(
     assert "weekday, seasonal or public holiday rates" in result["description_placeholders"]["note"]
     result = await choose(manager(hass), result, "tariff")
     assert result["step_id"] == "tariff"
+    manager(hass).async_abort(result["flow_id"])
+
+
+def _failing_after(folder: Path, fails: str, allowed: int = 0):
+    """A reader of *folder* that raises OSError for *fails* once it has served it *allowed* times."""
+    served: dict[str, int] = {}
+    read = folder_reader(folder)
+
+    def reader(path: str) -> bytes:
+        if fails in path:
+            served[path] = served.get(path, 0) + 1
+            if served[path] > allowed:
+                raise OSError("no network")
+        return read(path)
+
+    return reader
+
+
+@pytest.mark.parametrize(
+    ("fails", "allowed", "picks"),
+    [
+        ("ie/index.json", 0, ["country"]),
+        ("p/plan/1.json", 0, ["country", "provider", "tariff"]),
+    ],
+)
+async def test_a_store_that_fails_part_way_ends_in_typing_the_rates_in(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path, fails, allowed, picks
+):
+    folder = _built(tmp_path, tariff(effective_from="2026-01-01"))
+    reader = _failing_after(folder, fails, allowed)
+    _use_store(monkeypatch, hass, folder, tmp_path / "cache", reader=reader)
+    values = {"country": "IE", "provider": "p", "tariff": "plan", "area": "rural"}
+
+    result = await _to_the_list(hass)
+    for pick in picks:
+        if result["type"] is FlowResultType.MENU:
+            break
+        result = await submit_raw(manager(hass), result, **{pick: values[pick]})
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["tariff"]
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_a_supplier_with_no_plan_in_force_offers_another_choice(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    folder = _built(tmp_path, tariff())  # starts in November, after the date of the test
+    _use_store(monkeypatch, hass, folder, tmp_path / "cache")
+
+    result = await _to_the_list(hass)
+    result = await submit_raw(manager(hass), result, country="IE")
+    result = await submit_raw(manager(hass), result, provider="p")
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["store_country", "tariff"]
+    assert "no plan with prices in force today" in result["description_placeholders"]["note"]
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_a_store_that_lists_no_country_ends_in_typing_the_rates_in(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    index = b'{"schema": 1, "countries": {"XX": {"availability": "unavailable", "reason": "none"}}}'
+
+    def reader(path: str) -> bytes:
+        return index
+
+    _use_store(monkeypatch, hass, tmp_path, tmp_path / "cache", reader=reader)
+
+    result = await _to_the_list(hass)
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["tariff"]
+    manager(hass).async_abort(result["flow_id"])
+
+
+class _Failing(TariffStoreAccess):
+    """A store that answers the first screens and fails at one call."""
+
+    def __init__(self, hass, store, fails: str) -> None:
+        super().__init__(hass, store)
+        self._fails = fails
+
+    async def async_tariffs(self, *args):
+        if self._fails == "tariffs":
+            raise StoreError("the store went away")
+        return await super().async_tariffs(*args)
+
+    async def async_definition(self, *args, **kwargs):
+        if self._fails == "definition":
+            raise StoreError("the store went away")
+        return await super().async_definition(*args, **kwargs)
+
+
+@pytest.mark.parametrize(("fails", "last_pick"), [("tariffs", "provider"), ("definition", "area")])
+async def test_a_call_that_fails_late_ends_in_typing_the_rates_in(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path, fails, last_pick
+):
+    folder = _built(tmp_path, tariff(effective_from="2026-01-01"))
+    store = Store(folder_reader(folder), FolderCache(tmp_path / "cache"))
+    monkeypatch.setattr(store_steps, "TariffStoreAccess", lambda _h: _Failing(hass, store, fails))
+    values = {"country": "IE", "provider": "p", "tariff": "plan", "area": "rural"}
+
+    result = await _to_the_list(hass)
+    for pick in ("country", "provider", "tariff", "area"):
+        result = await submit_raw(manager(hass), result, **{pick: values[pick]})
+        if result["type"] is FlowResultType.MENU:
+            break
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["tariff"]
     manager(hass).async_abort(result["flow_id"])

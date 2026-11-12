@@ -131,6 +131,11 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
 # the tick boxes of the tariff screen, the inverter picker and the entity-source choice, the date
 # and cancel box of a dated change, and the fields inside a rate row.
 FORM_ONLY_NAMES = {
+    # the pickers of the store tariff screens, which are saved as tariff_source
+    "country",
+    "provider",
+    "tariff",
+    "area",
     "pages",
     "next_step_id",
     "rate_count",
