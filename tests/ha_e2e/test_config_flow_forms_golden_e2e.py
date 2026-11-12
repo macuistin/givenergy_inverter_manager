@@ -29,7 +29,7 @@ from conftest import (
 )
 from homeassistant.config_entries import SOURCE_USER
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from wizard_support import open_page, submit, walk_options_forms
+from wizard_support import choose, open_page, submit, submit_raw, walk_options_forms
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BASE_RATE_NAME,
@@ -46,6 +46,15 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_SOLAR_POWER,
     DOMAIN,
 )
+from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+    FolderCache,
+    Store,
+    folder_reader,
+)
+from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
+from custom_components.givenergy_inverter_manager.wizard import store_steps
+from tests.lib.tariffstore.building import build_store
+from tests.lib.tariffstore.fixtures import tariff, write_store
 
 GOLDEN = Path(__file__).parent / "golden" / "config_flow_forms.json"
 
@@ -178,6 +187,29 @@ async def _reconfigure_forms(hass, entry: MockConfigEntry, prefix: str) -> dict:
     return forms
 
 
+async def _store_forms(hass, prefix: str) -> dict:
+    """The screens that choose a tariff from the store, then the menu a store tariff that cannot
+    be used ends in."""
+    forms = {}
+    flow = hass.config_entries.flow
+    result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await submit_raw(flow, result, pages=["tariff"])
+    forms[f"{prefix}.tariff_source"] = _describe(result)
+    result = await choose(flow, result, "store_country")
+    for step, pick in (
+        ("store_country", {"country": "IE"}),
+        ("store_provider", {"provider": "p"}),
+        ("store_plan", {"tariff": "plan"}),
+        ("store_area", {"area": "rural"}),
+        ("store_review", {"bill_start_day": 16}),
+    ):
+        forms[f"{prefix}.{step}"] = _describe(result)
+        result = await submit_raw(flow, result, **pick)
+    forms[f"{prefix}.confirm"] = _describe(result)
+    flow.async_abort(result["flow_id"])
+    return forms
+
+
 async def _collect_forms(hass) -> dict:
     forms: dict = {}
     # Nothing discovered: the first screen asks for the capacity and the five entities.
@@ -200,6 +232,7 @@ async def _collect_forms(hass) -> dict:
     forms.update(await _setup_forms(hass, "setup_auto_with_givtcp_rates"))
     for suffix in ("day_rate", "night_rate", "export_rate"):
         hass.states.async_remove(f"sensor.givtcp_{SERIAL}_{suffix}")
+    forms.update(await _store_forms(hass, "setup_store"))
 
     overrides = {
         CONF_EXPORT_RATE: 0.0,
@@ -226,7 +259,13 @@ async def _collect_forms(hass) -> dict:
     return json.loads(json.dumps(forms))
 
 
-async def test_forms_match_the_golden_snapshot(hass):
+async def test_forms_match_the_golden_snapshot(hass, monkeypatch, tmp_path):
+    folder = write_store(tmp_path, {"p/plan/1.json": tariff(effective_from="2026-01-01")})
+    build_store(folder)
+    store = Store(folder_reader(folder), FolderCache(tmp_path / "cache"))
+    monkeypatch.setattr(
+        store_steps, "TariffStoreAccess", lambda _hass: TariffStoreAccess(hass, store)
+    )
     forms = await _collect_forms(hass)
     if not GOLDEN.exists():
         GOLDEN.parent.mkdir(exist_ok=True)

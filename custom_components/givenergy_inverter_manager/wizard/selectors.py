@@ -215,3 +215,13 @@ def checklist_selector(
     if translation_key:
         config["translation_key"] = translation_key
     return selector.SelectSelector(cast("selector.SelectSelectorConfig", config))
+
+
+def store_choice_selector(options: dict[str, str]) -> selector.SelectSelector:
+    """A dropdown of {value: label} read from the tariff store, searchable by typing."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[selector.SelectOptionDict(value=k, label=v) for k, v in options.items()],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )

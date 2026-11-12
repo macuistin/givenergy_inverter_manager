@@ -27,6 +27,16 @@ Rules for windows:
 
 The cheapest timed period also sets when the overnight charge is written and which window is sent to the inverter. If the tariff has no timed period, no charge target is written.
 
+## Choose a tariff from the list
+
+Setup can fill in the tariff for you. On the tariff page, choose **Choose from the list**, then pick your country, supplier and plan. A plan with more than one area asks for yours, and it is never guessed from where you live. The last screen shows the rates in the words of a bill, with the date the prices came into force and where they were published, and asks for your bill start day. Check the figures against your bill before you submit.
+
+The prices come from an open, published list. Only the file requests for the list are sent, and nothing about your install goes with them. The list is kept on your Home Assistant after it is read, so a plan you chose stays readable without a network.
+
+Choosing from the list copies the prices into the same settings you can type in, so the planner, the sensors and Configure work as before. The copy is checked: it must price a set of test bills to the smallest currency unit the same as the published plan. A plan that fails the check, or that the settings cannot hold, is not used. The screen says why and offers **Enter it myself**.
+
+When a plan's published prices already include VAT, they are saved as published and the VAT is not added again. Setup records the plan it came from in the `tariff_source` option.
+
 ## Change the rates from a date
 
 When your supplier changes its prices from a set date, record the new rates with that date. You do not need to be at the screen on the day.

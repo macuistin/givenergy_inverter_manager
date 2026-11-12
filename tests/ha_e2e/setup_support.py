@@ -89,7 +89,8 @@ async def unload(hass, entry) -> None:
 async def run_pages(hass, result, ticked, **inputs):
     """Submit the system form with *ticked*, then every page with its defaults and *inputs*.
 
-    Returns the screens shown in order and the confirm result.
+    The choice between the tariff list and typing the rates in is answered by `submit` and is not
+    listed in the screens shown. Returns the screens shown in order and the confirm result.
     """
     shown = [result["step_id"]]
     result = await submit(manager(hass), result, pages=ticked, **inputs.get("system", {}))

@@ -54,6 +54,10 @@ An inverter is added once: its serial number is the unique ID. Starting a second
 
 If no inverter is found, or the one found has sensors missing, the next screen asks for the five power sensors. A sensor the inverter was found with is filled in for you. Leaving one empty shows the error "A required inverter entity is missing or unavailable." If you chose by hand and no serial is known, the entry's unique ID is `manual`. The charge control entities are never asked for in setup. They come from discovery only. Without all of them the integration still calculates a target, but it cannot write it.
 
+### Screen: Choose from the list or enter it myself
+
+Shown first when the tariff is ticked. **Choose from the list** asks for a country, a supplier, a plan and, where the plan has several, an area, then shows the rates for you to check and asks for the bill start day. It then skips the two screens below. **Enter it myself** shows them. If the list cannot be read, or the plan cannot be held by the tariff settings, only **Enter it myself** is offered. See [Choose a tariff from the list](tariff.md#choose-a-tariff-from-the-list).
+
 ### Screen: Tariff
 
 | Field | Default | Range |

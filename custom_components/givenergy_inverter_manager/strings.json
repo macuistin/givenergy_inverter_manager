@@ -35,6 +35,68 @@
           "house_load_entity": "Sensor reporting house load in watts."
         }
       },
+      "tariff_source": {
+        "title": "Electricity tariff",
+        "description": "{progress}\n\nChoose your supplier and plan from the list, and the rates are filled in for you. Or enter the rates from your bill yourself.\n\n{note}",
+        "menu_options": {
+          "store_country": "Choose from the list",
+          "tariff": "Enter it myself"
+        },
+        "menu_option_descriptions": {
+          "store_country": "Pick your country, supplier and plan. The prices are published openly and checked before they are used.",
+          "tariff": "Type the rates in from your bill or tariff sheet."
+        }
+      },
+      "store_country": {
+        "title": "Country",
+        "description": "{progress}\n\nWhere is your electricity supplied?",
+        "data": {
+          "country": "Country"
+        },
+        "data_description": {
+          "country": "Only countries with published tariffs are listed."
+        }
+      },
+      "store_provider": {
+        "title": "Supplier",
+        "description": "{progress}\n\nWho do you buy electricity from? Type to search the list.",
+        "data": {
+          "provider": "Supplier"
+        },
+        "data_description": {
+          "provider": "Your supplier is named on your bill."
+        }
+      },
+      "store_plan": {
+        "title": "Plan",
+        "description": "{progress}\n\nWhich plan are you on? Only plans with prices in force today are listed.",
+        "data": {
+          "tariff": "Plan"
+        },
+        "data_description": {
+          "tariff": "The plan is named on your bill or contract."
+        }
+      },
+      "store_area": {
+        "title": "Area",
+        "description": "{progress}\n\nThis plan has different prices in different areas. Choose yours.",
+        "data": {
+          "area": "Area"
+        },
+        "data_description": {
+          "area": "Your bill names the area or region. It is never guessed from where you live."
+        }
+      },
+      "store_review": {
+        "title": "{name}",
+        "description": "{progress}\n\nThese rates will be saved as your tariff:\n\n{review}",
+        "data": {
+          "bill_start_day": "Bill start day"
+        },
+        "data_description": {
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
+        }
+      },
       "tariff": {
         "title": "Electricity tariff",
         "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.{rate_note}",

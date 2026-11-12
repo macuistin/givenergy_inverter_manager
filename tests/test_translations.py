@@ -34,6 +34,12 @@ def test_en_json_is_a_byte_copy_of_strings_json():
 SETUP_STEPS = {
     "system",
     "inverter_entities",
+    "tariff_source",
+    "store_country",
+    "store_provider",
+    "store_plan",
+    "store_area",
+    "store_review",
     "tariff",
     "tariff_rates",
     "forecast",
