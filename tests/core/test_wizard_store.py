@@ -133,3 +133,33 @@ def test_the_source_is_described_for_each_kind() -> None:
     assert source_text({**record, "kind": "based_on"}) == (
         "P Energy Plan, prices from 2026-01-01, then edited by hand"
     )
+
+
+def test_a_plan_without_an_export_price_takes_the_rate_the_user_types() -> None:
+    definition = _definition(export_rate=0.0)
+    choice = choose_tariff(definition, 5, 0.195)
+    assert choice.usable
+    assert choice.options["export_rate"] == 0.195
+    record = source_record({"country": "IE", "provider": "p", "tariff": "t", "area": "all"},
+                           definition, 0.195)
+    assert record["export_rate"] == 0.195
+
+
+def test_a_typed_export_rate_is_ignored_when_the_store_holds_one() -> None:
+    definition = _definition(export_rate=0.2)
+    choice = choose_tariff(definition, 5, 0.9)
+    assert choice.options["export_rate"] == 0.2
+    record = source_record({"country": "IE", "provider": "p", "tariff": "t", "area": "all"},
+                           definition, 0.9)
+    assert "export_rate" not in record
+
+
+def test_the_review_says_when_a_plan_lists_no_export_price() -> None:
+    definition = _definition(export_rate=0.0)
+    assert "this plan lists no export price" in review_text(definition, choose_tariff(definition, 1))
+
+
+def test_the_source_text_says_when_automatic_updates_are_off() -> None:
+    record = {"kind": "store", "provider_name": "P", "name": "Plan", "effective_from": "2026-01-01",
+              "auto_update": False}
+    assert source_text(record) == "P Plan, prices from 2026-01-01, from the store, updates off"

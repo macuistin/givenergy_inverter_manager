@@ -56,6 +56,7 @@ from .tariff_config import build_tariff
 MAX_TIMED_RATES = 5  # the options form holds this many timed rates
 SLOTS_PER_DAY = 48
 PROBE_DAYS = 30
+PROBE_EXPORTS = (Decimal(0), Decimal("47.5"))
 
 
 class NotRepresentable(ValueError):
@@ -221,10 +222,16 @@ def _probe_usage(names: list[str]) -> list[Mapping[str, Decimal]]:
     return probes
 
 
-def prices_match(definition: TariffDefinition, options: Mapping[str, Any]) -> list[str]:
+def prices_match(
+    definition: TariffDefinition,
+    options: Mapping[str, Any],
+    exports: tuple[Decimal, ...] = PROBE_EXPORTS,
+) -> list[str]:
     """What differs when *options* price the same usage as *definition*. Empty means it matches.
 
-    Each probe is a whole bill, so the totals must agree to the currency's smallest unit.
+    Each probe is a whole bill, so the totals must agree to the currency's smallest unit. *exports*
+    are the exported kWh probed. A typed export rate leaves out the non-zero one, because the
+    tariff pays nothing for export to compare it with.
     """
     own = definition_from_config(
         build_tariff({**options, "bill_start_day": 1}),
@@ -235,7 +242,7 @@ def prices_match(definition: TariffDefinition, options: Mapping[str, Any]) -> li
     differences = []
     for days in (28, PROBE_DAYS, 31):
         for usage in _probe_usage(names):
-            for export in (Decimal(0), Decimal("47.5")):
+            for export in exports:
                 bill = BillInputs(days, PROBE_DAYS, usage, export)
                 want = price_bill(definition, bill).total
                 got = price_bill(own, bill).total

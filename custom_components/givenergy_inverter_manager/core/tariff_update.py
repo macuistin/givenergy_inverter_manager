@@ -18,7 +18,7 @@ from enum import StrEnum
 from typing import Any
 
 from ..lib.tariff import TariffDefinition
-from .wizard_store import SOURCE_KIND, choose_tariff
+from .wizard_store import SOURCE_KIND, choose_tariff, pays_for_export
 
 PREVIOUS_KEY = "previous"
 NOT_LISTED = "the store no longer lists this tariff"
@@ -67,7 +67,7 @@ def decide(
         return CURRENT
     if definition.effective_from.isoformat() <= str(record.get("effective_from", "")):
         return CURRENT
-    choice = choose_tariff(definition, bill_start_day)
+    choice = choose_tariff(definition, bill_start_day, record.get("export_rate"))
     if not choice.usable:
         return UpdateDecision(Outcome.ATTENTION, reasons=choice.reasons)
     new_record = _next_record(record, definition, options, choice.options)
@@ -85,8 +85,9 @@ def _next_record(
     """The record for the new revision, holding what Undo needs to put the old one back."""
     previous = {key: options[key] for key in new_options if key in options}
     old = {k: v for k, v in record.items() if k != PREVIOUS_KEY}
+    kept = {k: v for k, v in old.items() if k != "export_rate" or not pays_for_export(definition)}
     return {
-        **old,
+        **kept,
         "name": definition.name,
         "provider_name": definition.provider.name,
         "effective_from": definition.effective_from.isoformat(),

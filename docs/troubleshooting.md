@@ -211,7 +211,7 @@ The repair **Tariff rates have not been reviewed** appears when the tariff has g
 
 ## A newer version of your tariff is available
 
-You chose a tariff from the list and turned automatic updates off. The store now holds a newer set of prices for it, in force from the date shown in the repair. Nothing has changed in your saved rates. Open **Configure**, then **Tariff**, then **Tariff source**, and choose the tariff again to take the new prices. The repair clears once the saved tariff is the newest one.
+You chose a tariff from the list and turned automatic updates off. The store now holds a newer set of prices for it, in force from the date shown in the repair. Nothing has changed in your saved rates. Open **Configure**, then **Tariff**, then **Tariff source**, and choose the tariff again to take the new prices, or choose **Turn automatic updates on** to have them applied by themselves. The repair clears once the saved tariff is the newest one.
 
 ## Your tariff needs attention
 

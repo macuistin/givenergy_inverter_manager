@@ -91,10 +91,12 @@
         "title": "{name}",
         "description": "{progress}\n\nThese rates will be saved as your tariff:\n\n{review}",
         "data": {
-          "bill_start_day": "Bill start day"
+          "bill_start_day": "Bill start day",
+          "export_rate": "Export rate"
         },
         "data_description": {
-          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+          "export_rate": "What you are paid for each kWh you export, before any tax. This plan lists no export price, so type the rate from your bill or contract. Leave it at 0 if you are not paid."
         }
       },
       "tariff": {
@@ -647,11 +649,13 @@
         "title": "Shadow tariffs",
         "description": "A shadow tariff prices the energy you really used under another set of rates, so you can see whether it would have cost less. It changes nothing: your inverter, the charge plan and your real bill are not affected. You can set up at most {shadow_limit}.\n\nNow: {shadow_list}.",
         "menu_options": {
-          "shadow_add": "Add a shadow tariff",
+          "shadow_from_list": "Choose one from the list",
+          "shadow_add": "Type one in",
           "shadow_remove": "Remove a shadow tariff",
           "init": "Back"
         },
         "menu_option_descriptions": {
+          "shadow_from_list": "Pick a country, supplier and plan, and its published prices are used.",
           "shadow_add": "Start from your current rates and change what the other tariff does differently.",
           "shadow_remove": "Delete a shadow tariff and its sensors.",
           "init": "Back to the other pages."
@@ -782,11 +786,17 @@
         "description": "{source}\n\n{note}",
         "menu_options": {
           "store_country": "Choose from the list",
+          "store_updates_off": "Turn automatic updates off",
+          "store_updates_on": "Turn automatic updates on",
+          "store_undo": "Undo the last update",
           "store_detach": "Stop following the store",
           "tariff_menu": "Back"
         },
         "menu_option_descriptions": {
           "store_country": "Pick your country, supplier and plan. The rates replace the ones saved now when you save your changes.",
+          "store_updates_off": "Keep these prices when the supplier publishes new ones. You are told that a newer version is available.",
+          "store_updates_on": "Take the supplier's new prices by themselves, on the day they start.",
+          "store_undo": "Put back the prices from before the last automatic update, and stop updating.",
           "store_detach": "Keep the rates as they are and edit them by hand from now on.",
           "tariff_menu": "Back to the tariff."
         }
@@ -833,12 +843,14 @@
       },
       "store_review": {
         "title": "{name}",
-        "description": "These rates will be saved as your tariff:\n\n{review}\n\nSaving your changes at the end replaces the rates now saved.",
+        "description": "{lead}\n\n{review}\n\n{tail}",
         "data": {
-          "bill_start_day": "Bill start day"
+          "bill_start_day": "Bill start day",
+          "export_rate": "Export rate"
         },
         "data_description": {
-          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+          "export_rate": "What you are paid for each kWh you export, before any tax. This plan lists no export price, so type the rate from your bill or contract. Leave it at 0 if you are not paid."
         }
       }
     },
@@ -1599,7 +1611,7 @@
     },
     "tariff_update_available": {
       "title": "A newer version of your tariff is available",
-      "description": "{name} has a new set of prices that started on {start}. Automatic updates are off, so your saved rates have not changed.\n\nOpen **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff → Tariff source**, then choose the tariff again to use the new prices."
+      "description": "{name} has a new set of prices that started on {start}. Automatic updates are off, so your saved rates have not changed.\n\nTo use the new prices, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff → Tariff source**, then choose the tariff again from the list. To have them applied by themselves from now on, choose **Turn automatic updates on**."
     },
     "tariff_needs_attention": {
       "title": "Your tariff needs attention",

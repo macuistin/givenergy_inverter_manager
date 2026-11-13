@@ -23,11 +23,13 @@ from ..conf import (
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
     CONF_STANDING_CHARGE,
+    CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
 )
 from ..tuning import MAX_SHADOW_TARIFFS
 
 KEY_NAME = "name"
+KEY_SOURCE = "source"  # where a shadow chosen from the store came from, for the settings page
 
 # The fields a shadow tariff sets itself. Anything else comes from the active tariff.
 SHADOW_FIELDS: tuple[str, ...] = (
@@ -39,6 +41,10 @@ SHADOW_FIELDS: tuple[str, ...] = (
     CONF_VAT_RATE,
     CONF_DISCOUNT_RATE,
 )
+
+# Set only when the user picked the tariff from the store. A tariff typed by hand has neither, and
+# then takes VAT as the active tariff does.
+SHADOW_OPTIONAL: tuple[str, ...] = (CONF_VAT_INCLUDED, KEY_SOURCE)
 
 
 def shadow_entries(raw: Any) -> list[dict[str, Any]]:
@@ -82,7 +88,11 @@ def with_shadow(raw: Any, entry: Mapping[str, Any]) -> list[dict[str, Any]]:
     error = name_error(raw, str(entry.get(KEY_NAME) or ""))
     if error:
         raise ValueError(error)
-    stored = {KEY_NAME: str(entry[KEY_NAME]).strip(), **{k: entry[k] for k in SHADOW_FIELDS}}
+    stored = {
+        KEY_NAME: str(entry[KEY_NAME]).strip(),
+        **{k: entry[k] for k in SHADOW_FIELDS},
+        **{k: entry[k] for k in SHADOW_OPTIONAL if k in entry},
+    }
     return [*shadow_entries(raw), stored]
 
 
@@ -93,7 +103,8 @@ def without_shadow(raw: Any, name: str) -> list[dict[str, Any]]:
 
 def shadow_config(entry: Mapping[str, Any], active: Mapping[str, Any]) -> dict[str, Any]:
     """The config that builds the shadow's tariff: the active config under the shadow's fields."""
-    return {**active, **{key: entry[key] for key in SHADOW_FIELDS}}
+    own = (*SHADOW_FIELDS, CONF_VAT_INCLUDED)
+    return {**active, **{key: entry[key] for key in own if key in entry}}
 
 
 def shadow_summary(raw: Any) -> str:
@@ -102,3 +113,29 @@ def shadow_summary(raw: Any) -> str:
     if not names:
         return "None set up"
     return f"{len(names)} of {MAX_SHADOW_TARIFFS}: {', '.join(names)}"
+
+
+def unique_shadow_name(raw: Any, wanted: str) -> str:
+    """*wanted*, or "wanted (2)" and on, when a shadow tariff already has that name."""
+    taken = {entry[KEY_NAME].strip().casefold() for entry in shadow_entries(raw)}
+    name, number = wanted.strip(), 2
+    while name.casefold() in taken:
+        name = f"{wanted.strip()} ({number})"
+        number += 1
+    return name
+
+
+def shadow_entry_from_options(name: str, options: Mapping[str, Any]) -> dict[str, Any]:
+    """A shadow tariff from the options a store plan was copied into, with where it came from."""
+    record = options["tariff_source"]
+    source = {
+        key: record[key]
+        for key in ("country", "provider", "tariff", "area", "effective_from")
+        if key in record
+    }
+    return {
+        KEY_NAME: name,
+        **{key: options[key] for key in SHADOW_FIELDS},
+        CONF_VAT_INCLUDED: bool(options.get(CONF_VAT_INCLUDED, False)),
+        KEY_SOURCE: source,
+    }

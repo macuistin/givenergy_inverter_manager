@@ -113,22 +113,32 @@ async def async_check_tariff(
     return decision
 
 
-def async_start_tariff_updates(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Check once now, then every day at 00:05 local time, until the entry unloads."""
-    from homeassistant.core import callback  # noqa: PLC0415
-    from homeassistant.helpers.event import async_track_time_change  # noqa: PLC0415
+def _check_task(hass: HomeAssistant, entry: ConfigEntry) -> None:
     from homeassistant.util import dt as dt_util  # noqa: PLC0415
 
-    store = TariffStoreAccess(hass)
-
     async def check() -> None:
-        await async_check_tariff(hass, entry, store, dt_util.now().date())
+        await async_check_tariff(hass, entry, TariffStoreAccess(hass), dt_util.now().date())
+
+    entry.async_create_background_task(hass, check(), "givenergy tariff update")
+
+
+def async_check_tariff_at_start(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Look once now. Called after the update listener exists, so a new price reloads the entry."""
+    _check_task(hass, entry)
+
+
+def async_track_daily_tariff_check(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Look every day at 00:05 local time, until the entry unloads.
+
+    Registered with the coordinator's other timers, so it is cancelled the same way.
+    """
+    from homeassistant.core import callback  # noqa: PLC0415
+    from homeassistant.helpers.event import async_track_time_change  # noqa: PLC0415
 
     @callback
     def daily(_now: object) -> None:
-        entry.async_create_background_task(hass, check(), "givenergy tariff update")
+        _check_task(hass, entry)
 
     entry.async_on_unload(
         async_track_time_change(hass, daily, hour=UPDATE_HOUR, minute=UPDATE_MINUTE, second=0)
     )
-    entry.async_create_background_task(hass, check(), "givenergy tariff update")

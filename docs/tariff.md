@@ -35,6 +35,10 @@ The prices come from an open, published list. Only the file requests for the lis
 
 Choosing from the list copies the prices into the same settings you can type in, so the planner, the sensors and Configure work as before. The copy is checked: it must price a set of test bills to the smallest currency unit the same as the published plan. A plan that fails the check, or that the settings cannot hold, is not used. The screen says why and offers **Enter it myself**.
 
+### Export price
+
+When the plan lists a price for exported energy, it is saved as your export rate and shown on the review screen. When it lists none, the review says so and asks for **Export rate**. Type what your bill or contract pays for each kWh you export, before any tax, or leave 0 if you are not paid. A rate you type is kept with the tariff source and stays in place when the plan's prices update, until the list holds an export price for the plan. The list's own price then takes over.
+
 ### Change it later
 
 **Configure → Tariff → Tariff source** says where the tariff came from and has the same list. Choosing a plan there replaces the saved rates and bill figures when you save, and shows the change before it does. For a tariff that follows the list, **Stop following the store** keeps the rates and lets you edit them by hand. Changing a rate or a bill figure by hand on a tariff that follows the list stops it following. The change list before you save shows this as a change of tariff source. A tariff set up by hand has no source and nothing here changes it.
@@ -43,9 +47,11 @@ When a plan's published prices already include VAT, they are saved as published 
 
 ### Updates from the list
 
-A tariff that follows the list is read again every day at 00:05 and once when the integration starts. When the supplier's newer prices are in force, they replace the saved rates, standing charge, levy, VAT and discount as one set, and a notification says so. They never apply part way through a day or a bill period, so the day that just ended is still priced with the old prices. The old rates are kept in the `tariff_source` option so a later release can offer to put them back.
+A tariff that follows the list is read again every day at 00:05 and once when the integration starts. When the supplier's newer prices are in force, they replace the saved rates, standing charge, levy, VAT and discount as one set, and a notification says so. They never apply part way through a day or a bill period, so the day that just ended is still priced with the old prices. The old rates are kept in the `tariff_source` option.
 
-If the list cannot be read, nothing changes and nothing is reported: the saved rates keep working. If the list no longer holds the plan, or its newest prices use a rule the saved rates cannot hold, the repair **Your tariff needs attention** appears and the saved rates stay as they are. A tariff you edited by hand is never changed. See [A newer version of your tariff is available](troubleshooting.md#a-newer-version-of-your-tariff-is-available) and [Your tariff needs attention](troubleshooting.md#your-tariff-needs-attention).
+If the list cannot be read, nothing changes and nothing is reported: the saved rates keep working. If the list no longer holds the plan, or its newest prices use a rule the saved rates cannot hold, the repair **Your tariff needs attention** appears and the saved rates stay as they are. A tariff you edited by hand is never changed.
+
+**Configure → Tariff → Tariff source** has two more choices for a tariff that follows the list. **Turn automatic updates off** keeps your prices when the supplier publishes new ones and raises the repair "A newer version of your tariff is available" instead. **Turn automatic updates on** follows the list again. **Undo the last update** (shown once an update has been applied) puts back the prices from before it and turns automatic updates off, so the same prices are not applied again. See [A newer version of your tariff is available](troubleshooting.md#a-newer-version-of-your-tariff-is-available) and [Your tariff needs attention](troubleshooting.md#your-tariff-needs-attention).
 
 ## Change the rates from a date
 
@@ -68,7 +74,7 @@ What a dated change covers and does not cover:
 
 ## Shadow tariffs
 
-A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three.
+A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three. Instead of typing the rates, you can choose a plan from the published list, as in [Choose a tariff from the list](#choose-a-tariff-from-the-list). A shadow tariff chosen this way keeps its prices until you remove it and add it again.
 
 Each shadow tariff adds three entities to a **Shadow tariffs** device, which is separate from the main device. They are on as soon as you save. Your real tariff, bill and entity IDs do not change.
 

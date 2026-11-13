@@ -3806,7 +3806,7 @@
   "placeholders": {
    "progress": "Step 2 of about 3.",
    "name": "Plan (Rural)",
-   "review": "- Day: 0.32 EUR per kWh\n- Night: 0.16 EUR per kWh, 23:00 to 08:00\n- Export: 0 EUR per kWh\n- Standing charge: 1.1 EUR per day\n- VAT: 9%, already in the prices\n\nPrices in force from 1 January 2026, as published. Source: https://example.test/prices. Check them against your bill."
+   "review": "- Day: 0.32 EUR per kWh\n- Night: 0.16 EUR per kWh, 23:00 to 08:00\n- Export: this plan lists no export price\n- Standing charge: 1.1 EUR per day\n- VAT: 9%, already in the prices\n\nPrices in force from 1 January 2026, as published. Source: https://example.test/prices. Check them against your bill."
   },
   "fields": [
    {
@@ -3821,6 +3821,20 @@
     "name": "bill_start_day",
     "required": true,
     "default": 1
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": "any",
+      "mode": "box"
+     }
+    },
+    "name": "export_rate",
+    "required": false,
+    "optional": true,
+    "default": 0.0
    }
   ]
  },
