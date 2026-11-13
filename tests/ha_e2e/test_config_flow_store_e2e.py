@@ -19,6 +19,7 @@ from custom_components.givenergy_inverter_manager.lib.tariffstore import (
     Store,
     StoreError,
     folder_reader,
+    layout,
 )
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
 from custom_components.givenergy_inverter_manager.wizard import store_steps
@@ -261,3 +262,31 @@ async def test_a_call_that_fails_late_ends_in_typing_the_rates_in(
     assert result["type"] is FlowResultType.MENU
     assert result["menu_options"] == ["tariff"]
     manager(hass).async_abort(result["flow_id"])
+
+
+async def test_opening_the_list_again_offers_a_plan_added_since_the_last_look(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    folder = _built(tmp_path, tariff(effective_from="2026-01-01"))
+    _use_store(monkeypatch, hass, folder, tmp_path / "cache")
+
+    first = await _to_the_list(hass)
+    first = await submit_raw(manager(hass), first, country="IE")
+    first = await submit_raw(manager(hass), first, provider="p")
+    assert [o["value"] for o in first["data_schema"].schema["tariff"].config["options"]] == ["plan"]
+    manager(hass).async_abort(first["flow_id"])
+
+    # A new plan is published, and the index is rebuilt. The cache is still well inside its day.
+    added = folder / "ie" / "p" / "newplan"
+    added.mkdir(parents=True)
+    (added / "1.json").write_text(
+        layout.dumps_tariff(tariff(effective_from="2026-01-01", name="New plan")), encoding="utf-8"
+    )
+    build_store(folder)
+
+    again = await _to_the_list(hass)
+    again = await submit_raw(manager(hass), again, country="IE")
+    again = await submit_raw(manager(hass), again, provider="p")
+    offered = [o["value"] for o in again["data_schema"].schema["tariff"].config["options"]]
+    assert offered == ["newplan", "plan"]
+    manager(hass).async_abort(again["flow_id"])
