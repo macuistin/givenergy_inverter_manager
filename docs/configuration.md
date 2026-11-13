@@ -144,6 +144,7 @@ A shadow tariff is another set of rates that the integration prices your real us
 |---|---|
 | Add a shadow tariff | a name and the figures that differ between tariffs: the base rate, the export rate, the number of time-of-day rates, the standing charge, the levy, VAT and the discount. They start at your current tariff, so change only what is different. A count above 0 opens the rows of time-of-day rates next |
 | Choose one from the list | the same country, supplier, plan and area pages as setup, then a review of the rates. It asks for an export rate when the plan lists none. The shadow tariff keeps where it came from, but does not follow later price changes. A plan the saved rates cannot hold is not offered |
+| Find a cheaper plan | how far back to look (whole bills or weeks) and an export rate for plans that list none. It prices your past usage under every plan in your country and area, ranks them with yours and says where your plan stands. You can add one of the plans as a shadow tariff. It never changes your tariff. See [Find a cheaper plan](tariff.md#find-a-cheaper-plan) |
 | Remove a shadow tariff | a list of the shadow tariffs. The one you pick is deleted when you save |
 | Back | the main menu |
 

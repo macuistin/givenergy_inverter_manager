@@ -241,6 +241,7 @@ from .lib.givtcp.status import WriteStatus
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
 from .lib.solar.shape import solar_shape_from_periods
+from .lib.tariff.slot_history import SlotHistory
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
@@ -688,6 +689,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     @override_immersion.setter
     def override_immersion(self, value: bool | None) -> None:
         self.immersion.override = value
+
+    @property
+    def energy_history(self) -> SlotHistory:
+        """The half-hourly energy history, for re-pricing it under another tariff."""
+        return self._slots.history
 
     def slot_summary(self) -> list[dict[str, Any]]:
         """The last week of the half-hourly history, for diagnostics."""
