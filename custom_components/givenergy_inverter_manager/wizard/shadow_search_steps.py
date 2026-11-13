@@ -69,8 +69,8 @@ class ShadowSearchSteps:
     _picked: dict[str, str]
 
     def _init_search(self) -> None:
-        self._search_result: SearchResult | None = None
-        self._search_found: Gathered | None = None
+        self._search_result: SearchResult
+        self._search_found: Gathered
         self._search_export: float = 0.0
 
     # What the options wizard supplies.
@@ -146,8 +146,6 @@ class ShadowSearchSteps:
     def _offered(self) -> dict[str, str]:
         """The best plans that are not the current one, as {key: label}."""
         result, found = self._search_result, self._search_found
-        if result is None or found is None:
-            return {}
         return {
             r.key: f"{r.rank}. {r.label}"
             for r in result.ranked
@@ -159,8 +157,6 @@ class ShadowSearchSteps:
     ) -> Any:
         """The ranking, and a choice to add one plan as a shadow tariff."""
         result, found = self._search_result, self._search_found
-        if result is None or found is None:
-            return await self.async_step_shadow_menu()  # type: ignore[attr-defined]
         errors: dict[str, str] = {}
         if user_input is not None and user_input.get("plan"):
             outcome = await self._add_searched(user_input["plan"])
@@ -200,8 +196,6 @@ class ShadowSearchSteps:
     async def _add_searched(self, key: str) -> Any | None:
         """Add the plan as a shadow tariff, or None when the saved rates cannot hold it."""
         found = self._search_found
-        if found is None or key not in found.places:
-            return None
         place = found.places[key]
         definition = next(c.definition for c in found.candidates if c.key == key)
         config = self._active_config()

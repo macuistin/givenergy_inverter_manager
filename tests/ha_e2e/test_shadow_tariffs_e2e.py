@@ -204,3 +204,108 @@ async def test_a_cheaper_plan_is_searched_for_and_added(hass, loaded_entry, monk
     saved = loaded_entry.options[CONF_SHADOW_TARIFFS][0]
     assert saved["source"]["tariff"] == "plan"
     assert "tariff_source" not in loaded_entry.options  # the active tariff is untouched
+
+
+async def _search_form(hass, loaded_entry, monkeypatch, tmp_path, files=None):
+    from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+        FolderCache,
+        Store,
+        folder_reader,
+    )
+    from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
+    from custom_components.givenergy_inverter_manager.wizard import shadow_search_steps
+    from tests.lib.tariffstore.building import build_store
+    from tests.lib.tariffstore.fixtures import flat, write_store
+
+    folder = write_store(tmp_path, {"p/plan/1.json": flat(start="2026-01-01")})
+    build_store(folder)
+    store = Store(files or folder_reader(folder), FolderCache(tmp_path / "cache"))
+    monkeypatch.setattr(
+        shadow_search_steps, "TariffStoreAccess", lambda _hass: TariffStoreAccess(hass, store)
+    )
+    hass.config.country = "IE"
+    result = await open_shadow_menu(hass, loaded_entry)
+    return await choose(manager(hass), result, "shadow_search")
+
+
+async def test_a_search_window_out_of_range_is_refused(hass, loaded_entry, monkeypatch, tmp_path):
+    from wizard_support import submit_raw
+
+    result = await _search_form(hass, loaded_entry, monkeypatch, tmp_path)
+    result = await submit_raw(
+        manager(hass), result, unit="bills", count=30, export_rate=0.1
+    )
+    assert result["errors"] == {"base": "search_window"}
+
+
+async def test_a_search_with_no_country_is_refused(hass, loaded_entry, monkeypatch, tmp_path):
+    from wizard_support import submit
+
+    result = await _search_form(hass, loaded_entry, monkeypatch, tmp_path)
+    hass.config.country = None
+    result = await submit(manager(hass), result, unit="weeks", count=2, export_rate=0.1)
+    assert result["errors"] == {"base": "search_window"}
+
+
+async def test_a_search_says_so_when_the_store_cannot_be_read(
+    hass, loaded_entry, monkeypatch, tmp_path
+):
+    def unreadable(_path: str) -> bytes:
+        raise OSError("offline")
+
+    from wizard_support import submit
+
+    result = await _search_form(hass, loaded_entry, monkeypatch, tmp_path, unreadable)
+    result = await submit(manager(hass), result, unit="weeks", count=2, export_rate=0.1)
+    assert result["errors"] == {"base": "search_store"}
+
+
+async def test_the_results_can_be_left_without_adding_a_plan(
+    hass, loaded_entry, monkeypatch, tmp_path
+):
+    from wizard_support import submit
+
+    result = await _search_form(hass, loaded_entry, monkeypatch, tmp_path)
+    result = await submit(manager(hass), result, unit="weeks", count=2, export_rate=0.1)
+    result = await submit(manager(hass), result)
+    assert result["step_id"] == "shadow_menu"
+    assert CONF_SHADOW_TARIFFS not in loaded_entry.options
+
+
+async def test_a_plan_the_saved_rates_cannot_hold_stays_on_the_results(
+    hass, loaded_entry, monkeypatch, tmp_path
+):
+    from wizard_support import submit
+
+    from custom_components.givenergy_inverter_manager.core.wizard_store import StoreChoice
+    from custom_components.givenergy_inverter_manager.wizard import shadow_search_steps
+
+    monkeypatch.setattr(shadow_search_steps, "choose_tariff", lambda *_a, **_k: StoreChoice())
+    result = await _search_form(hass, loaded_entry, monkeypatch, tmp_path)
+    result = await submit(manager(hass), result, unit="weeks", count=2, export_rate=0.1)
+    result = await submit(manager(hass), result, plan="p/plan/all")
+    assert result["step_id"] == "shadow_search_results"
+    assert result["errors"] == {"base": "search_cannot_hold"}
+
+
+def test_the_ranking_lists_the_best_and_always_the_current_plan() -> None:
+    from datetime import date
+
+    from custom_components.givenergy_inverter_manager.core.shadow_search import (
+        Ranked,
+        SearchResult,
+    )
+    from custom_components.givenergy_inverter_manager.wizard.shadow_search_steps import (
+        ranking_text,
+    )
+
+    ranked = tuple(
+        Ranked("current" if n == 15 else f"p{n}", f"Plan {n}", n * 10.0, n * 1.0, n)
+        for n in range(1, 16)
+    )
+    day = date(2026, 11, 1)
+    text = ranking_text(SearchResult(ranked, 15, day, day, 1, 1, day, 0), "€")
+    lines = text.splitlines()
+    assert len(lines) == 11
+    assert lines[0].startswith("1. Plan 1")
+    assert lines[-1] == "15. Plan 15: €150.00 (your plan)"
