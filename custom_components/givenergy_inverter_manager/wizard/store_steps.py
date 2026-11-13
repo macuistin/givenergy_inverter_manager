@@ -110,8 +110,11 @@ class StoreSteps:
     # ── country, supplier, plan ───────────────────────────────────────────────
 
     async def async_step_store_country(self, user_input: dict[str, Any] | None = None) -> Any:
-        """The countries the store holds."""
+        """The countries the store holds. Opening the list reads the store's index again, so a
+        plan added since the last look is offered. Anything unchanged comes from the cache."""
         try:
+            if user_input is None:
+                await self._store().async_refresh()
             countries = country_choices(await self._store().async_countries())
         except STORE_ERRORS as err:
             return self._store_failed(err)
