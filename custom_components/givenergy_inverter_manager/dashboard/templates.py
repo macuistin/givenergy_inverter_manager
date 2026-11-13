@@ -4,8 +4,10 @@ templates.py - the text of the markdown cards that are more than an entity's sta
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date
+from html import escape
 from typing import Any
 
 from ..const import (
@@ -16,10 +18,12 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
 )
+from ..core.html_table import folded, html_table, unbroken
 from ..core.overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS
+from ..core.pictures import bar, rate_colours, rate_strip, swatch
 from ..core.reporting import PLAN_CHARGE_WORDS, PLAN_SKIP_WORDS
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
-from .cards import state_ref
+from .cards import SAVING_HEX, state_ref
 
 
 def _sunrise_phrase(sunrise: str | None) -> str:
@@ -169,27 +173,44 @@ def currency_symbol(cfg: dict[str, Any]) -> str:
 
 
 def tariff_table(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
-    """Markdown table of the rates the integration prices energy with."""
+    """The rates as a strip of the day over the table, with the other charges folded away."""
+    return f"{rate_strip(tariff)}\n\n{tariff_rates(tariff, cfg)}"
+
+
+def tariff_rates(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
+    """The rates table, how a billed rate is reached, and the other charges folded away."""
     symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
+    colours = rate_colours(tariff)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
-    lines = [
-        "| Period | Window | Rate per kWh | Billed per kWh |",
-        "|---|---|---:|---:|",
-        *(f"| {n} | {w} | {symbol}{r:.4f} | {symbol}{r * billed:.4f} |" for n, w, r in rows),
-        "",
+    rates = html_table(
+        ["Period", "Window", "Rate per kWh", "Billed per kWh"],
+        [
+            [
+                f"{swatch(colours[name])}\u00a0{escape(name)}",
+                unbroken(window),
+                f"{symbol}{rate:.4f}",
+                f"{symbol}{rate * billed:.4f}",
+            ]
+            for name, window, rate in rows
+        ],
+        text_columns=2,
+    )
+    other = html_table(
+        ["Other charge", "Value"],
+        [
+            ["Export rate", f"{symbol}{tariff.export_rate:.4f} per kWh"],
+            ["Standing charge", f"{symbol}{tariff.standing_charge:.4f} per day"],
+            ["PSO levy", f"{symbol}{tariff.pso_levy:.2f} per bill period"],
+            ["Bill starts on day", str(tariff.bill_start_day)],
+        ],
+    )
+    note = (
         f"Billed per kWh is the rate less the {tariff.discount_rate:g}% discount, "
-        f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies.",
-        "",
-        "| Other charge | Value |",
-        "|---|---:|",
-        f"| Export rate | {symbol}{tariff.export_rate:.4f} per kWh |",
-        f"| Standing charge | {symbol}{tariff.standing_charge:.4f} per day |",
-        f"| PSO levy | {symbol}{tariff.pso_levy:.2f} per bill period |",
-        f"| Bill starts on day | {tariff.bill_start_day} |",
-    ]
-    return "\n".join(lines)
+        f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies."
+    )
+    return "\n\n".join([rates, note, folded("Other charges", other)])
 
 
 def _day(day: date) -> str:
@@ -452,14 +473,61 @@ def ev_story_template(ev: ChargerNow) -> str:
     return text
 
 
-def saved_template(paid: str, without: str, symbol: str) -> str:
-    """What solar and the battery have taken off this bill so far, as a heading and a line."""
+@dataclass(frozen=True)
+class BillNow:
+    """The sensors of the bill period that the opening card reads. Only two are needed."""
+
+    paid: str
+    without: str
+    projected: str | None = None
+    days_left: str | None = None
+
+
+# The purple of the bill and the amber of solar, as the bars of the opening card draw them.
+_PAID_BAR = "#7e57c2"
+_WITHOUT_BAR = "#ffa000"
+_DEARER_BAR = "#9e9e9e"
+
+
+def _heading_for(bill: BillNow, symbol: str) -> str:
+    """Where the bill is heading and how long is left, as one small line. Empty without both."""
+    parts = []
+    if bill.projected:
+        parts.append(
+            f"heading for {symbol}{{{{ '%.2f' | format(states('{bill.projected}') | float(0)) }}}}"
+        )
+    if bill.days_left:
+        parts.append(
+            f"{{{{ states('{bill.days_left}') | int(0) }}}} days left in this bill period"
+        )
+    if not parts:
+        return ""
+    line = ", ".join(parts)
+    return f"<font color='grey'>{line[0].upper()}{line[1:]}.</font>\n\n"
+
+
+def _big(amount: str) -> str:
+    """An amount in large type, the figure a card is about."""
+    return f"<font size='6'><b>{amount}</b></font>"
+
+
+def bill_now_template(bill: BillNow, symbol: str) -> str:
+    """The bill so far in large type and the saving, over the bill with and without solar.
+
+    Both bars share one scale, so the gap between them is the saving, read before any figure.
+    """
     return (
-        f"{{% set paid = states('{paid}') | float(0) %}}"
-        f"{{% set wout = states('{without}') | float(0) %}}"
-        f"### Saved {symbol}{{{{ '%.2f' | format(wout - paid) }}}} so far\n"
-        f"Solar and the battery have taken {symbol}{{{{ '%.2f' | format(wout - paid) }}}} off this "
-        f"bill. Without them it would be {symbol}{{{{ '%.2f' | format(wout) }}}}."
+        f"{{% set paid = states('{bill.paid}') | float(0) %}}"
+        f"{{% set wout = states('{bill.without}') | float(0) %}}"
+        "{% set top = [paid, wout, 0.01] | max %}"
+        f"{_big(_money(symbol, 'paid'))} &nbsp;<font color='grey'>so far</font>\n\n"
+        f"{_heading_for(bill, symbol)}"
+        f"<font color='{SAVING_HEX}'><b>{_money(symbol, 'wout - paid')} saved</b></font> "
+        "by solar and the battery so far\n\n"
+        "{% set pct = (100 * paid / top) | round(1) %}"
+        f"With them {_money(symbol, 'paid')}\n{bar('{{ pct }}', _PAID_BAR)}\n\n"
+        "{% set pct = (100 * wout / top) | round(1) %}"
+        f"Without them {_money(symbol, 'wout')}\n{bar('{{ pct }}', _WITHOUT_BAR)}"
     )
 
 
@@ -472,3 +540,122 @@ def plan_text_template(water: str) -> str:
         f"{{% set p = state_attr('{water}', 'planned_heating') %}}"
         "{{ p or 'The planned heating shows once the water temperature is read.' }}"
     )
+
+
+# ── Shadow tariffs ───────────────────────────────────────────────────────────
+# Every figure is the same measured usage priced under another tariff. The words say less or
+# more, because a bare signed figure does not say which of the two tariffs is the dearer.
+
+
+@dataclass(frozen=True)
+class ShadowRow:
+    """One shadow tariff as the dashboard shows it: its name and its two sensors."""
+
+    name: str
+    bill: str
+    difference: str | None
+
+
+def _money(symbol: str, value: str) -> str:
+    """A template that prints the number *value* as money."""
+    return f"{symbol}{{{{ '%.2f' | format({value}) }}}}"
+
+
+def _compared(row: ShadowRow, symbol: str, than: str = "") -> str:
+    """The difference from the active tariff in words: less in green, more, or the same."""
+    if not row.difference:
+        return ""
+    return (
+        f"{{% set d = states('{row.difference}') | float(0) %}}"
+        f"{{% if not has_value('{row.difference}') %}}not known yet"
+        f"{{% elif d < 0 %}}<font color='{SAVING_HEX}'>{_money(symbol, '-d')} less{than}</font>"
+        f"{{% elif d > 0 %}}{_money(symbol, 'd')} more{than}"
+        "{% else %}the same{% endif %}"
+    )
+
+
+def shadow_verdict_template(rows: list[ShadowRow], symbol: str) -> str:
+    """The answer first: which shadow tariff would have cost least, or that none would."""
+    pairs = ", ".join(
+        f"({json.dumps(row.name)}, states('{row.difference}') | float(0))"
+        for row in rows
+        if row.difference
+    )
+    return (
+        "{% set ns = namespace(best=0, name='') %}"
+        f"{{% for name, d in [{pairs}] %}}"
+        "{% if d < ns.best %}{% set ns.best = d %}{% set ns.name = name %}{% endif %}"
+        "{% endfor %}"
+        f"### {{% if ns.name %}}{{{{ ns.name }}}} would have cost {_money(symbol, '-ns.best')} "
+        "less so far{% else %}Your tariff is the cheapest so far{% endif %}\n"
+        "The same measured usage, priced under each tariff. These are not bills."
+    )
+
+
+def _ranked_row(row: ShadowRow, symbol: str) -> str:
+    """One shadow tariff as a dictionary literal the ranking template sorts by its bill."""
+    known = f"has_value('{row.bill}')"
+    return (
+        f"{{'name': {json.dumps(escape(row.name))}, 'bill': states('{row.bill}') | float(0), "
+        f"'known': {known}, 'yours': false, 'said': '{_said_key(row)}'}}"
+    )
+
+
+def _said_key(row: ShadowRow) -> str:
+    return row.bill.rsplit(".", 1)[-1]
+
+
+def _ranking_bar(symbol: str, said: dict[str, str]) -> str:
+    """The name, the bill and how it compares, over a bar on the scale of the dearest."""
+    words = "".join(
+        f"{{% elif r.said == '{key}' %}}{text}" for key, text in said.items()
+    )
+    return (
+        "{% if r.yours %}<b>{{ r.name }}</b> "
+        f"{_money(symbol, 'r.bill')}\n{bar('{{ pct }}', _PAID_BAR)}"
+        "{% elif not r.known %}<b>{{ r.name }}</b> <font color='grey'>not known yet</font>"
+        "{% else %}<b>{{ r.name }}</b> "
+        f"{_money(symbol, 'r.bill')} &nbsp;"
+        f"{{% if false %}}{words}{{% endif %}}\n"
+        f"{{% if r.bill < yours %}}{bar('{{ pct }}', SAVING_HEX)}"
+        f"{{% else %}}{bar('{{ pct }}', _DEARER_BAR)}{{% endif %}}"
+        "{% endif %}"
+    )
+
+
+def shadow_ranking_template(rows: list[ShadowRow], symbol: str) -> str:
+    """Your tariff and each shadow tariff from the cheapest, each a bar on one scale."""
+    first = rows[0].bill
+    said = {_said_key(row): _compared(row, symbol) for row in rows}
+    entries = ", ".join(_ranked_row(row, symbol) for row in rows)
+    return (
+        f"{{% set yours = state_attr('{first}', 'active_tariff_total') | float(0) %}}"
+        "{% set rows = [{'name': 'Your tariff', 'bill': yours, 'known': true, "
+        f"'yours': true, 'said': ''}}, {entries}] %}}"
+        "{% set top = [rows | map(attribute='bill') | max, 0.01] | max %}"
+        "{% for r in (rows | selectattr('known') | sort(attribute='bill'))"
+        " + (rows | rejectattr('known') | list) %}"
+        "{% set pct = (100 * r.bill / top) | round(1) %}"
+        f"{_ranking_bar(symbol, said)}\n\n"
+        "{% endfor %}"
+    )
+
+
+def shadow_coverage_template(bill: str) -> str:
+    """From which day the usage was measured, and how much of the bill period that covers."""
+    return (
+        f"{{% set start = state_attr('{bill}', 'data_from') %}}"
+        "Measured usage starts on "
+        "{% if start %}{% set day = as_datetime(start) %}"
+        "{{ day.day }} {{ day.strftime('%b %Y') }}{% else %}a day not known yet{% endif %}: "
+        f"{{{{ state_attr('{bill}', 'days_with_data') }}}} of "
+        f"{{{{ state_attr('{bill}', 'days_in_bill_period') }}}} days of this bill period are "
+        "recorded. The figures are complete only when all of them are."
+    )
+
+
+def shadow_figure_template(row: ShadowRow, symbol: str) -> str:
+    """One shadow tariff in a heading and a line: its bill so far and how it compares."""
+    compared = _compared(row, symbol, " than your tariff")
+    figure = _big(_money(symbol, f"states('{row.bill}') | float(0)"))
+    return f"{figure} &nbsp;<font color='grey'>so far</font>\n\n{compared}"

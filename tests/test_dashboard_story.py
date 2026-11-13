@@ -11,7 +11,9 @@ functions Home Assistant provides (tests/test_dashboard.py holds the stand-ins).
 from __future__ import annotations
 
 import itertools
+import re
 from datetime import UTC, datetime, time, timedelta
+from urllib.parse import unquote
 
 import pytest
 import yaml
@@ -22,6 +24,7 @@ from custom_components.givenergy_inverter_manager.core.charge_window import Char
 from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
+from custom_components.givenergy_inverter_manager.core.pictures import bar
 from custom_components.givenergy_inverter_manager.core.reporting import (
     PLAN_CHARGE_WORDS,
     PLAN_SKIP_WORDS,
@@ -30,11 +33,12 @@ from custom_components.givenergy_inverter_manager.core.reporting import (
 from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
 from custom_components.givenergy_inverter_manager.dashboard.cards import TABLE_CSS, TOTAL_CSS
 from custom_components.givenergy_inverter_manager.dashboard.templates import (
+    BillNow,
     ChargerNow,
     DayTotals,
     WaterNow,
+    bill_now_template,
     ev_story_template,
-    saved_template,
     today_story_template,
     tomorrow_story_template,
     tonight_line_template,
@@ -427,12 +431,36 @@ class TestTheOtherSentences:
         )
         assert "disconnected" not in text
 
-    def test_the_bill_saving_is_what_solar_and_the_battery_took_off(self):
-        text = _render(saved_template("s.paid", "s.without", "€"), {"s.paid": "40", "s.without": "65.5"}.get)
-        assert text == (
-            "### Saved €25.50 so far\nSolar and the battery have taken €25.50 off this bill. "
-            "Without them it would be €65.50."
-        )
+    def test_the_bill_opens_with_the_figure_so_far_and_the_saving(self):
+        bill = BillNow("s.paid", "s.without", "s.projected", "s.left")
+        values = {"s.paid": "40", "s.without": "65.5", "s.projected": "52.1", "s.left": "3"}
+        text = _render(bill_now_template(bill, "€"), values.get)
+        assert text.startswith("<font size='6'><b>€40.00</b></font>")
+        assert "Heading for €52.10, 3 days left in this bill period." in text
+        assert "<b>€25.50 saved</b></font> by solar and the battery so far" in text
+        assert "With them €40.00" in text
+        assert "Without them €65.50" in text
+
+    def test_the_two_bars_share_one_scale_so_the_gap_is_the_saving(self):
+        bill = BillNow("s.paid", "s.without")
+        text = _render(bill_now_template(bill, "€"), {"s.paid": "40", "s.without": "80"}.get)
+        assert [unquote(src) for src in re.findall(r'src="([^"]+)"', text)] == [
+            f"data:image/svg+xml,{bar_svg(length, colour)}"
+            for length, colour in (("50.0", "#7e57c2"), ("100.0", "#ffa000"))
+        ]
+
+    def test_without_the_projection_and_the_days_the_line_about_them_goes(self):
+        bill = BillNow("s.paid", "s.without")
+        text = _render(bill_now_template(bill, "€"), {"s.paid": "40", "s.without": "65.5"}.get)
+        assert "Heading for" not in text
+        assert "days left" not in text
+
+
+def bar_svg(length: str, colour: str) -> str:
+    """The SVG a bar of this length draws, as the image source holds it once decoded."""
+    src = re.search(r'src="([^"]+)"', bar(length, colour))
+    assert src is not None
+    return unquote(src.group(1)).removeprefix("data:image/svg+xml,")
 
 
 # ── Optional cards: card-mod, colours, apexcharts and the weather ────────────

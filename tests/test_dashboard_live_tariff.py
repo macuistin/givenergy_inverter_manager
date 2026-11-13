@@ -8,6 +8,7 @@ from tests.dashboard_support import (
     dashboard_dict,
     devices_of,
 )
+from tests.helpers import table_rows
 
 REPORT = "sensor.givenergy_inverter_manager_tariff_in_use"
 
@@ -22,8 +23,8 @@ def _tariff(registry: FakeRegistry | None = None, *, is_admin: bool = True) -> l
 def test_the_section_shows_the_report_sensors_html():
     cards = _tariff()
 
-    assert [c["type"] for c in cards] == ["heading", "history-graph", "markdown"]
-    assert cards[2]["content"] == f"{{{{ state_attr('{REPORT}', 'html') }}}}"
+    assert [c["type"] for c in cards] == ["heading", "markdown"]
+    assert cards[1]["content"] == f"{{{{ state_attr('{REPORT}', 'html') }}}}"
 
 
 def test_without_the_sensor_the_section_builds_its_own_tables():
@@ -33,12 +34,17 @@ def test_without_the_sensor_the_section_builds_its_own_tables():
 
     markdown = [c for c in _tariff(registry) if c["type"] == "markdown"]
 
-    assert "| Period | Window | Rate per kWh | Billed per kWh |" in markdown[0]["content"]
+    assert table_rows(markdown[0]["content"])[0] == [
+        "Period",
+        "Window",
+        "Rate per kWh",
+        "Billed per kWh",
+    ]
     assert "state_attr" not in markdown[0]["content"]
 
 
 def test_the_card_holds_no_rate_so_a_change_cannot_leave_it_stale():
-    content = _tariff()[2]["content"]
+    content = _tariff()[1]["content"]
 
     assert not any(ch.isdigit() for ch in content.replace(REPORT, ""))
 

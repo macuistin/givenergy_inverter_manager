@@ -31,6 +31,7 @@ from tests.dashboard_support import (
     view_cards,
 )
 from tests.dashboard_visibility import install, seen, states_with
+from tests.helpers import table_rows
 
 COMBINATIONS = list(itertools.product([False, True], repeat=3))
 HEADING = "Scheduled rate changes"
@@ -144,7 +145,7 @@ def test_the_table_says_which_charges_a_change_leaves_alone():
 def test_the_tariff_in_use_is_untouched_by_a_change_ahead():
     cards = _tariff(_config(_change(_AHEAD)))
     in_use = next(c for c in cards if c["type"] == "markdown")["content"]
-    assert "| Day | all other times | €0.3334 |" in in_use
+    assert ["Day", "all other times", "€0.3334"] in [row[:3] for row in table_rows(in_use)]
 
 
 def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
@@ -155,7 +156,6 @@ def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
         ("heading", "Tariff"),
-        ("history-graph", None),
         ("markdown", None),
         ("heading", HEADING),
         ("markdown", None),
@@ -175,7 +175,7 @@ def test_a_change_that_has_started_is_not_scheduled_any_more():
     config = _config(_change(_PAST), reviewed=_TODAY)
     assert _changes_card(config) is None
     in_use = next(c for c in _tariff(config) if c["type"] == "markdown")["content"]
-    assert "| Day | all other times | €0.4000 |" in in_use
+    assert ["Day", "all other times", "€0.4000"] in [row[:3] for row in table_rows(in_use)]
 
 
 def test_only_the_changes_ahead_are_listed():
@@ -219,7 +219,6 @@ def test_the_tariff_section_is_the_same_for_every_combination_of_devices(combina
     view = _tariff_view_seen(*combination)
     assert [c.get("heading") for c in view_cards(view)] == [
         "Tariff",
-        None,
         None,
         HEADING,
         None,

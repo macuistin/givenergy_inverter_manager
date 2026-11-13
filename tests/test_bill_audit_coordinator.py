@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
 from custom_components.givenergy_inverter_manager.const import CONF_BASE_RATE, CONF_TARIFF_CHANGES
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from tests.helpers import table_rows
 from tests.test_coordinator import FakeCoordinator, _cfg
 
 NEW_BASE = 0.55
@@ -81,15 +82,20 @@ def test_the_audit_sensors_are_filled_each_cycle():
     assert data.previous_bill_audit_state == "Not recorded"
 
 
-def test_the_markdown_tables_are_filled_each_cycle():
+def test_the_tables_are_filled_each_cycle():
     coord = _coord()
     data = CoordinatorData()
     now = datetime(2026, 10, 20, 12, 0)
 
     coord._attach_bill_audit(data, coord._effective_cfg(), now)
 
-    assert data.bill_audit_bill_table.startswith("| | You paid | Would have paid | Saved |")
-    assert "| 20 Oct (today) | 4.0 kWh |" in data.bill_audit_days_table
+    assert table_rows(data.bill_audit_bill_table)[0] == [
+        "",
+        "You paid",
+        "Would have paid",
+        "Saved",
+    ]
+    assert table_rows(data.bill_audit_days_table)[1][:2] == ["20 Oct (today)", "4.0 kWh"]
     assert data.previous_bill_audit_summary_table == (
         "No audit of the last bill period was recorded."
     )

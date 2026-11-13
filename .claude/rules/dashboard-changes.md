@@ -20,6 +20,17 @@ before a change and the steps to finish one.
 - A view has three columns. A section is one column unless it sets `WIDE` or `WHOLE_WIDTH`. Two
   things that should sit side by side on a tablet are two sections: one section holding both
   stacks them. A phone has one column and stacks either way.
+- A screen shows three, two or one column. Lay a view out as a `WIDE` section followed by a
+  one-column one, repeated, with an even number of one-column sections before the last. Each
+  pair then shares a row on a laptop, the narrow ones pair up on a tablet, and nothing leaves
+  a row half empty. A one-column section taller than the wide one beside it leaves a hole.
+- The markdown card strips `style` and keeps the `width` and `align` attributes, and it draws a
+  markdown pipe table only as wide as its text. Build a table with `html_table` in
+  `core/html_table.py`, which fills the card with or without card-mod. In a test, read one
+  with `table_rows` from `tests/helpers.py`.
+- A figure in a sentence or a table says what it means in words ("4.24 less"), never a bare
+  signed number. Test a template by rendering it with jinja2 (`_render` in
+  `tests/test_dashboard_shadow.py`), not by looking for a string in it.
 - apexcharts-card sets the x-axis from `graph_span` and `span` on every update, so `apex_config`
   cannot size or move it. A chart that shows only some hours bakes them in when the dashboard is
   built, so a stored dashboard changes as the days change and the out-of-date repair appears. Say

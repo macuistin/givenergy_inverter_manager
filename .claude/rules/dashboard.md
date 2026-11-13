@@ -50,7 +50,8 @@ paths:
 - Each section leads with a sentence (a markdown template in `templates.py`), then small figures
   as heading chips or a glance row. Tiles are for controls in Settings and, coloured with a gauge
   or a 24 hour line (`figure_tile`, `tile_grid`), for the devices on Home energy and the
-  alternative heating triggers on Hot water. Every view has `max_columns: 3` and
+  alternative heating triggers on Hot water. The four figures of the bill period are plain
+  coloured tiles of six columns: four to a row in a `WIDE` section, two on a phone. Every view has `max_columns: 3` and
   `dense_section_placement`. `WIDE` is two columns, `WHOLE_WIDTH` a banner.
 - A chart series carries a colour (`SOLAR_HEX` and the rest in `cards.py`) only when
   `HostFacts.series_colours` is true, from Home Assistant 2026.6 (`render.py`).

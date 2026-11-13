@@ -17,6 +17,7 @@ from tests.dashboard_support import (
     view_cards,
 )
 from tests.dashboard_visibility import seen, states_with
+from tests.helpers import table_rows
 
 _IDS = default_entity_ids()
 # The sensors whose state is an amount of money for one kWh. Their unit stays the bare
@@ -80,10 +81,10 @@ class TestRatesSayPerKwh:
         view = next(v for v in views if v["path"] == "bill")
         tariff = next(s for s in view["sections"] if s["cards"][0]["heading"] == "Tariff")
         table = next(c["content"] for c in tariff["cards"] if c["type"] == "markdown")
-        header = table.splitlines()[0]
-        assert "Rate per kWh" in header
-        assert "Billed per kWh" in header
-        assert "| Export rate |" in table and "per kWh |" in table
+        rows = table_rows(table)
+        assert rows[0] == ["Period", "Window", "Rate per kWh", "Billed per kWh"]
+        [export] = [row for row in rows if row[0] == "Export rate"]
+        assert export[1].endswith("per kWh")
 
     def test_a_rate_tile_name_fits_a_half_width_tile(self):
         for key in _RATE_KEYS:

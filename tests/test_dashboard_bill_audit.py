@@ -37,17 +37,62 @@ def test_each_table_reads_its_attribute_of_the_audit_sensors():
     view = _bill()
     assert [_table(view, heading) for heading in TABLES] == [
         f"{{{{ state_attr('{IDS['bill_audit']}', 'bill_table') }}}}",
-        f"{{{{ state_attr('{IDS['bill_audit']}', 'days_table') }}}}",
+        "<details><summary>Show every day of this bill period</summary>\n\n"
+        f"{{{{ state_attr('{IDS['bill_audit']}', 'days_table') }}}}\n\n</details>",
         f"{{{{ state_attr('{IDS['previous_bill_audit']}', 'summary_table') }}}}",
     ]
 
 
-def test_the_three_tables_are_one_column_each_so_they_fill_a_row_on_a_laptop():
+def test_a_wide_section_is_followed_by_a_one_column_one_three_times():
+    """Each pair shares a row on a laptop, and no row is left half empty on a tablet."""
     view = _bill()
-    for heading in TABLES:
-        assert "column_span" not in _section(view, heading), heading
-    headings = [s["cards"][0]["heading"] for s in view["sections"]]
-    assert headings[-3:] == list(TABLES)
+    layout = [(s["cards"][0]["heading"], s.get("column_span", 1)) for s in view["sections"]]
+    assert layout == [
+        ("This bill period", 2),
+        ("This bill, line by line", 1),
+        ("Import and export", 2),
+        ("Tariff", 1),
+        ("Each day", 2),
+        ("Last bill", 1),
+    ]
+
+
+def test_the_period_opens_with_one_card_and_no_tiles():
+    """The figures are one card in large type over two bars, not four small tiles."""
+    cards = _section(_bill(), "This bill period")["cards"]
+    assert [c["type"] for c in cards] == ["heading", "markdown", "heading", "statistics-graph"]
+
+
+def test_a_missing_projection_or_day_count_leaves_only_its_words_out():
+    full = _section(_bill(), "This bill period")["cards"][1]["content"]
+    period = _section(_bill(_without("projected_bill", "days_remaining_in_period")), "This bill period")
+    content = period["cards"][1]["content"]
+    assert IDS["projected_bill"] in full and IDS["days_remaining_in_period"] in full
+    assert IDS["projected_bill"] not in content
+    assert IDS["days_remaining_in_period"] not in content
+    assert IDS["accrued_bill"] in content
+
+
+def test_without_the_bill_without_solar_the_opening_card_goes_and_the_chart_keeps_the_title():
+    cards = _section(_bill(_without("bill_without_solar")), "This bill period")["cards"]
+    assert [c["type"] for c in cards] == ["heading", "statistics-graph"]
+
+
+def test_the_period_holds_one_chart_and_the_cost_by_use_sits_with_import_and_export():
+    view = _bill()
+    charts = [c for c in _section(view, "This bill period")["cards"] if "graph" in c["type"]]
+    assert [[row["name"] for row in c["entities"]] for c in charts] == [
+        ["You paid", "Would have paid"]
+    ]
+    by_use = _section(view, "Import and export")["cards"]
+    assert [c["type"] for c in by_use[:3]] == ["heading", "glance", "heading"]
+    assert {c["type"] for c in by_use[3:]} == {"statistics-graph"}
+    assert all(c["chart_type"] == "bar-stack" for c in by_use[3:])
+    assert [row["name"] for row in by_use[1]["entities"]] == [
+        "Import cost",
+        "Export credit",
+        "Avg per kWh",
+    ]
 
 
 def test_the_table_cards_hold_no_figure_so_they_cannot_go_stale():
@@ -60,12 +105,10 @@ def test_the_table_cards_hold_no_figure_so_they_cannot_go_stale():
 
 
 def test_the_bill_period_opens_with_the_saving_against_the_bill_without_solar():
-    period = _section(_bill(), "This bill period")
-    saved = period["cards"][1]
-    assert saved["type"] == "markdown"
-    assert f"states('{IDS['accrued_bill']}')" in saved["content"]
-    assert f"states('{IDS['bill_without_solar']}')" in saved["content"]
-    assert saved["content"].startswith("{% set paid") and "### Saved" in saved["content"]
+    content = _section(_bill(), "This bill period")["cards"][1]["content"]
+    assert f"states('{IDS['accrued_bill']}')" in content
+    assert f"states('{IDS['bill_without_solar']}')" in content
+    assert " saved</b>" in content
 
 
 def test_without_the_previous_audit_sensor_the_last_bill_is_left_out():
