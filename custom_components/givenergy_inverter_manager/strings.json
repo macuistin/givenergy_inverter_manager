@@ -652,13 +652,15 @@
           "shadow_from_list": "Choose one from the list",
           "shadow_add": "Type one in",
           "shadow_remove": "Remove a shadow tariff",
-          "init": "Back"
+          "init": "Back",
+          "shadow_search": "Find a cheaper plan"
         },
         "menu_option_descriptions": {
           "shadow_from_list": "Pick a country, supplier and plan, and its published prices are used.",
           "shadow_add": "Start from your current rates and change what the other tariff does differently.",
           "shadow_remove": "Delete a shadow tariff and its sensors.",
-          "init": "Back to the other pages."
+          "init": "Back to the other pages.",
+          "shadow_search": "Price your past usage under every plan in your country and see where your plan ranks."
         }
       },
       "shadow_add": {
@@ -852,6 +854,30 @@
           "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
           "export_rate": "What you are paid for each kWh you export, before any tax. This plan lists no export price, so type the rate from your bill or contract. Leave it at 0 if you are not paid."
         }
+      },
+      "shadow_search": {
+        "title": "Find a cheaper plan",
+        "description": "This prices the energy you really used over a recent period under every plan in your tariff's country and area, and ranks them with yours. It is a re-pricing of past usage, not a forecast, and it changes nothing. Plans that list no export price are priced with the export rate below.",
+        "data": {
+          "unit": "Look back over",
+          "count": "How many",
+          "export_rate": "Export rate for plans with none"
+        },
+        "data_description": {
+          "unit": "Whole bills of your tariff, or weeks ending yesterday.",
+          "count": "For bills, how many whole bills before the current one. The history only holds the days since it started.",
+          "export_rate": "Paid for each kWh exported, before any tax, for a plan that lists no export price. Use your own rate, or 0 if you are not paid."
+        }
+      },
+      "shadow_search_results": {
+        "title": "Plans compared",
+        "description": "{rank_line}\n\nPriced over {window}. The history holds {recorded}. {left_out} plans were left out because they are for another area or could not be read.\n\n{ranking}\n\nThe figures are the total bill over that period, and the change from yours. Add a plan below to follow it as a shadow tariff. Your own tariff stays as it is.",
+        "data": {
+          "plan": "Add as a shadow tariff"
+        },
+        "data_description": {
+          "plan": "Optional. The plan is added to your shadow tariffs with its published prices."
+        }
       }
     },
     "error": {
@@ -868,7 +894,10 @@
       "season_months_overlap": "A month cannot be both a winter month and a shoulder month. Take it out of one list.",
       "shadow_limit": "Three shadow tariffs are the most you can set up. Remove one first.",
       "shadow_name_missing": "Give the shadow tariff a name, such as Night saver.",
-      "shadow_name_duplicate": "Another shadow tariff already has that name. Choose a different one."
+      "shadow_name_duplicate": "Another shadow tariff already has that name. Choose a different one.",
+      "search_window": "Choose between 1 and 24 bills, or between 1 and 104 weeks.",
+      "search_store": "The tariff list could not be read. Try again later.",
+      "search_cannot_hold": "The saved rates cannot hold that plan, so it cannot be a shadow tariff yet."
     }
   },
   "selector": {
@@ -899,6 +928,12 @@
       "options": {
         "found": "Use the entities that were found",
         "manual": "Choose the entities by hand"
+      }
+    },
+    "search_unit": {
+      "options": {
+        "bills": "Whole bills",
+        "weeks": "Weeks"
       }
     }
   },

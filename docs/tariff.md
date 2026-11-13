@@ -72,6 +72,17 @@ What a dated change covers and does not cover:
 - **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Open **Schedule a rate change** and select **Cancel the scheduled rate changes** to remove every change that has not started.
 - **Later edits.** Once a change has started, its rates are the ones shown on the Tariff screen. Saving the tariff without a date sets the rates from now on. A change that has not started yet is kept.
 
+## Find a cheaper plan
+
+**Configure → Shadow tariffs → Find a cheaper plan** answers "which plan would have cost me least?". It prices the energy you really used under every plan in the published list for your tariff's country and area, and ranks them with your own plan.
+
+- Choose how far back to look: a number of whole bills of your tariff, or a number of weeks ending yesterday. The history only holds the days since the integration started saving it, and the results page says how many days of the period it holds.
+- A plan is compared when it has no areas, or has the area of your tariff. A plan for another area only, or one that cannot be read, is left out and counted.
+- A plan that lists no export price is priced with the export rate you type on the first page.
+- The results say where your plan ranks. In the top 3 it says so. Otherwise it gives your rank out of all the plans compared, and how far you are from the cheapest.
+- The figures are a re-pricing of past usage, not a forecast. Prices change, and so does your usage.
+- You can add one of the plans as a shadow tariff, if the saved rates can hold it. The search never changes your own tariff.
+
 ## Shadow tariffs
 
 A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three. Instead of typing the rates, you can choose a plan from the published list, as in [Choose a tariff from the list](#choose-a-tariff-from-the-list). A shadow tariff chosen this way keeps its prices until you remove it and add it again.

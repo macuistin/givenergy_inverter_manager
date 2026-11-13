@@ -86,6 +86,7 @@ from ..core.wizard_tariff import (
     validate_rates,
     validate_tariff,
 )
+from ..lib.tariff.slot_history import SlotHistory
 from .detect import detect
 from .flow_base import PageView, WizardPages, car_suggestions, own_entity_ids, states_by_id
 from .schemas import (
@@ -104,6 +105,7 @@ from .schemas import (
 )
 from .selectors import currency_code
 from .shadow_form import entry_from_form, starting_entry, validate_form, validate_rows
+from .shadow_search_steps import ShadowSearchSteps
 from .store_steps import FROM_LIST, StoreSteps
 
 # The main menu, in order. The tariff opens a menu of its own.
@@ -120,7 +122,7 @@ _TARIFF_KEYS = frozenset(
 )
 
 
-class OptionsSteps(StoreSteps, WizardPages):
+class OptionsSteps(ShadowSearchSteps, StoreSteps, WizardPages):
     """The steps of the options wizard. Mixed in before OptionsFlow."""
 
     hass: Any
@@ -129,6 +131,7 @@ class OptionsSteps(StoreSteps, WizardPages):
     def _init_options(self) -> None:
         self._init_wizard()
         self._init_store()
+        self._init_search()
         self._store_touched = False
         self._rate_count: int | None = None
         self._edit_date: date | None = None
@@ -261,6 +264,8 @@ class OptionsSteps(StoreSteps, WizardPages):
         options = []
         if len(shadows) < MAX_SHADOW_TARIFFS:
             options += ["shadow_from_list", "shadow_add"]
+        if shadows or self._history() is not None:
+            options.append("shadow_search")
         if shadows:
             options.append("shadow_remove")
         options.append("init")
@@ -272,6 +277,20 @@ class OptionsSteps(StoreSteps, WizardPages):
                 "shadow_limit": str(MAX_SHADOW_TARIFFS),
             },
         )
+
+    def _history(self) -> SlotHistory | None:
+        coordinator = getattr(self.config_entry, "runtime_data", None)
+        return getattr(coordinator, "energy_history", None)
+
+    def _active_config(self) -> dict[str, Any]:
+        return dict(self._ctx().current)
+
+    def _active_source(self) -> dict[str, Any] | None:
+        record = self._source_record()
+        return dict(record) if record else None
+
+    def _can_add_shadow(self) -> bool:
+        return len(self._shadow_list()) < MAX_SHADOW_TARIFFS
 
     def _shadow_start(self) -> dict[str, Any]:
         return starting_entry(self._ctx().current)

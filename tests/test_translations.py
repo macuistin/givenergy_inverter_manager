@@ -55,6 +55,8 @@ OPTIONS_STEPS = {
     "shadow_add",
     "shadow_rates",
     "shadow_remove",
+    "shadow_search",
+    "shadow_search_results",
     "tariff_source",
     "store_country",
     "store_provider",

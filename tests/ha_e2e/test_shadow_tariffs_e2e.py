@@ -42,11 +42,11 @@ async def save(hass, result):
 
 async def test_a_shadow_tariff_is_added_and_saved_in_the_options(hass, loaded_entry):
     result = await open_shadow_menu(hass, loaded_entry)
-    assert result["menu_options"] == ["shadow_from_list", "shadow_add", "init"]
+    assert result["menu_options"] == ["shadow_from_list", "shadow_add", "shadow_search", "init"]
 
     result = await add_tariff(hass, result, "Flat", base_rate=0.25)
     assert result["step_id"] == "shadow_menu"
-    assert result["menu_options"] == ["shadow_from_list", "shadow_add", "shadow_remove", "init"]
+    assert result["menu_options"] == ["shadow_from_list", "shadow_add", "shadow_search", "shadow_remove", "init"]
     assert result["description_placeholders"]["shadow_list"] == "1 of 3: Flat"
 
     result = await save(hass, result)
@@ -96,7 +96,7 @@ async def test_the_menu_stops_offering_add_at_the_limit(hass, loaded_entry):
     result = await open_shadow_menu(hass, loaded_entry)
     for name in ("A", "B", "C"):
         result = await add_tariff(hass, result, name)
-    assert result["menu_options"] == ["shadow_remove", "init"]
+    assert result["menu_options"] == ["shadow_search", "shadow_remove", "init"]
 
 
 async def test_a_shadow_tariff_is_removed(hass, loaded_entry):
@@ -165,4 +165,42 @@ async def test_a_shadow_tariff_is_chosen_from_the_store_lists(
     assert saved["export_rate"] == 0.1
     assert saved["vat_included"] is True
     assert saved["source"]["area"] == "rural"
+    assert "tariff_source" not in loaded_entry.options  # the active tariff is untouched
+
+
+async def test_a_cheaper_plan_is_searched_for_and_added(hass, loaded_entry, monkeypatch, tmp_path):
+    from wizard_support import submit
+
+    from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+        FolderCache,
+        Store,
+        folder_reader,
+    )
+    from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
+    from custom_components.givenergy_inverter_manager.wizard import shadow_search_steps
+    from tests.lib.tariffstore.building import build_store
+    from tests.lib.tariffstore.fixtures import flat, write_store
+
+    folder = write_store(tmp_path, {"p/plan/1.json": flat(start="2026-01-01")})
+    build_store(folder)
+    store = Store(folder_reader(folder), FolderCache(tmp_path / "cache"))
+    monkeypatch.setattr(
+        shadow_search_steps, "TariffStoreAccess", lambda _hass: TariffStoreAccess(hass, store)
+    )
+    hass.config.country = "IE"
+
+    result = await open_shadow_menu(hass, loaded_entry)
+    assert "shadow_search" in result["menu_options"]
+    result = await choose(manager(hass), result, "shadow_search")
+    assert result["step_id"] == "shadow_search"
+    result = await submit(manager(hass), result, unit="weeks", count=4, export_rate=0.1)
+
+    assert result["step_id"] == "shadow_search_results"
+    assert "Your plan" in result["description_placeholders"]["ranking"]
+    assert result["description_placeholders"]["rank_line"].startswith("Your plan")
+    result = await submit(manager(hass), result, plan="p/plan/all")
+    assert result["step_id"] == "shadow_menu"
+    result = await save(hass, result)
+    saved = loaded_entry.options[CONF_SHADOW_TARIFFS][0]
+    assert saved["source"]["tariff"] == "plan"
     assert "tariff_source" not in loaded_entry.options  # the active tariff is untouched
