@@ -649,11 +649,13 @@
         "title": "Shadow tariffs",
         "description": "A shadow tariff prices the energy you really used under another set of rates, so you can see whether it would have cost less. It changes nothing: your inverter, the charge plan and your real bill are not affected. You can set up at most {shadow_limit}.\n\nNow: {shadow_list}.",
         "menu_options": {
-          "shadow_add": "Add a shadow tariff",
+          "shadow_from_list": "Choose one from the list",
+          "shadow_add": "Type one in",
           "shadow_remove": "Remove a shadow tariff",
           "init": "Back"
         },
         "menu_option_descriptions": {
+          "shadow_from_list": "Pick a country, supplier and plan, and its published prices are used.",
           "shadow_add": "Start from your current rates and change what the other tariff does differently.",
           "shadow_remove": "Delete a shadow tariff and its sensors.",
           "init": "Back to the other pages."
@@ -841,7 +843,7 @@
       },
       "store_review": {
         "title": "{name}",
-        "description": "These rates will be saved as your tariff:\n\n{review}\n\nSaving your changes at the end replaces the rates now saved.",
+        "description": "{lead}\n\n{review}\n\n{tail}",
         "data": {
           "bill_start_day": "Bill start day",
           "export_rate": "Export rate"

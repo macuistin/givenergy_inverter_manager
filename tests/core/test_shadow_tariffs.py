@@ -115,3 +115,34 @@ def test_timed_rates_must_not_repeat_the_active_base_rate_name() -> None:
     rows = [{"name": "day", "rate": 0.1, "start": "00:00", "end": "06:00"}]
     assert validate_rows(rows, ACTIVE).errors == {"base": "rate_period_duplicate_name"}
     assert validate_rows([{**rows[0], "name": "Night"}], ACTIVE).errors == {}
+
+
+def test_a_shadow_from_the_store_keeps_vat_and_where_it_came_from() -> None:
+    from custom_components.givenergy_inverter_manager.core.shadow_tariffs import (
+        shadow_config,
+        shadow_entry_from_options,
+        unique_shadow_name,
+        with_shadow,
+    )
+
+    options = {
+        "base_rate": 0.32, "export_rate": 0.0, "rate_periods": [], "standing_charge_per_day": 1.1,
+        "pso_levy_per_month": 0.0, "vat_rate": 9.0, "discount_rate": 0.0, "vat_included": True,
+        "tariff_source": {"country": "IE", "provider": "p", "tariff": "plan", "area": "urban",
+                          "effective_from": "2026-01-01", "name": "x"},
+    }
+    entry = shadow_entry_from_options("P Plan", options)
+    saved = with_shadow([], entry)
+    assert saved[0]["vat_included"] is True
+    assert saved[0]["source"]["tariff"] == "plan"
+    assert shadow_config(saved[0], {"vat_included": False})["vat_included"] is True
+    assert unique_shadow_name(saved, "p plan") == "p plan (2)"
+
+
+def test_a_typed_shadow_takes_vat_as_the_active_tariff_does() -> None:
+    from custom_components.givenergy_inverter_manager.core.shadow_tariffs import shadow_config
+
+    typed = {"name": "T", "base_rate": 0.3, "export_rate": 0.1, "rate_periods": [],
+             "standing_charge_per_day": 1.0, "pso_levy_per_month": 0.0, "vat_rate": 9.0,
+             "discount_rate": 0.0}
+    assert shadow_config(typed, {"vat_included": True})["vat_included"] is True

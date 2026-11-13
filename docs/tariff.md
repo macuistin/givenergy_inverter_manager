@@ -74,7 +74,7 @@ What a dated change covers and does not cover:
 
 ## Shadow tariffs
 
-A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three.
+A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three. Instead of typing the rates, you can choose a plan from the published list, as in [Choose a tariff from the list](#choose-a-tariff-from-the-list). A shadow tariff chosen this way keeps its prices until you remove it and add it again.
 
 Each shadow tariff adds three entities to a **Shadow tariffs** device, which is separate from the main device. They are on as soon as you save. Your real tariff, bill and entity IDs do not change.
 

@@ -41,7 +41,9 @@ from ..core.seasons import season_defaults
 from ..core.shadow_tariffs import (
     KEY_NAME,
     shadow_entries,
+    shadow_entry_from_options,
     shadow_summary,
+    unique_shadow_name,
     with_shadow,
     without_shadow,
 )
@@ -137,6 +139,7 @@ class OptionsSteps(StoreSteps, WizardPages):
         # added waits in _shadow_draft until its timed rates, if any, are entered.
         self._shadow: list[dict[str, Any]] | None = None
         self._shadow_draft: dict[str, Any] | None = None
+        self._for_shadow = False  # the store screens are choosing a shadow tariff
 
     # ── Context ───────────────────────────────────────────────────────────────
 
@@ -253,10 +256,11 @@ class OptionsSteps(StoreSteps, WizardPages):
 
     async def async_step_shadow_menu(self, user_input: dict[str, Any] | None = None) -> Any:
         """The shadow tariffs: add one, remove one, or go back."""
+        self._for_shadow = False
         shadows = self._shadow_list()
         options = []
         if len(shadows) < MAX_SHADOW_TARIFFS:
-            options.append("shadow_add")
+            options += ["shadow_from_list", "shadow_add"]
         if shadows:
             options.append("shadow_remove")
         options.append("init")
@@ -378,6 +382,8 @@ class OptionsSteps(StoreSteps, WizardPages):
         return record if isinstance(record, dict) else None
 
     def _source_text(self) -> str:
+        if self._for_shadow:
+            return ""
         record = self._source_record()
         text = f"Tariff source: {source_text(record)}."
         if record and record.get("kind") == "store":
@@ -385,7 +391,21 @@ class OptionsSteps(StoreSteps, WizardPages):
         return text
 
     def _hand_entry(self) -> str:
-        return "tariff_menu"
+        return "shadow_menu" if self._for_shadow else "tariff_menu"
+
+    def _asks_bill_day(self) -> bool:
+        return not self._for_shadow
+
+    def _review_notes(self) -> dict[str, str]:
+        if self._for_shadow:
+            return {
+                "lead": "This tariff will be added as a shadow tariff:",
+                "tail": "It is priced beside your own tariff and never changes it.",
+            }
+        return {
+            "lead": "These rates will be saved as your tariff:",
+            "tail": "Saving your changes at the end replaces the rates now saved.",
+        }
 
     def _bill_day_default(self) -> int:
         return int(self._ctx().current.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
@@ -393,6 +413,7 @@ class OptionsSteps(StoreSteps, WizardPages):
     async def async_step_tariff_source(self, user_input: dict[str, Any] | None = None) -> Any:
         """Where the tariff came from, and how to change that."""
         self._picked = {}
+        self._for_shadow = False
         record = self._source_record()
         options = [FROM_LIST]
         if record and record.get("kind") == "store":
@@ -403,7 +424,25 @@ class OptionsSteps(StoreSteps, WizardPages):
             options.append("store_detach")
         return self._menu("", [*options, "tariff_menu"])
 
+    async def async_step_shadow_from_list(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Pick a shadow tariff from the store, through the same screens as the active tariff."""
+        self._picked = {}
+        self._for_shadow = True
+        return await self.async_step_store_country()
+
+    async def _shadow_finished(self, options: dict[str, Any]) -> Any:
+        self._for_shadow = False
+        record = options[CONF_TARIFF_SOURCE]
+        name = unique_shadow_name(
+            self._shadow_list(), f"{record['provider_name']} {record['name']}"
+        )
+        entry = shadow_entry_from_options(name, options)
+        self._shadow = with_shadow(self._shadow_list(), entry)
+        return await self.async_step_shadow_menu()
+
     async def _store_finished(self, options: dict[str, Any]) -> Any:
+        if self._for_shadow:
+            return await self._shadow_finished(options)
         self._values.update(options)
         self._store_touched = True
         self._tariff_touched = True

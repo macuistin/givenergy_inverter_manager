@@ -74,6 +74,14 @@ class StoreSteps:
     def _bill_day_default(self) -> int:
         raise NotImplementedError  # pragma: no cover
 
+    def _review_notes(self) -> dict[str, str]:
+        """Extra text for the review screen. Only Configure has any."""
+        return {}
+
+    def _asks_bill_day(self) -> bool:
+        """False for a shadow tariff, which is priced over the active tariff's bill period."""
+        return True
+
     async def _store_finished(self, options: dict[str, Any]) -> Any:
         """Keep the chosen tariff's options and go on to the next screen."""
         raise NotImplementedError  # pragma: no cover
@@ -203,11 +211,11 @@ class StoreSteps:
         text = review_text(definition, self._choice)
         if not self._choice.usable:
             return self._menu(text, [FROM_LIST, self._hand_entry()])
-        fields: dict[Any, Any] = {
-            vol.Required(CONF_BILL_START_DAY, default=self._bill_day_default()): number_selector(
-                CONF_BILL_START_DAY
+        fields: dict[Any, Any] = {}
+        if self._asks_bill_day():
+            fields[vol.Required(CONF_BILL_START_DAY, default=self._bill_day_default())] = (
+                number_selector(CONF_BILL_START_DAY)
             )
-        }
         if not pays_for_export(definition):
             fields[vol.Optional(CONF_EXPORT_RATE, default=0.0)] = number_selector(CONF_EXPORT_RATE)
         return self.async_show_form(  # type: ignore[attr-defined]
@@ -217,12 +225,14 @@ class StoreSteps:
                 "progress": self._progress(),  # type: ignore[attr-defined]
                 "name": definition.name,
                 "review": text,
+                **self._review_notes(),
             },
         )
 
     async def _store_chosen(self, definition: TariffDefinition, entered: dict[str, Any]) -> Any:
         """Save the plan with the bill start day, and the export rate typed for a plan with none."""
         export_rate = entered.get(CONF_EXPORT_RATE)
-        choice = choose_tariff(definition, int(entered[CONF_BILL_START_DAY]), export_rate)
+        bill_day = int(entered.get(CONF_BILL_START_DAY, self._bill_day_default()))
+        choice = choose_tariff(definition, bill_day, export_rate)
         record = source_record(self._picked, definition, export_rate)
         return await self._store_finished(source_options(record, choice))
