@@ -37,7 +37,8 @@ def test_each_table_reads_its_attribute_of_the_audit_sensors():
     view = _bill()
     assert [_table(view, heading) for heading in TABLES] == [
         f"{{{{ state_attr('{IDS['bill_audit']}', 'bill_table') }}}}",
-        f"{{{{ state_attr('{IDS['bill_audit']}', 'days_table') }}}}",
+        "<details><summary>Show every day of this bill period</summary>\n\n"
+        f"{{{{ state_attr('{IDS['bill_audit']}', 'days_table') }}}}\n\n</details>",
         f"{{{{ state_attr('{IDS['previous_bill_audit']}', 'summary_table') }}}}",
     ]
 
@@ -56,25 +57,25 @@ def test_a_wide_section_is_followed_by_a_one_column_one_three_times():
     ]
 
 
-def test_the_period_shows_four_figures_as_tiles_two_to_a_row_on_a_phone():
-    """Six of a section's twelve columns: two to a row on a phone, four where it is two wide."""
-    tiles = [c for c in _section(_bill(), "This bill period")["cards"] if c["type"] == "tile"]
-    assert [(t["name"], t["entity"]) for t in tiles] == [
-        ("So far", IDS["accrued_bill"]),
-        ("Heading for", IDS["projected_bill"]),
-        ("Without solar", IDS["bill_without_solar"]),
-        ("Days left", IDS["days_remaining_in_period"]),
-    ]
-    assert {t["grid_options"]["columns"] for t in tiles} == {6}
+def test_the_period_opens_with_one_card_and_no_tiles():
+    """The figures are one card in large type over two bars, not four small tiles."""
+    cards = _section(_bill(), "This bill period")["cards"]
+    assert [c["type"] for c in cards] == ["heading", "markdown", "heading", "statistics-graph"]
 
 
-def test_a_missing_figure_leaves_its_tile_out():
-    period = _section(_bill(_without("projected_bill")), "This bill period")
-    assert [c["name"] for c in period["cards"] if c["type"] == "tile"] == [
-        "So far",
-        "Without solar",
-        "Days left",
-    ]
+def test_a_missing_projection_or_day_count_leaves_only_its_words_out():
+    full = _section(_bill(), "This bill period")["cards"][1]["content"]
+    period = _section(_bill(_without("projected_bill", "days_remaining_in_period")), "This bill period")
+    content = period["cards"][1]["content"]
+    assert IDS["projected_bill"] in full and IDS["days_remaining_in_period"] in full
+    assert IDS["projected_bill"] not in content
+    assert IDS["days_remaining_in_period"] not in content
+    assert IDS["accrued_bill"] in content
+
+
+def test_without_the_bill_without_solar_the_opening_card_goes_and_the_chart_keeps_the_title():
+    cards = _section(_bill(_without("bill_without_solar")), "This bill period")["cards"]
+    assert [c["type"] for c in cards] == ["heading", "statistics-graph"]
 
 
 def test_the_period_holds_one_chart_and_the_cost_by_use_sits_with_import_and_export():
@@ -104,12 +105,10 @@ def test_the_table_cards_hold_no_figure_so_they_cannot_go_stale():
 
 
 def test_the_bill_period_opens_with_the_saving_against_the_bill_without_solar():
-    period = _section(_bill(), "This bill period")
-    saved = period["cards"][1]
-    assert saved["type"] == "markdown"
-    assert f"states('{IDS['accrued_bill']}')" in saved["content"]
-    assert f"states('{IDS['bill_without_solar']}')" in saved["content"]
-    assert saved["content"].startswith("{% set paid") and "### Saved" in saved["content"]
+    content = _section(_bill(), "This bill period")["cards"][1]["content"]
+    assert f"states('{IDS['accrued_bill']}')" in content
+    assert f"states('{IDS['bill_without_solar']}')" in content
+    assert " saved</b>" in content
 
 
 def test_without_the_previous_audit_sensor_the_last_bill_is_left_out():

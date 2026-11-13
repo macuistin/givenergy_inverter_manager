@@ -46,3 +46,8 @@ def html_table(header: Sequence[str], rows: Sequence[Sequence[str]], text_column
 def with_note(table: str, note: str) -> str:
     """The table with a sentence under it, kept apart so markdown reads the sentence."""
     return f"{table}\n\n{note}"
+
+
+def folded(summary: str, content: str) -> str:
+    """The content closed under a line that opens it, for detail most visits do not need."""
+    return f"<details><summary>{summary}</summary>\n\n{content}\n\n</details>"

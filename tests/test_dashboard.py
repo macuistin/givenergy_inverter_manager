@@ -399,7 +399,6 @@ class TestDashboardImprovements:
         """Sensors added in dashboard improvements must appear in the output."""
         result = _build()
         for key in [
-            "current_rate_period",
             "cheap_rate_floor_status",
             "immersion_savings_today",
         ]:
@@ -1109,7 +1108,7 @@ class TestBillView:
 
     def test_bill_sections_use_only_built_in_cards(self):
         types = {c["type"] for c in _section_cards(_build(), "bill", "This bill period")}
-        assert types == {"heading", "markdown", "tile", "statistics-graph"}
+        assert types == {"heading", "markdown", "statistics-graph"}
 
     def test_disabled_by_default_figures_are_left_out(self):
         text = _build(registry=FakeRegistry())

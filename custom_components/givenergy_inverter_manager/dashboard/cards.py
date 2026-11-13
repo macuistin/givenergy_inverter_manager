@@ -19,8 +19,6 @@ GRID = "blue"
 IMMERSION = "orange"
 EV = "teal"
 NIGHT = "indigo"
-# Money paid, the colour of the cost chip on Home energy and of the cost series in a chart.
-COST = "purple"
 
 # The flow card takes hex colours, not the names the tiles use. These are the Home Assistant
 # values of the names above.

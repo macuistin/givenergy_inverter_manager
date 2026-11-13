@@ -156,7 +156,6 @@ def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
         ("heading", "Tariff"),
-        ("history-graph", None),
         ("markdown", None),
         ("heading", HEADING),
         ("markdown", None),
@@ -220,7 +219,6 @@ def test_the_tariff_section_is_the_same_for_every_combination_of_devices(combina
     view = _tariff_view_seen(*combination)
     assert [c.get("heading") for c in view_cards(view)] == [
         "Tariff",
-        None,
         None,
         HEADING,
         None,

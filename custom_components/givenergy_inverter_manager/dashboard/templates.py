@@ -18,8 +18,9 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
 )
-from ..core.html_table import html_table, unbroken
+from ..core.html_table import folded, html_table, unbroken
 from ..core.overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS
+from ..core.pictures import bar, rate_colours, rate_strip, swatch
 from ..core.reporting import PLAN_CHARGE_WORDS, PLAN_SKIP_WORDS
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import SAVING_HEX, state_ref
@@ -172,15 +173,26 @@ def currency_symbol(cfg: dict[str, Any]) -> str:
 
 
 def tariff_table(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
-    """The rates the integration prices energy with, as tables that fill their card."""
+    """The rates as a strip of the day over the table, with the other charges folded away."""
+    return f"{rate_strip(tariff)}\n\n{tariff_rates(tariff, cfg)}"
+
+
+def tariff_rates(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
+    """The rates table, how a billed rate is reached, and the other charges folded away."""
     symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
+    colours = rate_colours(tariff)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
     rates = html_table(
         ["Period", "Window", "Rate per kWh", "Billed per kWh"],
         [
-            [escape(name), unbroken(window), f"{symbol}{rate:.4f}", f"{symbol}{rate * billed:.4f}"]
+            [
+                f"{swatch(colours[name])}\u00a0{escape(name)}",
+                unbroken(window),
+                f"{symbol}{rate:.4f}",
+                f"{symbol}{rate * billed:.4f}",
+            ]
             for name, window, rate in rows
         ],
         text_columns=2,
@@ -198,7 +210,7 @@ def tariff_table(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
         f"Billed per kWh is the rate less the {tariff.discount_rate:g}% discount, "
         f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies."
     )
-    return "\n\n".join([rates, note, other])
+    return "\n\n".join([rates, note, folded("Other charges", other)])
 
 
 def _day(day: date) -> str:
@@ -461,14 +473,61 @@ def ev_story_template(ev: ChargerNow) -> str:
     return text
 
 
-def saved_template(paid: str, without: str, symbol: str) -> str:
-    """What solar and the battery have taken off this bill so far, as a heading and a line."""
+@dataclass(frozen=True)
+class BillNow:
+    """The sensors of the bill period that the opening card reads. Only two are needed."""
+
+    paid: str
+    without: str
+    projected: str | None = None
+    days_left: str | None = None
+
+
+# The purple of the bill and the amber of solar, as the bars of the opening card draw them.
+_PAID_BAR = "#7e57c2"
+_WITHOUT_BAR = "#ffa000"
+_DEARER_BAR = "#9e9e9e"
+
+
+def _heading_for(bill: BillNow, symbol: str) -> str:
+    """Where the bill is heading and how long is left, as one small line. Empty without both."""
+    parts = []
+    if bill.projected:
+        parts.append(
+            f"heading for {symbol}{{{{ '%.2f' | format(states('{bill.projected}') | float(0)) }}}}"
+        )
+    if bill.days_left:
+        parts.append(
+            f"{{{{ states('{bill.days_left}') | int(0) }}}} days left in this bill period"
+        )
+    if not parts:
+        return ""
+    line = ", ".join(parts)
+    return f"<font color='grey'>{line[0].upper()}{line[1:]}.</font>\n\n"
+
+
+def _big(amount: str) -> str:
+    """An amount in large type, the figure a card is about."""
+    return f"<font size='6'><b>{amount}</b></font>"
+
+
+def bill_now_template(bill: BillNow, symbol: str) -> str:
+    """The bill so far in large type and the saving, over the bill with and without solar.
+
+    Both bars share one scale, so the gap between them is the saving, read before any figure.
+    """
     return (
-        f"{{% set paid = states('{paid}') | float(0) %}}"
-        f"{{% set wout = states('{without}') | float(0) %}}"
-        f"### Saved {symbol}{{{{ '%.2f' | format(wout - paid) }}}} so far\n"
-        f"Solar and the battery have taken {symbol}{{{{ '%.2f' | format(wout - paid) }}}} off this "
-        f"bill. Without them it would be {symbol}{{{{ '%.2f' | format(wout) }}}}."
+        f"{{% set paid = states('{bill.paid}') | float(0) %}}"
+        f"{{% set wout = states('{bill.without}') | float(0) %}}"
+        "{% set top = [paid, wout, 0.01] | max %}"
+        f"{_big(_money(symbol, 'paid'))} &nbsp;<font color='grey'>so far</font>\n\n"
+        f"{_heading_for(bill, symbol)}"
+        f"<font color='{SAVING_HEX}'><b>{_money(symbol, 'wout - paid')} saved</b></font> "
+        "by solar and the battery so far\n\n"
+        "{% set pct = (100 * paid / top) | round(1) %}"
+        f"With them {_money(symbol, 'paid')}\n{bar('{{ pct }}', _PAID_BAR)}\n\n"
+        "{% set pct = (100 * wout / top) | round(1) %}"
+        f"Without them {_money(symbol, 'wout')}\n{bar('{{ pct }}', _WITHOUT_BAR)}"
     )
 
 
@@ -533,15 +592,53 @@ def shadow_verdict_template(rows: list[ShadowRow], symbol: str) -> str:
     )
 
 
-def shadow_comparison_table(rows: list[ShadowRow], symbol: str) -> str:
-    """Your tariff and each shadow tariff: the bill so far, and how it compares with yours."""
+def _ranked_row(row: ShadowRow, symbol: str) -> str:
+    """One shadow tariff as a dictionary literal the ranking template sorts by its bill."""
+    known = f"has_value('{row.bill}')"
+    return (
+        f"{{'name': {json.dumps(escape(row.name))}, 'bill': states('{row.bill}') | float(0), "
+        f"'known': {known}, 'yours': false, 'said': '{_said_key(row)}'}}"
+    )
+
+
+def _said_key(row: ShadowRow) -> str:
+    return row.bill.rsplit(".", 1)[-1]
+
+
+def _ranking_bar(symbol: str, said: dict[str, str]) -> str:
+    """The name, the bill and how it compares, over a bar on the scale of the dearest."""
+    words = "".join(
+        f"{{% elif r.said == '{key}' %}}{text}" for key, text in said.items()
+    )
+    return (
+        "{% if r.yours %}<b>{{ r.name }}</b> "
+        f"{_money(symbol, 'r.bill')}\n{bar('{{ pct }}', _PAID_BAR)}"
+        "{% elif not r.known %}<b>{{ r.name }}</b> <font color='grey'>not known yet</font>"
+        "{% else %}<b>{{ r.name }}</b> "
+        f"{_money(symbol, 'r.bill')} &nbsp;"
+        f"{{% if false %}}{words}{{% endif %}}\n"
+        f"{{% if r.bill < yours %}}{bar('{{ pct }}', SAVING_HEX)}"
+        f"{{% else %}}{bar('{{ pct }}', _DEARER_BAR)}{{% endif %}}"
+        "{% endif %}"
+    )
+
+
+def shadow_ranking_template(rows: list[ShadowRow], symbol: str) -> str:
+    """Your tariff and each shadow tariff from the cheapest, each a bar on one scale."""
     first = rows[0].bill
-    yours = _money(symbol, f"state_attr('{first}', 'active_tariff_total') | float(0)")
-    body = [["Your tariff", yours, ""]]
-    for row in rows:
-        so_far = _money(symbol, f"states('{row.bill}') | float(0)")
-        body.append([escape(row.name), so_far, _compared(row, symbol)])
-    return html_table(["Tariff", "So far", "Compared with yours"], body)
+    said = {_said_key(row): _compared(row, symbol) for row in rows}
+    entries = ", ".join(_ranked_row(row, symbol) for row in rows)
+    return (
+        f"{{% set yours = state_attr('{first}', 'active_tariff_total') | float(0) %}}"
+        "{% set rows = [{'name': 'Your tariff', 'bill': yours, 'known': true, "
+        f"'yours': true, 'said': ''}}, {entries}] %}}"
+        "{% set top = [rows | map(attribute='bill') | max, 0.01] | max %}"
+        "{% for r in (rows | selectattr('known') | sort(attribute='bill'))"
+        " + (rows | rejectattr('known') | list) %}"
+        "{% set pct = (100 * r.bill / top) | round(1) %}"
+        f"{_ranking_bar(symbol, said)}\n\n"
+        "{% endfor %}"
+    )
 
 
 def shadow_coverage_template(bill: str) -> str:
@@ -560,4 +657,5 @@ def shadow_coverage_template(bill: str) -> str:
 def shadow_figure_template(row: ShadowRow, symbol: str) -> str:
     """One shadow tariff in a heading and a line: its bill so far and how it compares."""
     compared = _compared(row, symbol, " than your tariff")
-    return f"### {_money(symbol, f"states('{row.bill}') | float(0)")} so far\n{compared}"
+    figure = _big(_money(symbol, f"states('{row.bill}') | float(0)"))
+    return f"{figure} &nbsp;<font color='grey'>so far</font>\n\n{compared}"

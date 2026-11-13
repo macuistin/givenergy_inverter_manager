@@ -24,8 +24,9 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, DEFAULT_CURRENCY_SYMBOL
-from .html_table import unbroken
+from .html_table import folded, unbroken
 from .overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS, OvernightPhase
+from .pictures import rate_colours, rate_strip, swatch
 from .tariff import (
     TariffChange,
     TariffConfig,
@@ -361,12 +362,20 @@ def _grid(headers: list[str], rows: list[list[str]]) -> str:
 
 
 def _rate_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
+    """Each rate, its name after a dot in the colour the strip of the day gives it."""
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
-    rows = [(escape(tariff.base_rate_name), "all other times", tariff.base_rate)]
-    rows += [
-        (escape(p.name), f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods
+    colours = rate_colours(tariff)
+    rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
+    rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
+    return [
+        [
+            f"{swatch(colours[n])}\u00a0{escape(n)}",
+            unbroken(w),
+            f"{symbol}{r:.4f}",
+            f"{symbol}{r * billed:.4f}",
+        ]
+        for n, w, r in rows
     ]
-    return [[n, unbroken(w), f"{symbol}{r:.4f}", f"{symbol}{r * billed:.4f}"] for n, w, r in rows]
 
 
 def _other_charge_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
@@ -398,12 +407,15 @@ def build_tariff_html(cfg: dict[str, Any], today: date) -> str:
     symbol = _symbol(cfg)
     tariff = build_tariff(tariff_in_force(cfg, today))
     parts = [
-        f'<div style="{_S["section"]}">Tariff in use</div>',
+        rate_strip(tariff),
         _grid(["Period", "Window", "Rate per kWh", "Billed per kWh"], _rate_rows(tariff, symbol)),
         f'<div style="{_S["detail"]}">Billed per kWh is the rate less the '
         f"{tariff.discount_rate:g}% discount, plus {tariff.vat_rate:g}% VAT. "
         "Where periods overlap, the cheapest applies.</div>",
-        _grid(["Other charge", "Value"], _other_charge_rows(tariff, symbol)),
+        folded(
+            "Other charges",
+            _grid(["Other charge", "Value"], _other_charge_rows(tariff, symbol)),
+        ),
     ]
     if changes := scheduled_tariff_changes(cfg, today):
         parts += [

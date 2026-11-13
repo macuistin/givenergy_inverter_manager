@@ -37,8 +37,15 @@ def table_rows(text: str) -> list[list[str]]:
     """The rows of the HTML tables in *text*, each a list of cell text with plain spaces.
 
     A test reads a table the way a person does, without pinning its markup. The markup has
-    its own test in tests/core/test_html_table.py.
+    its own test in tests/core/test_html_table.py. The coloured dot before a rate's name ties
+    it to the strip of the day, so it is left out here and tested in tests/core/test_pictures.py.
     """
     parser = _Rows()
     parser.feed(text)
-    return [[cell.replace(" ", " ") for cell in row] for row in parser.rows]
+    return [
+        [cell.replace(" ", " ").removeprefix(f"{RATE_DOT} ") for cell in row]
+        for row in parser.rows
+    ]
+
+
+RATE_DOT = "●"

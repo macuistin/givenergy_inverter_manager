@@ -30,6 +30,8 @@ from ..const import (
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.devices import Device
+from ..core.html_table import folded
+from ..core.pictures import rate_strip
 from ..core.shadow_pricing import shadow_keys
 from ..core.shadow_tariffs import KEY_NAME, shadow_config, shadow_entries
 from ..core.tariff import (
@@ -45,7 +47,6 @@ from .cards import (
     BATTERY,
     BATTERY_HEX,
     CHART_TITLE_CSS,
-    COST,
     COST_HEX,
     EV,
     FULL,
@@ -110,23 +111,25 @@ from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     OFFLINE_CARD_CSS,
     RUN_LIMIT_BANNER_TEXT,
+    BillNow,
     ChargerNow,
     DayTotals,
     ShadowRow,
     WaterNow,
     alt_heat_banner_template,
     alt_heat_schedule_template,
+    bill_now_template,
     currency_symbol,
     ev_story_template,
     plan_text_template,
-    saved_template,
     setup_checklist_template,
-    shadow_comparison_table,
     shadow_coverage_template,
     shadow_figure_template,
+    shadow_ranking_template,
     shadow_verdict_template,
     survival_template,
     tariff_changes_table,
+    tariff_rates,
     tariff_table,
     today_story_template,
     tomorrow_story_template,
@@ -1334,7 +1337,7 @@ class Builder:
                 self.row(self.entity("cost_without_solar_today"), "Would have paid", SOLAR_HEX),
             ],
             14,
-            4,
+            5,
         )
 
     def _cost_by_use(self, shown: frozenset[Device]) -> dict[str, Any] | None:
@@ -1351,40 +1354,30 @@ class Builder:
         )
 
     def _bill_period(self) -> dict[str, Any] | None:
-        """The saving in a sentence, the period in four tiles, and each day against no solar.
+        """The bill so far in large type over two bars, with and without solar, then each day.
 
-        The tiles are six of the section's columns, so they sit four to a row where the section
-        is two columns wide and two to a row on a phone.
+        The two bars share a scale, so the saving reads at a glance before any figure.
         """
         paid = self.entity("accrued_bill")
         without = self.entity("bill_without_solar")
-        saved = (
-            markdown_card(saved_template(paid, without, self.symbol)) if paid and without else None
-        )
+        now = None
+        if paid and without:
+            bill = BillNow(
+                paid,
+                without,
+                self.entity("projected_bill"),
+                self.entity("days_remaining_in_period"),
+            )
+            now = markdown_card(bill_now_template(bill, self.symbol))
+        title = heading_card("This bill period", "mdi:receipt-text")
+        chart = self._paid_and_would_have()
+        if now is None:
+            return group(title, [chart], **WIDE)
         return grid_section(
-            heading_block(
-                heading_card("This bill period", "mdi:receipt-text"),
-                [
-                    saved,
-                    tile_card(paid, "So far", color=COST, icon="mdi:receipt-text-outline"),
-                    tile_card(
-                        self.entity("projected_bill"),
-                        "Heading for",
-                        color=COST,
-                        icon="mdi:chart-line",
-                    ),
-                    tile_card(without, "Without solar", color=SOLAR, icon="mdi:solar-power"),
-                    tile_card(
-                        self.entity("days_remaining_in_period"),
-                        "Days left",
-                        color=GRID,
-                        icon="mdi:calendar-end",
-                    ),
-                ],
-            ),
+            heading_block(title, [now]),
             heading_block(
                 subheading_card("Each day: what you paid and would have paid", "mdi:chart-bar"),
-                [self._paid_and_would_have()],
+                [chart],
             ),
             **WIDE,
         )
@@ -1429,23 +1422,19 @@ class Builder:
 
     def _tariff(self) -> dict[str, Any] | None:
         """When each rate applies, as a strip of the last day, then the rates themselves."""
-        period = self.entity("current_rate_period")
-        strip = history_graph([entity_row(period, "Rate")], 24, 1) if period else None
-        if strip:
-            strip["grid_options"] = {"columns": FULL}
         if report := self.entity("tariff_in_use"):
             # The report sensor builds the tables from the options each cycle, so a stored
             # copy of the dashboard follows a tariff change without a rebuild.
             return group(
                 heading_card("Tariff", "mdi:clock-outline"),
-                [strip, self.table(self.attribute_card(report, "html"))],
+                [self.table(self.attribute_card(report, "html"))],
             )
         today = dt_util.now().date()
         rates = tariff_table(build_tariff(tariff_in_force(self.cfg, today)), self.cfg)
         return grid_section(
             heading_block(
                 heading_card("Tariff", "mdi:clock-outline"),
-                [strip, self.table(markdown_card(rates))],
+                [self.table(markdown_card(rates))],
             ),
             self._scheduled_changes(today),
         )
@@ -1458,12 +1447,14 @@ class Builder:
         return heading_block(heading, [self.table(markdown_card(text)) if text else None])
 
     def _each_day(self) -> dict[str, Any] | None:
-        """Every day of the bill period, near the end of the view because it is the longest."""
+        """Every day of the bill period, folded away: the chart above already shows the days."""
         audit = self.entity("bill_audit")
+        days = None
+        if audit:
+            table = f"{{{{ state_attr('{audit}', 'days_table') }}}}"
+            days = markdown_card(folded("Show every day of this bill period", table))
         return group(
-            heading_card("Each day", "mdi:calendar-month-outline"),
-            [self.table(self.attribute_card(audit, "days_table"))],
-            **WIDE,
+            heading_card("Each day", "mdi:calendar-month-outline"), [self.table(days)], **WIDE
         )
 
     def _last_bill(self) -> dict[str, Any] | None:
@@ -1512,41 +1503,54 @@ class Builder:
         if not shadows or nav is None:
             return []
         heading = heading_card("Shadow tariffs", "mdi:compare-horizontal", nav=nav)
-        verdict = shadow_verdict_template([shadow.row for shadow in shadows], self.symbol)
-        return [{**heading, "heading_style": "subtitle"}, markdown_card(verdict)]
+        rows = [shadow.row for shadow in shadows]
+        verdict = shadow_verdict_template(rows, self.symbol)
+        ranking = shadow_ranking_template(rows, self.symbol)
+        return [{**heading, "heading_style": "subtitle"}, markdown_card(f"{verdict}\n\n{ranking}")]
 
     def _shadow_summary(self, shadows: list[_Shadow]) -> dict[str, Any] | None:
-        """The answer, the table of every tariff beside yours, and what the figures cover."""
+        """The answer, every tariff beside yours as a bar from the cheapest, and what they cover."""
         rows = [shadow.row for shadow in shadows]
         return group(
             heading_card("Compared with your tariff", "mdi:compare-horizontal"),
             [
-                markdown_card(shadow_verdict_template(rows, self.symbol)),
-                self.table(markdown_card(shadow_comparison_table(rows, self.symbol))),
+                markdown_card(
+                    f"{shadow_verdict_template(rows, self.symbol)}\n\n"
+                    f"{shadow_ranking_template(rows, self.symbol)}"
+                ),
                 markdown_card(shadow_coverage_template(rows[0].bill)),
             ],
         )
 
     def _shadow_detail(self, shadow: _Shadow) -> dict[str, Any] | None:
-        """One shadow tariff: its bill so far in words, its import by band and its rates."""
+        """One shadow tariff: its bill so far, its day of rates, its import by band.
+
+        The rates table is folded under the strip, so the tariffs stay about as tall as the
+        comparison beside them.
+        """
         row = shadow.row
-        rates = tariff_table(build_tariff(shadow_config(shadow.entry, self.cfg)), self.cfg)
+        tariff = build_tariff(shadow_config(shadow.entry, self.cfg))
+        rates = folded("Rates and charges", tariff_rates(tariff, self.cfg))
         return grid_section(
             heading_block(
                 heading_card(row.name, "mdi:receipt-text-outline"),
-                [markdown_card(shadow_figure_template(row, self.symbol))],
+                [
+                    self.table(
+                        markdown_card(
+                            f"{shadow_figure_template(row, self.symbol)}\n\n"
+                            f"{rate_strip(tariff)}\n\n{rates}"
+                        )
+                    )
+                ],
             ),
             heading_block(
                 subheading_card("Import by band so far", "mdi:chart-bar"),
                 [self.table(self.attribute_card(row.bill, "bands_table"), total=True)],
             ),
-            heading_block(
-                subheading_card("Rates", "mdi:clock-outline"), [self.table(markdown_card(rates))]
-            ),
         )
 
     def shadow_sections(self) -> list[Any]:
-        """Sub-view: every shadow tariff beside yours, then one column for each of them.
+        """Sub-view: every shadow tariff beside yours as bars, then one column for each of them.
 
         Every section is one column, so the tariffs read side by side on a laptop and stack
         on a phone, with no section left half empty.

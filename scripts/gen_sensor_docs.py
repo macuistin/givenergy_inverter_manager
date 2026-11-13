@@ -731,7 +731,10 @@ DESCRIPTIONS: dict[str, str] = {
         "it says when the plan will be ready, and after the night's charge that the charge is "
         "complete (see When the overnight plan is shown)."
     ),
-    "tariff_in_use": "The rates in force today in one line. The html attribute holds the tables.",
+    "tariff_in_use": (
+        "The rates in force today in one line. The html attribute holds a strip of the day "
+        "in each rate's colour and the tables."
+    ),
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
     "dry_run_active": (
         "True when dry run mode is on. The `summary` attribute reads On or Off, "
