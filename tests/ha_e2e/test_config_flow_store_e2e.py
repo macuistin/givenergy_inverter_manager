@@ -290,3 +290,21 @@ async def test_opening_the_list_again_offers_a_plan_added_since_the_last_look(
     offered = [o["value"] for o in again["data_schema"].schema["tariff"].config["options"]]
     assert offered == ["newplan", "plan"]
     manager(hass).async_abort(again["flow_id"])
+
+
+async def test_an_export_rate_typed_for_a_plan_with_none_is_saved_and_recorded(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    folder = _built(tmp_path, tariff(effective_from="2026-01-01"))
+    _use_store(monkeypatch, hass, folder, tmp_path / "cache")
+
+    result = await _to_the_list(hass)
+    for pick in ({"country": "IE"}, {"provider": "p"}, {"tariff": "plan"}, {"area": "rural"}):
+        result = await submit(manager(hass), result, **pick)
+    assert "Export: this plan lists no export price" in result["description_placeholders"]["review"]
+    result = await submit(manager(hass), result, bill_start_day=16, export_rate=0.195)
+    entry = await finish(hass, result)
+
+    assert entry.data["export_rate"] == 0.195
+    assert entry.data["tariff_source"]["export_rate"] == 0.195
+    await unload(hass, entry)

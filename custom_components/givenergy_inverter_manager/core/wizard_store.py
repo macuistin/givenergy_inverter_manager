@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from ..conf import (
@@ -26,7 +27,7 @@ from ..conf import (
     CONF_VAT_RATE,
 )
 from ..lib.tariff import TariffDefinition
-from .tariff_source import NotRepresentable, materialise, prices_match
+from .tariff_source import PROBE_EXPORTS, NotRepresentable, materialise, prices_match
 
 # Country names for the codes the store holds. Any other code is shown as it is.
 COUNTRY_NAMES: dict[str, str] = {
@@ -72,28 +73,45 @@ def default_country(choices: Mapping[str, str], home: str | None) -> str | None:
     return next(iter(choices), None)
 
 
-def choose_tariff(definition: TariffDefinition, bill_start_day: int) -> StoreChoice:
+def pays_for_export(definition: TariffDefinition) -> bool:
+    """True when the store holds an export price for this plan."""
+    prices = definition.export_prices
+    return prices.base.price > 0 or bool(prices.zones)
+
+
+def choose_tariff(
+    definition: TariffDefinition, bill_start_day: int, export_rate: float | None = None
+) -> StoreChoice:
     """The options that price *definition*, or why they cannot.
 
-    The options must price probe usage to the smallest currency unit as the tariff does.
+    The options must price probe usage to the smallest currency unit as the tariff does. An
+    *export_rate* the user typed stands in for a plan the store holds no export price for, and
+    is ignored for one that has it.
     """
     try:
         options = materialise(definition)
     except NotRepresentable as err:
         return StoreChoice(reasons=err.reasons)
     options[CONF_BILL_START_DAY] = bill_start_day
-    differences = prices_match(definition, options)
+    typed = export_rate is not None and not pays_for_export(definition)
+    if typed:
+        options[CONF_EXPORT_RATE] = float(export_rate or 0)
+    differences = prices_match(definition, options, (Decimal(0),) if typed else PROBE_EXPORTS)
     if differences:
         return StoreChoice(reasons=["the saved rates do not price it to the cent"])
     return StoreChoice(options=options)
 
 
-def source_record(picked: Mapping[str, str], definition: TariffDefinition) -> dict[str, Any]:
+def source_record(
+    picked: Mapping[str, str], definition: TariffDefinition, export_rate: float | None = None
+) -> dict[str, Any]:
     """What is saved as `tariff_source`: enough to find this tariff in the store again.
 
     *picked* holds the country, provider, tariff and area the user chose.
     """
+    typed = {"export_rate": export_rate} if export_rate and not pays_for_export(definition) else {}
     return {
+        **typed,
         "kind": SOURCE_KIND,
         "country": picked["country"],
         "provider": picked["provider"],
@@ -133,7 +151,10 @@ def _described(options: Mapping[str, Any], definition: TariffDefinition) -> str:
         f"{row['name']}: {_money(row['rate'], currency)} per kWh, {row['start']} to {row['end']}"
         for row in options[CONF_RATE_PERIODS]
     ]
-    lines.append(f"Export: {_money(options[CONF_EXPORT_RATE], currency)} per kWh")
+    if pays_for_export(definition) or options[CONF_EXPORT_RATE]:
+        lines.append(f"Export: {_money(options[CONF_EXPORT_RATE], currency)} per kWh")
+    else:
+        lines.append("Export: this plan lists no export price")
     lines.append(f"Standing charge: {_money(options[CONF_STANDING_CHARGE], currency)} per day")
     if options[CONF_PSO_LEVY]:
         lines.append(f"Levy: {_money(options[CONF_PSO_LEVY], currency)} per billing period")

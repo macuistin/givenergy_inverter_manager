@@ -103,3 +103,24 @@ def test_an_ended_tariff_needs_attention_but_a_hand_edited_one_does_not() -> Non
 def test_undo_with_nothing_to_undo_is_none() -> None:
     record, _ = _saved()
     assert undo(record) is None
+
+
+def test_a_typed_export_rate_survives_a_new_revision_with_no_export_price() -> None:
+    first = _definition(date(2026, 1, 1), export_rate=0.0)
+    record = {**source_record(PICKED, first, 0.195), "auto_update": True}
+    options = source_options(record, choose_tariff(first, 1, 0.195))
+    newer = _definition(date(2026, 6, 1), export_rate=0.0, base_rate=0.4)
+    decision = decide(record, newer, options, 1)
+    assert decision.outcome is Outcome.APPLY
+    assert decision.options["export_rate"] == 0.195
+    assert decision.record["export_rate"] == 0.195
+
+
+def test_a_typed_export_rate_gives_way_to_a_price_the_store_now_holds() -> None:
+    first = _definition(date(2026, 1, 1), export_rate=0.0)
+    record = {**source_record(PICKED, first, 0.195), "auto_update": True}
+    options = source_options(record, choose_tariff(first, 1, 0.195))
+    newer = _definition(date(2026, 6, 1), export_rate=0.21)
+    decision = decide(record, newer, options, 1)
+    assert decision.options["export_rate"] == 0.21
+    assert "export_rate" not in decision.record

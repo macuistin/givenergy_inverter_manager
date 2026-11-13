@@ -91,10 +91,12 @@
         "title": "{name}",
         "description": "{progress}\n\nThese rates will be saved as your tariff:\n\n{review}",
         "data": {
-          "bill_start_day": "Bill start day"
+          "bill_start_day": "Bill start day",
+          "export_rate": "Export rate"
         },
         "data_description": {
-          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+          "export_rate": "What you are paid for each kWh you export, before any tax. This plan lists no export price, so type the rate from your bill or contract. Leave it at 0 if you are not paid."
         }
       },
       "tariff": {
@@ -835,10 +837,12 @@
         "title": "{name}",
         "description": "These rates will be saved as your tariff:\n\n{review}\n\nSaving your changes at the end replaces the rates now saved.",
         "data": {
-          "bill_start_day": "Bill start day"
+          "bill_start_day": "Bill start day",
+          "export_rate": "Export rate"
         },
         "data_description": {
-          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill."
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+          "export_rate": "What you are paid for each kWh you export, before any tax. This plan lists no export price, so type the rate from your bill or contract. Leave it at 0 if you are not paid."
         }
       }
     },

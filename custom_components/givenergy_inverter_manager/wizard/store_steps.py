@@ -22,12 +22,13 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_BILL_START_DAY
+from ..const import CONF_BILL_START_DAY, CONF_EXPORT_RATE
 from ..core.wizard_store import (
     StoreChoice,
     choose_tariff,
     country_choices,
     default_country,
+    pays_for_export,
     review_text,
     source_options,
     source_record,
@@ -198,20 +199,20 @@ class StoreSteps:
         definition = self._definition
         assert definition is not None  # noqa: S101 - set by _load_choice before a form is shown
         if user_input is not None:
-            return await self._store_chosen(definition, int(user_input[CONF_BILL_START_DAY]))
+            return await self._store_chosen(definition, user_input)
         text = review_text(definition, self._choice)
         if not self._choice.usable:
             return self._menu(text, [FROM_LIST, self._hand_entry()])
-        default = self._bill_day_default()
+        fields: dict[Any, Any] = {
+            vol.Required(CONF_BILL_START_DAY, default=self._bill_day_default()): number_selector(
+                CONF_BILL_START_DAY
+            )
+        }
+        if not pays_for_export(definition):
+            fields[vol.Optional(CONF_EXPORT_RATE, default=0.0)] = number_selector(CONF_EXPORT_RATE)
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id="store_review",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_BILL_START_DAY, default=default): number_selector(
-                        CONF_BILL_START_DAY
-                    )
-                }
-            ),
+            data_schema=vol.Schema(fields),
             description_placeholders={
                 "progress": self._progress(),  # type: ignore[attr-defined]
                 "name": definition.name,
@@ -219,8 +220,9 @@ class StoreSteps:
             },
         )
 
-    async def _store_chosen(self, definition: TariffDefinition, bill_start_day: int) -> Any:
-        record = source_record(self._picked, definition)
-        options = source_options(record, self._choice)
-        options[CONF_BILL_START_DAY] = bill_start_day
-        return await self._store_finished(options)
+    async def _store_chosen(self, definition: TariffDefinition, entered: dict[str, Any]) -> Any:
+        """Save the plan with the bill start day, and the export rate typed for a plan with none."""
+        export_rate = entered.get(CONF_EXPORT_RATE)
+        choice = choose_tariff(definition, int(entered[CONF_BILL_START_DAY]), export_rate)
+        record = source_record(self._picked, definition, export_rate)
+        return await self._store_finished(source_options(record, choice))
