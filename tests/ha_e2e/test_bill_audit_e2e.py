@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from tests.dashboard_support import default_entity_ids
+from tests.helpers import table_rows
 
 IDS = default_entity_ids()
 
@@ -37,13 +38,15 @@ async def test_the_html_attribute_is_not_recorded(hass, loaded_entry):
     assert "html" in _UNRECORDED_ATTRIBUTES
 
 
-async def test_the_audit_sensors_publish_markdown_tables(hass, loaded_entry):
+async def test_the_audit_sensors_publish_tables(hass, loaded_entry):
     current = hass.states.get(IDS["bill_audit"]).attributes
     previous = hass.states.get(IDS["previous_bill_audit"]).attributes
 
-    assert current["bill_table"].startswith("| | You paid | Would have paid | Saved |")
-    assert "| **Total** |" in current["bill_table"]
-    assert current["days_table"].startswith("| Day | Imported | You paid |")
+    bill = table_rows(current["bill_table"])
+    assert bill[0] == ["", "You paid", "Would have paid", "Saved"]
+    assert bill[-1][0] == "Total"
+    assert current["bill_table"].startswith('<table width="100%">')
+    assert table_rows(current["days_table"])[0][:3] == ["Day", "Imported", "You paid"]
     assert "(today)" in current["days_table"]
     assert previous["summary_table"] == "No audit of the last bill period was recorded."
     assert previous["period"] == ""

@@ -62,7 +62,7 @@ _UNRECORDED_ATTRIBUTES = frozenset(
     {
         "html",
         ATTR_FULL_TEXT,
-        # The bill audits as markdown tables, rebuilt every cycle like their html.
+        # The bill audits as tables for a markdown card, rebuilt every cycle like their html.
         "bill_table",
         "days_table",
         "summary_table",

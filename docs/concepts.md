@@ -466,7 +466,7 @@ The **Bill audit** sensor lays the running bill period out like a supplier bill.
 
 The total is the Bill sensors' total, because both come from the same period accumulator and the same bill sums. A day that was not recorded, such as one before this was added, shows as one "Earlier, not itemised" row that makes the rows add up to the period.
 
-Home Assistant's markdown card drops the styles the `html` attribute uses, so the same figures are also published as markdown tables, which the card draws as plain tables:
+Home Assistant's markdown card drops the styles the `html` attribute uses, so the same figures are also published as tables that carry their layout in `width` and `align` attributes, which the card keeps. Each fills the width of its card:
 
 - `bill_table` on **Bill audit**: the bill line by line, in three columns: **You paid**, **Would have paid** (the same use with no solar or battery) and **Saved**. The export credit has no **Would have paid** figure, because with no solar there is nothing to export. The total is in bold.
 - `days_table` on **Bill audit**: one row a day, newest first, with today marked "(today)". The columns are the kWh imported, **You paid** (the import cost less the export credit), **Would have paid** (the day's use priced from the grid) and **Saved**. Days before daily records began are one row, "Before daily records". Before any day is recorded it is one sentence instead of a table.

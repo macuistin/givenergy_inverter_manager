@@ -1,4 +1,4 @@
-"""The bill audit as markdown tables, for the markdown card that strips the HTML's styles."""
+"""The bill audit as tables that fill a markdown card, which strips the HTML report's styles."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from custom_components.givenergy_inverter_manager.core.tariff import (
     build_tariff,
 )
 from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
+from tests.helpers import table_rows
 
 MINUS = "‑"
 # Round numbers so every figure below can be worked out by hand: 10% discount, 10% VAT, a
@@ -89,19 +90,27 @@ def _with_earlier(rows, live) -> Totals:
 
 class TestTheBillTable:
     def test_the_exact_table(self):
-        assert bill_table(_period(BILL_TOTALS)) == (
-            "| | You paid | Would have paid | Saved |\n"
-            "|:--|--:|--:|--:|\n"
-            "| Energy at the rates | €2.00 | €6.00 | €4.00 |\n"
-            f"| Supplier discount | {MINUS}€0.20 | {MINUS}€0.60 | {MINUS}€0.40 |\n"
-            "| Standing charge | €1.00 | €1.00 | €0.00 |\n"
-            "| PSO levy | €0.20 | €0.20 | €0.00 |\n"
-            "| VAT | €0.30 | €0.66 | €0.36 |\n"
-            f"| Export credit | {MINUS}€0.50 | | €0.50 |\n"
-            "| **Total** | **€2.80** | **€7.26** | **€4.46** |\n"
-            "\n"
-            "*Would have paid* is the same use with no solar or battery."
+        table = bill_table(_period(BILL_TOTALS))
+
+        assert table_rows(table) == [
+            ["", "You paid", "Would have paid", "Saved"],
+            ["Energy at the rates", "€2.00", "€6.00", "€4.00"],
+            ["Supplier discount", f"{MINUS}€0.20", f"{MINUS}€0.60", f"{MINUS}€0.40"],
+            ["Standing charge", "€1.00", "€1.00", "€0.00"],
+            ["PSO levy", "€0.20", "€0.20", "€0.00"],
+            ["VAT", "€0.30", "€0.66", "€0.36"],
+            ["Export credit", f"{MINUS}€0.50", "", "€0.50"],
+            ["Total", "€2.80", "€7.26", "€4.46"],
+        ]
+        assert table.endswith(
+            "</table>\n\n*Would have paid* is the same use with no solar or battery."
         )
+
+    def test_it_fills_the_card_and_the_total_is_bold(self):
+        table = bill_table(_period(BILL_TOTALS))
+
+        assert table.startswith('<table width="100%">')
+        assert '<td><b>Total</b></td><td align="right"><b>€2.80</b></td>' in table
 
     def test_a_negative_amount_uses_a_non_breaking_hyphen_and_no_ascii_minus(self):
         table = bill_table(_period(BILL_TOTALS))
@@ -110,22 +119,16 @@ class TestTheBillTable:
         assert "-€" not in table
 
     def test_the_export_credit_has_nothing_in_the_would_have_paid_column(self):
-        [line] = [
-            line
-            for line in bill_table(_period(BILL_TOTALS)).splitlines()
-            if line.startswith("| Export credit")
+        [row] = [
+            row for row in table_rows(bill_table(_period(BILL_TOTALS))) if row[0] == "Export credit"
         ]
 
-        assert line.split("|")[3] == " "
+        assert row[2] == ""
 
     def test_it_names_the_same_lines_as_the_html_bill(self):
         period = _period(BILL_TOTALS)
         _, html = build_bill_audit(period)
-        names = [
-            line.split("|")[1].strip().strip("*")
-            for line in bill_table(period).splitlines()[2:]
-            if line.startswith("|")
-        ]
+        names = [row[0] for row in table_rows(bill_table(period))[1:]]
 
         assert len(names) == 7
         assert all(f">{name}<" in html for name in names)
@@ -134,7 +137,7 @@ class TestTheBillTable:
         state, _ = build_bill_audit(_period(BILL_TOTALS))
 
         assert state.startswith("Bill €2.80")
-        assert "| **Total** | **€2.80** |" in bill_table(_period(BILL_TOTALS))
+        assert table_rows(bill_table(_period(BILL_TOTALS)))[-1][:2] == ["Total", "€2.80"]
 
 
 class TestTheDaysTable:
@@ -142,16 +145,23 @@ class TestTheDaysTable:
         rows = [FIRST, SUNNY]
         period = _period(_with_earlier(rows, LIVE), rows, LIVE)
 
-        assert days_table(period) == (
-            "| Day | Imported | You paid | Would have paid | Saved |\n"
-            "|:--|--:|--:|--:|--:|\n"
-            "| 3 Oct (today) | 5.0 kWh | €0.74 | €2.97 | €2.23 |\n"
-            f"| 2 Oct | 0.5 kWh | {MINUS}€0.40 | €1.00 | €1.40 |\n"
-            "| 1 Oct | 3.0 kWh | €0.74 | €2.97 | €2.23 |\n"
-            "| Before daily records | 2.0 kWh | €1.00 | €3.30 | €2.30 |\n"
-            "\n"
-            "You paid is the import cost less the export credit."
-        )
+        table = days_table(period)
+
+        assert table_rows(table) == [
+            ["Day", "Imported", "You paid", "Would have paid", "Saved"],
+            ["3 Oct (today)", "5.0 kWh", "€0.74", "€2.97", "€2.23"],
+            ["2 Oct", "0.5 kWh", f"{MINUS}€0.40", "€1.00", "€1.40"],
+            ["1 Oct", "3.0 kWh", "€0.74", "€2.97", "€2.23"],
+            ["Before daily records", "2.0 kWh", "€1.00", "€3.30", "€2.30"],
+        ]
+        assert table.endswith("</table>\n\nYou paid is the import cost less the export credit.")
+
+    def test_a_day_and_its_energy_never_wrap_on_a_narrow_card(self):
+        rows = [FIRST, SUNNY]
+        table = days_table(_period(Totals.of_rows([*rows, LIVE]), rows, LIVE))
+
+        assert "<td>3\u00a0Oct (today)</td>" in table
+        assert '<td align="right">5.0\u00a0kWh</td>' in table
 
     def test_no_before_daily_records_row_when_every_day_is_recorded(self):
         rows = [FIRST, SUNNY]
@@ -165,7 +175,7 @@ class TestTheDaysTable:
 
         table = days_table(running_period(running))
 
-        assert "| 5 Oct (today) | 4.0 kWh | €1.20 |" in table
+        assert table_rows(table)[1][:3] == ["5 Oct (today)", "4.0 kWh", "€1.20"]
         assert "(so far)" not in table
 
     def test_a_period_with_no_days_is_a_sentence(self):
@@ -185,14 +195,16 @@ class TestThePreviousPeriod:
         }
 
     def test_the_exact_summary(self):
-        assert summary_table(_period(BILL_TOTALS)) == (
-            "| | |\n"
-            "|:--|--:|\n"
-            "| You paid | €2.80 |\n"
-            "| Would have paid | €7.26 |\n"
-            "| **Saved** | **€4.46** |\n"
-            "\n"
-            "*Would have paid* is the same use with no solar or battery."
+        table = summary_table(_period(BILL_TOTALS))
+
+        assert table_rows(table) == [
+            ["You paid", "€2.80"],
+            ["Would have paid", "€7.26"],
+            ["Saved", "€4.46"],
+        ]
+        assert '<td><b>Saved</b></td><td align="right"><b>€4.46</b></td>' in table
+        assert table.endswith(
+            "</table>\n\n*Would have paid* is the same use with no solar or battery."
         )
 
     def test_the_summary_and_the_period_of_an_archived_period(self):
@@ -210,14 +222,14 @@ class TestThePreviousPeriod:
         table, _ = previous_period_summary(snap, tariff_snapshot(CFG), "€")
 
         paid = state.split(" · ")[0].removeprefix("Bill ")
-        assert f"| You paid | {paid} |" in table
+        assert ["You paid", paid] in table_rows(table)
 
     def test_a_snapshot_without_dates_has_a_summary_and_no_period(self):
         snap = {k: v for k, v in self._snapshot().items() if k != "period_end"}
 
         table, period = previous_period_summary(snap, tariff_snapshot(CFG), "€")
 
-        assert table.startswith("| | |")
+        assert table_rows(table)[0][0] == "You paid"
         assert period == ""
 
     def test_no_snapshot_is_a_sentence_and_no_period(self):

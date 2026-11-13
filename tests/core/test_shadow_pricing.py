@@ -15,6 +15,7 @@ from custom_components.givenergy_inverter_manager.core.shadow_pricing import (
 )
 from custom_components.givenergy_inverter_manager.lib.tariff import SlotDay, SlotHistory
 from tests.core.test_shadow_tariffs import ACTIVE, shadow
+from tests.helpers import table_rows
 from tests.lib.tariff.test_reprice import _october_bill_days
 
 DUBLIN = ZoneInfo("Europe/Dublin")
@@ -193,10 +194,13 @@ def test_each_bill_lists_its_import_and_cost_by_band_and_the_days_with_data() ->
 def test_the_band_table_totals_the_energy_and_ends_in_a_total_row() -> None:
     report = price_shadows(_three_band_history(10, 6, 4), _cfg(_smart()), THROUGH, "Europe/Dublin")
     assert report is not None
-    lines = bands_table(report.bills[0], "€").splitlines()
-    assert lines[0] == "| Band | kWh | Energy cost |"
-    assert "| Smart Peak | 120.0 | €54.00 |" in lines
-    assert lines[-1] == "| **Total** | **600.0** | **€177.00** |"
+    table = bands_table(report.bills[0], "€")
+    rows = table_rows(table)
+    assert rows[0] == ["Band", "kWh", "Energy cost"]
+    assert ["Smart Peak", "120.0", "€54.00"] in rows
+    assert rows[-1] == ["Total", "600.0", "€177.00"]
+    assert table.startswith('<table width="100%">')
+    assert "<b>€177.00</b>" in table
 
 
 def test_days_without_history_are_not_counted_as_days_with_data() -> None:

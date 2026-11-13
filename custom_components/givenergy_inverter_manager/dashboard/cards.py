@@ -19,6 +19,8 @@ GRID = "blue"
 IMMERSION = "orange"
 EV = "teal"
 NIGHT = "indigo"
+# Money paid, the colour of the cost chip on Home energy and of the cost series in a chart.
+COST = "purple"
 
 # The flow card takes hex colours, not the names the tiles use. These are the Home Assistant
 # values of the names above.
@@ -355,16 +357,20 @@ TABLE_CSS = (
     "th, td { border: none !important; padding: 7px 6px; }\n"
     "tr { border-bottom: 1px solid var(--divider-color); }\n"
     "tr:last-child { border-bottom: none; }\n"
-    "th { color: var(--secondary-text-color); font-weight: 500; font-size: 12px;"
+    "th, thead td { color: var(--secondary-text-color); font-weight: 500; font-size: 12px;"
     " text-transform: uppercase; letter-spacing: 0.04em; vertical-align: bottom; }\n"
+    "thead td b { font-weight: 500; }\n"
     "td:first-child, th:first-child { padding-left: 0; }\n"
     "td:last-child, th:last-child { padding-right: 0; }\n"
     "p { color: var(--secondary-text-color); font-size: 13px; }\n"
 )
+# The green of a saving, for text in a markdown card. It keeps a font colour and no style.
+SAVING_HEX = "#43a047"
 # A total row: bold, a rule above it, and the saving in green.
 TOTAL_CSS = (
-    "tr:last-child td { font-weight: 700; border-top: 2px solid var(--primary-text-color); }\n"
-    "tr:last-child td:last-child { color: var(--success-color, #43a047); }\n"
+    "tbody tr:last-child td { font-weight: 700;"
+    " border-top: 2px solid var(--primary-text-color); }\n"
+    f"tbody tr:last-child td:last-child {{ color: var(--success-color, {SAVING_HEX}); }}\n"
 )
 # A small grey title on a chart that shares a row with another.
 CHART_TITLE_CSS = (

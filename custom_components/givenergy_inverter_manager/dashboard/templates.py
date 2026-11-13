@@ -4,8 +4,10 @@ templates.py - the text of the markdown cards that are more than an entity's sta
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date
+from html import escape
 from typing import Any
 
 from ..const import (
@@ -16,10 +18,11 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
 )
+from ..core.html_table import html_table, unbroken
 from ..core.overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS
 from ..core.reporting import PLAN_CHARGE_WORDS, PLAN_SKIP_WORDS
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
-from .cards import state_ref
+from .cards import SAVING_HEX, state_ref
 
 
 def _sunrise_phrase(sunrise: str | None) -> str:
@@ -169,27 +172,33 @@ def currency_symbol(cfg: dict[str, Any]) -> str:
 
 
 def tariff_table(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
-    """Markdown table of the rates the integration prices energy with."""
+    """The rates the integration prices energy with, as tables that fill their card."""
     symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
-    lines = [
-        "| Period | Window | Rate per kWh | Billed per kWh |",
-        "|---|---|---:|---:|",
-        *(f"| {n} | {w} | {symbol}{r:.4f} | {symbol}{r * billed:.4f} |" for n, w, r in rows),
-        "",
+    rates = html_table(
+        ["Period", "Window", "Rate per kWh", "Billed per kWh"],
+        [
+            [escape(name), unbroken(window), f"{symbol}{rate:.4f}", f"{symbol}{rate * billed:.4f}"]
+            for name, window, rate in rows
+        ],
+        text_columns=2,
+    )
+    other = html_table(
+        ["Other charge", "Value"],
+        [
+            ["Export rate", f"{symbol}{tariff.export_rate:.4f} per kWh"],
+            ["Standing charge", f"{symbol}{tariff.standing_charge:.4f} per day"],
+            ["PSO levy", f"{symbol}{tariff.pso_levy:.2f} per bill period"],
+            ["Bill starts on day", str(tariff.bill_start_day)],
+        ],
+    )
+    note = (
         f"Billed per kWh is the rate less the {tariff.discount_rate:g}% discount, "
-        f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies.",
-        "",
-        "| Other charge | Value |",
-        "|---|---:|",
-        f"| Export rate | {symbol}{tariff.export_rate:.4f} per kWh |",
-        f"| Standing charge | {symbol}{tariff.standing_charge:.4f} per day |",
-        f"| PSO levy | {symbol}{tariff.pso_levy:.2f} per bill period |",
-        f"| Bill starts on day | {tariff.bill_start_day} |",
-    ]
-    return "\n".join(lines)
+        f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies."
+    )
+    return "\n\n".join([rates, note, other])
 
 
 def _day(day: date) -> str:
@@ -472,3 +481,83 @@ def plan_text_template(water: str) -> str:
         f"{{% set p = state_attr('{water}', 'planned_heating') %}}"
         "{{ p or 'The planned heating shows once the water temperature is read.' }}"
     )
+
+
+# ── Shadow tariffs ───────────────────────────────────────────────────────────
+# Every figure is the same measured usage priced under another tariff. The words say less or
+# more, because a bare signed figure does not say which of the two tariffs is the dearer.
+
+
+@dataclass(frozen=True)
+class ShadowRow:
+    """One shadow tariff as the dashboard shows it: its name and its two sensors."""
+
+    name: str
+    bill: str
+    difference: str | None
+
+
+def _money(symbol: str, value: str) -> str:
+    """A template that prints the number *value* as money."""
+    return f"{symbol}{{{{ '%.2f' | format({value}) }}}}"
+
+
+def _compared(row: ShadowRow, symbol: str, than: str = "") -> str:
+    """The difference from the active tariff in words: less in green, more, or the same."""
+    if not row.difference:
+        return ""
+    return (
+        f"{{% set d = states('{row.difference}') | float(0) %}}"
+        f"{{% if not has_value('{row.difference}') %}}not known yet"
+        f"{{% elif d < 0 %}}<font color='{SAVING_HEX}'>{_money(symbol, '-d')} less{than}</font>"
+        f"{{% elif d > 0 %}}{_money(symbol, 'd')} more{than}"
+        "{% else %}the same{% endif %}"
+    )
+
+
+def shadow_verdict_template(rows: list[ShadowRow], symbol: str) -> str:
+    """The answer first: which shadow tariff would have cost least, or that none would."""
+    pairs = ", ".join(
+        f"({json.dumps(row.name)}, states('{row.difference}') | float(0))"
+        for row in rows
+        if row.difference
+    )
+    return (
+        "{% set ns = namespace(best=0, name='') %}"
+        f"{{% for name, d in [{pairs}] %}}"
+        "{% if d < ns.best %}{% set ns.best = d %}{% set ns.name = name %}{% endif %}"
+        "{% endfor %}"
+        f"### {{% if ns.name %}}{{{{ ns.name }}}} would have cost {_money(symbol, '-ns.best')} "
+        "less so far{% else %}Your tariff is the cheapest so far{% endif %}\n"
+        "The same measured usage, priced under each tariff. These are not bills."
+    )
+
+
+def shadow_comparison_table(rows: list[ShadowRow], symbol: str) -> str:
+    """Your tariff and each shadow tariff: the bill so far, and how it compares with yours."""
+    first = rows[0].bill
+    yours = _money(symbol, f"state_attr('{first}', 'active_tariff_total') | float(0)")
+    body = [["Your tariff", yours, ""]]
+    for row in rows:
+        so_far = _money(symbol, f"states('{row.bill}') | float(0)")
+        body.append([escape(row.name), so_far, _compared(row, symbol)])
+    return html_table(["Tariff", "So far", "Compared with yours"], body)
+
+
+def shadow_coverage_template(bill: str) -> str:
+    """From which day the usage was measured, and how much of the bill period that covers."""
+    return (
+        f"{{% set start = state_attr('{bill}', 'data_from') %}}"
+        "Measured usage starts on "
+        "{% if start %}{% set day = as_datetime(start) %}"
+        "{{ day.day }} {{ day.strftime('%b %Y') }}{% else %}a day not known yet{% endif %}: "
+        f"{{{{ state_attr('{bill}', 'days_with_data') }}}} of "
+        f"{{{{ state_attr('{bill}', 'days_in_bill_period') }}}} days of this bill period are "
+        "recorded. The figures are complete only when all of them are."
+    )
+
+
+def shadow_figure_template(row: ShadowRow, symbol: str) -> str:
+    """One shadow tariff in a heading and a line: its bill so far and how it compares."""
+    compared = _compared(row, symbol, " than your tariff")
+    return f"### {_money(symbol, f"states('{row.bill}') | float(0)")} so far\n{compared}"

@@ -39,6 +39,7 @@ from tests.dashboard_support import (
     view_cards,
 )
 from tests.dashboard_visibility import seen_for, shown_text
+from tests.helpers import table_rows
 
 _IDS = default_entity_ids()
 
@@ -1108,7 +1109,7 @@ class TestBillView:
 
     def test_bill_sections_use_only_built_in_cards(self):
         types = {c["type"] for c in _section_cards(_build(), "bill", "This bill period")}
-        assert types == {"heading", "markdown", "glance", "statistics-graph"}
+        assert types == {"heading", "markdown", "tile", "statistics-graph"}
 
     def test_disabled_by_default_figures_are_left_out(self):
         text = _build(registry=FakeRegistry())
@@ -1140,16 +1141,16 @@ class TestBillView:
         assert markdown == [f"{{{{ state_attr('{eid('tariff_in_use')}', 'html') }}}}"]
 
     def test_tariff_table_lists_base_rate_and_periods(self):
-        table = self._tariff_markdown()
-        assert "| Day | all other times | €0.3334 |" in table
-        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
-        assert "| Nightboost | 02:00 to 04:00 | €0.0965 |" in table
+        rows = [row[:3] for row in table_rows(self._tariff_markdown())]
+        assert ["Day", "all other times", "€0.3334"] in rows
+        assert ["Night", "23:00 to 08:00", "€0.1644"] in rows
+        assert ["Nightboost", "02:00 to 04:00", "€0.0965"] in rows
 
     def test_tariff_table_shows_the_billed_rate(self):
         """Billed per kWh follows the docs: rate x (1 - discount) x (1 + VAT)."""
-        table = self._tariff_markdown()
-        assert "€0.3334 | €0.3434 |" in table
-        assert "€0.0965 | €0.0994 |" in table
+        rows = [row[2:] for row in table_rows(self._tariff_markdown())]
+        assert ["€0.3334", "€0.3434"] in rows
+        assert ["€0.0965", "€0.0994"] in rows
 
     def test_tariff_table_reads_the_config_entry(self):
         from custom_components.givenergy_inverter_manager.const import (
@@ -1181,18 +1182,19 @@ class TestBillView:
                 CONF_CURRENCY: "GBP",
             }
         )
-        assert "| Standard | all other times | £0.3000 | £0.3600 |" in table
-        assert "| Off-peak | 00:30 to 05:30 | £0.1000 | £0.1200 |" in table
+        rows = table_rows(table)
+        assert ["Standard", "all other times", "£0.3000", "£0.3600"] in rows
+        assert ["Off-peak", "00:30 to 05:30", "£0.1000", "£0.1200"] in rows
         assert "Night" not in table
         assert "less the 0% discount, plus 20% VAT" in table
-        assert "| Export rate | £0.1500 per kWh |" in table
-        assert "| Standing charge | £0.5000 per day |" in table
-        assert "| PSO levy | £0.00 per bill period |" in table
-        assert "| Bill starts on day | 12 |" in table
+        assert ["Export rate", "£0.1500 per kWh"] in rows
+        assert ["Standing charge", "£0.5000 per day"] in rows
+        assert ["PSO levy", "£0.00 per bill period"] in rows
+        assert ["Bill starts on day", "12"] in rows
 
     def test_tariff_table_falls_back_to_the_defaults_the_engine_uses(self):
-        table = self._tariff_markdown(config={})
-        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
+        rows = [row[:3] for row in table_rows(self._tariff_markdown(config={}))]
+        assert ["Night", "23:00 to 08:00", "€0.1644"] in rows
 
 
 _PFC = "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js?hacstag=1"

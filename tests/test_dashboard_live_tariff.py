@@ -8,6 +8,7 @@ from tests.dashboard_support import (
     dashboard_dict,
     devices_of,
 )
+from tests.helpers import table_rows
 
 REPORT = "sensor.givenergy_inverter_manager_tariff_in_use"
 
@@ -33,7 +34,12 @@ def test_without_the_sensor_the_section_builds_its_own_tables():
 
     markdown = [c for c in _tariff(registry) if c["type"] == "markdown"]
 
-    assert "| Period | Window | Rate per kWh | Billed per kWh |" in markdown[0]["content"]
+    assert table_rows(markdown[0]["content"])[0] == [
+        "Period",
+        "Window",
+        "Rate per kWh",
+        "Billed per kWh",
+    ]
     assert "state_attr" not in markdown[0]["content"]
 
 

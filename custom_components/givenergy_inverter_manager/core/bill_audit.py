@@ -11,8 +11,9 @@ TariffConfig.calculate_bill, so the audit total is the Bill sensors' total. A da
 recorded, for example before this was added, shows as one "not itemised" row that makes the
 rows add up to the totals.
 
-The same figures are also written as markdown pipe tables (bill_table, days_table and
-summary_table), because Home Assistant's markdown card strips the inline styles the HTML uses.
+The same figures are also written as tables that fill a markdown card (bill_table, days_table
+and summary_table, built by html_table.py), because Home Assistant's markdown card strips the
+inline styles the HTML uses.
 
 Pure Python, no Home Assistant imports.
 """
@@ -26,6 +27,7 @@ from html import escape
 from typing import Any
 
 from ..lib.tariff.bill_days import day_row, tariff_changes, tariff_in_effect
+from .html_table import bold, html_table, unbroken, with_note
 from .reporting import _S, _TD, _TD_RIGHT, _TH
 from .tariff import BillBreakdown, EnergyAccumulator, TariffConfig, build_tariff
 from .text_state import fit_state
@@ -305,15 +307,7 @@ def build_bill_audit(period: AuditPeriod) -> tuple[str, str]:
     return state, "".join(parts)
 
 
-def _md_row(cells: Sequence[str]) -> str:
-    return "|" + "|".join(f" {cell} " if cell else " " for cell in cells) + "|"
-
-
-def _md_table(header: Sequence[str], align: str, lines: Sequence[str], note: str) -> str:
-    return "\n".join([_md_row(header), align, *lines, "", note])
-
-
-def _md_bill_line(symbol: str, line: tuple[str, float, float]) -> str:
+def _bill_line_cells(symbol: str, line: tuple[str, float, float]) -> list[str]:
     name, paid, without = line
     cells = [
         name,
@@ -321,73 +315,67 @@ def _md_bill_line(symbol: str, line: tuple[str, float, float]) -> str:
         "" if name == _EXPORT_CREDIT else _md_money(symbol, without),
         _md_money(symbol, without - paid),
     ]
-    if name == _TOTAL:
-        cells = [f"**{cell}**" for cell in cells]
-    return _md_row(cells)
+    return [bold(cell) for cell in cells] if name == _TOTAL else cells
 
 
 def bill_table(period: AuditPeriod) -> str:
-    """The bill line by line as a markdown table: paid, with no solar or battery, and saved."""
+    """The bill line by line as a table: paid, with no solar or battery, and saved."""
     fig = figures(period.tariff, period.totals, period.days, period.period_days)
-    return _md_table(
+    table = html_table(
         ["", "You paid", "Would have paid", "Saved"],
-        "|:--|--:|--:|--:|",
-        [_md_bill_line(period.symbol, line) for line in _bill_lines(fig)],
-        _WOULD_HAVE_PAID_NOTE,
+        [_bill_line_cells(period.symbol, line) for line in _bill_lines(fig)],
     )
+    return with_note(table, _WOULD_HAVE_PAID_NOTE)
 
 
 def _row_totals(row: Mapping[str, Any]) -> Totals:
     return Totals.of_rows([row])
 
 
-def _md_day_line(name: str, day: Totals, symbol: str) -> str:
+def _day_line_cells(name: str, day: Totals, symbol: str) -> list[str]:
     paid = day.import_cost - day.export_credit
-    return _md_row(
-        [
-            name,
-            f"{day.import_kwh:.1f} kWh",
-            _md_money(symbol, paid),
-            _md_money(symbol, day.load_cost),
-            _md_money(symbol, day.load_cost - paid),
-        ]
-    )
+    return [
+        name,
+        unbroken(f"{day.import_kwh:.1f} kWh"),
+        _md_money(symbol, paid),
+        _md_money(symbol, day.load_cost),
+        _md_money(symbol, day.load_cost - paid),
+    ]
 
 
 def days_table(period: AuditPeriod) -> str:
-    """The period day by day as a markdown table, newest first, or a sentence with no days."""
+    """The period day by day as a table, newest first, or a sentence with no days."""
     s = period.symbol
     lines = []
     if period.live is not None:
-        lines.append(_md_day_line(f"{_day_name(period.live)} (today)", _row_totals(period.live), s))
-    lines += [_md_day_line(_day_name(row), _row_totals(row), s) for row in reversed(period.rows)]
+        today = f"{unbroken(_day_name(period.live))} (today)"
+        lines.append(_day_line_cells(today, _row_totals(period.live), s))
+    lines += [
+        _day_line_cells(unbroken(_day_name(row)), _row_totals(row), s)
+        for row in reversed(period.rows)
+    ]
     rest = _not_itemised(period)
     if not rest.is_empty:
-        lines.append(_md_day_line("Before daily records", rest, s))
+        lines.append(_day_line_cells("Before daily records", rest, s))
     if not lines:
         return "No days recorded yet."
-    return _md_table(
-        ["Day", "Imported", "You paid", "Would have paid", "Saved"],
-        "|:--|--:|--:|--:|--:|",
-        lines,
-        _YOU_PAID_NOTE,
-    )
+    header = ["Day", "Imported", "You paid", "Would have paid", "Saved"]
+    return with_note(html_table(header, lines), _YOU_PAID_NOTE)
 
 
 def summary_table(period: AuditPeriod) -> str:
-    """The period's bill in three lines as a markdown table: paid, without, and saved."""
+    """The period's bill in three lines as a table: paid, without, and saved."""
     fig = figures(period.tariff, period.totals, period.days, period.period_days)
     s = period.symbol
-    return _md_table(
+    table = html_table(
         ["", ""],
-        "|:--|--:|",
         [
-            _md_row(["You paid", _md_money(s, fig.actual.total)]),
-            _md_row(["Would have paid", _md_money(s, fig.without.total)]),
-            _md_row(["**Saved**", f"**{_md_money(s, fig.saved)}**"]),
+            ["You paid", _md_money(s, fig.actual.total)],
+            ["Would have paid", _md_money(s, fig.without.total)],
+            [bold("Saved"), bold(_md_money(s, fig.saved))],
         ],
-        _WOULD_HAVE_PAID_NOTE,
     )
+    return with_note(table, _WOULD_HAVE_PAID_NOTE)
 
 
 def live_row(acc: EnergyAccumulator, day: date) -> dict[str, Any]:

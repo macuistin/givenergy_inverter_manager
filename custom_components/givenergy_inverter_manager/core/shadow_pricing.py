@@ -14,6 +14,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+from html import escape
 from typing import Any
 
 from ..conf import CONF_SHADOW_TARIFFS
@@ -27,6 +28,7 @@ from ..lib.tariff import (
     definition_from_config,
     price_period,
 )
+from .html_table import bold, html_table
 from .shadow_tariffs import KEY_NAME, shadow_config, shadow_entries
 from .tariff_config import build_tariff
 
@@ -163,17 +165,14 @@ def _energy_line(line: Line) -> Line | None:
 
 
 def bands_table(bill: ShadowBill, symbol: str) -> str:
-    """The bill's import by band as a markdown table, with a total row. Empty without bands."""
+    """The bill's import by band as a table that fills its card, with a total row.
+
+    Empty without bands.
+    """
     if not bill.bands:
         return ""
-    rows = [f"| {b.band} | {b.kwh:.1f} | {symbol}{b.cost:.2f} |" for b in bill.bands]
+    rows = [[escape(b.band), f"{b.kwh:.1f}", f"{symbol}{b.cost:.2f}"] for b in bill.bands]
     total_kwh = sum(b.kwh for b in bill.bands)
     total_cost = sum(b.cost for b in bill.bands)
-    return "\n".join(
-        [
-            "| Band | kWh | Energy cost |",
-            "| --- | ---: | ---: |",
-            *rows,
-            f"| **Total** | **{total_kwh:.1f}** | **{symbol}{total_cost:.2f}** |",
-        ]
-    )
+    rows.append([bold("Total"), bold(f"{total_kwh:.1f}"), bold(f"{symbol}{total_cost:.2f}")])
+    return html_table(["Band", "kWh", "Energy cost"], rows)

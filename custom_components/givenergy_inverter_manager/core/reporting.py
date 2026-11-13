@@ -24,6 +24,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, DEFAULT_CURRENCY_SYMBOL
+from .html_table import unbroken
 from .overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS, OvernightPhase
 from .tariff import (
     TariffChange,
@@ -331,22 +332,32 @@ def _day_in_words(day: date) -> str:
 
 
 def _grid(headers: list[str], rows: list[list[str]]) -> str:
-    """A table whose last columns are right-aligned numbers."""
+    """A table whose last columns are right-aligned numbers.
+
+    The width and the alignment are also attributes, because the markdown card strips the
+    styles and would draw the table only as wide as its text.
+    """
     last = len(headers) - 1
+
+    def right(index: int) -> bool:
+        return index >= last - 1 and last > 1
+
     head = "".join(
-        f'<th style="{_TH}{"text-align:right;" if i >= last - 1 and last > 1 else ""}">{h}</th>'
+        f'<th style="{_TH}{"text-align:right;" if right(i) else ""}">{h}</th>'
         for i, h in enumerate(headers)
     )
     body = "".join(
         f'<tr style="{_S["tr_mid"]}">'
         + "".join(
-            f'<td style="{_TD_RIGHT if i >= last - 1 and last > 1 else _TD}">{cell}</td>'
+            f'<td align="right" style="{_TD_RIGHT}">{cell}</td>'
+            if right(i)
+            else f'<td style="{_TD}">{cell}</td>'
             for i, cell in enumerate(row)
         )
         + "</tr>"
         for row in rows
     )
-    return f'<table style="{_S["table"]}"><tr>{head}</tr>{body}</table>'
+    return f'<table width="100%" style="{_S["table"]}"><tr>{head}</tr>{body}</table>'
 
 
 def _rate_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
@@ -355,7 +366,7 @@ def _rate_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
     rows += [
         (escape(p.name), f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods
     ]
-    return [[n, w, f"{symbol}{r:.4f}", f"{symbol}{r * billed:.4f}"] for n, w, r in rows]
+    return [[n, unbroken(w), f"{symbol}{r:.4f}", f"{symbol}{r * billed:.4f}"] for n, w, r in rows]
 
 
 def _other_charge_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:

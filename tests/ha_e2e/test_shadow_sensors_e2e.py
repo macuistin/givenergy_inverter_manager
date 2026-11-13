@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import CONF_SHADOW_TARIFFS, DOMAIN
 from custom_components.givenergy_inverter_manager.lib.tariff import SlotDay
+from tests.helpers import table_rows
 
 SHADOW = {
     "name": "Flat",
@@ -114,7 +115,7 @@ async def test_the_sensors_re_price_the_stored_slots(hass_in_scenario):
     assert bill.attributes["data_from"] == today.isoformat()
     assert bill.attributes["days_with_data"] == 1
     assert bill.attributes["would_be_cheaper"] in ("Yes", "No")
-    assert "| Band | kWh | Energy cost |" in bill.attributes["bands_table"]
+    assert table_rows(bill.attributes["bands_table"])[0] == ["Band", "kWh", "Energy cost"]
     assert cheaper.state in ("on", "off")
 
     await hass.config_entries.async_unload(entry.entry_id)

@@ -42,12 +42,56 @@ def test_each_table_reads_its_attribute_of_the_audit_sensors():
     ]
 
 
-def test_the_three_tables_are_one_column_each_so_they_fill_a_row_on_a_laptop():
+def test_a_wide_section_is_followed_by_a_one_column_one_three_times():
+    """Each pair shares a row on a laptop, and no row is left half empty on a tablet."""
     view = _bill()
-    for heading in TABLES:
-        assert "column_span" not in _section(view, heading), heading
-    headings = [s["cards"][0]["heading"] for s in view["sections"]]
-    assert headings[-3:] == list(TABLES)
+    layout = [(s["cards"][0]["heading"], s.get("column_span", 1)) for s in view["sections"]]
+    assert layout == [
+        ("This bill period", 2),
+        ("This bill, line by line", 1),
+        ("Import and export", 2),
+        ("Tariff", 1),
+        ("Each day", 2),
+        ("Last bill", 1),
+    ]
+
+
+def test_the_period_shows_four_figures_as_tiles_two_to_a_row_on_a_phone():
+    """Six of a section's twelve columns: two to a row on a phone, four where it is two wide."""
+    tiles = [c for c in _section(_bill(), "This bill period")["cards"] if c["type"] == "tile"]
+    assert [(t["name"], t["entity"]) for t in tiles] == [
+        ("So far", IDS["accrued_bill"]),
+        ("Heading for", IDS["projected_bill"]),
+        ("Without solar", IDS["bill_without_solar"]),
+        ("Days left", IDS["days_remaining_in_period"]),
+    ]
+    assert {t["grid_options"]["columns"] for t in tiles} == {6}
+
+
+def test_a_missing_figure_leaves_its_tile_out():
+    period = _section(_bill(_without("projected_bill")), "This bill period")
+    assert [c["name"] for c in period["cards"] if c["type"] == "tile"] == [
+        "So far",
+        "Without solar",
+        "Days left",
+    ]
+
+
+def test_the_period_holds_one_chart_and_the_cost_by_use_sits_with_import_and_export():
+    view = _bill()
+    charts = [c for c in _section(view, "This bill period")["cards"] if "graph" in c["type"]]
+    assert [[row["name"] for row in c["entities"]] for c in charts] == [
+        ["You paid", "Would have paid"]
+    ]
+    by_use = _section(view, "Import and export")["cards"]
+    assert [c["type"] for c in by_use[:3]] == ["heading", "glance", "heading"]
+    assert {c["type"] for c in by_use[3:]} == {"statistics-graph"}
+    assert all(c["chart_type"] == "bar-stack" for c in by_use[3:])
+    assert [row["name"] for row in by_use[1]["entities"]] == [
+        "Import cost",
+        "Export credit",
+        "Avg per kWh",
+    ]
 
 
 def test_the_table_cards_hold_no_figure_so_they_cannot_go_stale():

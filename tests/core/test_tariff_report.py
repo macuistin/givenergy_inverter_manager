@@ -17,6 +17,7 @@ from custom_components.givenergy_inverter_manager.core.reporting import (
     build_tariff_html,
     build_tariff_state,
 )
+from tests.helpers import table_rows
 
 TODAY = date(2026, 10, 15)
 CFG = {
@@ -52,8 +53,13 @@ def test_the_state_lists_each_rate_in_force():
 def test_the_html_has_every_rate_window_and_charge():
     html = build_tariff_html(CFG, TODAY)
 
-    for text in ("Day", "all other times", "Night", "23:00 to 08:00", "Nightboost", "02:00 to 04:00"):
-        assert text in html
+    rows = table_rows(html)
+    for name, window in (
+        ("Day", "all other times"),
+        ("Night", "23:00 to 08:00"),
+        ("Nightboost", "02:00 to 04:00"),
+    ):
+        assert [name, window] in [row[:2] for row in rows]
     assert "€0.3650" in html
     assert "€0.8259 per day" in html
     assert "€1.46 per bill period" in html
