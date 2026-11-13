@@ -277,6 +277,7 @@ from .repairs import (
     async_delete_tariff_review_issue,
 )
 from .slot_store import SlotStore
+from .tariff_updater import async_track_daily_tariff_check
 from .unconfirmed_write_repair import UnconfirmedWriteRepair
 from .write_audit import WriteAudit
 
@@ -645,6 +646,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.entry.async_on_unload(
             async_track_time_change(self.hass, self._midnight_reset, hour=0, minute=0, second=0)
         )
+        async_track_daily_tariff_check(self.hass, self.entry)
         # Cheap-rate start listener (writes charge target to GivTCP). The start time comes
         # from the configured tariff, one minute before, so the target is set before charging.
         self.entry.async_on_unload(self._cancel_charge_target_listener)
