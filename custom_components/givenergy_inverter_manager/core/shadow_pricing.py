@@ -91,7 +91,7 @@ def shadow_keys(raw: Any) -> list[str]:
     return [shadow_key(str(entry[KEY_NAME]), taken) for entry in shadow_entries(raw)]
 
 
-def _definition(config: Mapping[str, Any], timezone_name: str) -> TariffDefinition:
+def config_definition(config: Mapping[str, Any], timezone_name: str) -> TariffDefinition:
     return definition_from_config(
         build_tariff(dict(config)), Locale(_NO_CURRENCY, _NO_COUNTRY, timezone_name, _ALWAYS)
     )
@@ -114,9 +114,11 @@ def price_shadows(
     if not entries:
         return None
     try:
-        real = price_period(history, _definition(active, timezone_name), through)
+        real = price_period(history, config_definition(active, timezone_name), through)
         priced = [
-            price_period(history, _definition(shadow_config(entry, active), timezone_name), through)
+            price_period(
+                history, config_definition(shadow_config(entry, active), timezone_name), through
+            )
             for entry in entries
         ]
     except DefinitionError:
