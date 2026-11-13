@@ -157,3 +157,9 @@ def test_a_typed_export_rate_is_ignored_when_the_store_holds_one() -> None:
 def test_the_review_says_when_a_plan_lists_no_export_price() -> None:
     definition = _definition(export_rate=0.0)
     assert "this plan lists no export price" in review_text(definition, choose_tariff(definition, 1))
+
+
+def test_the_source_text_says_when_automatic_updates_are_off() -> None:
+    record = {"kind": "store", "provider_name": "P", "name": "Plan", "effective_from": "2026-01-01",
+              "auto_update": False}
+    assert source_text(record) == "P Plan, prices from 2026-01-01, from the store, updates off"

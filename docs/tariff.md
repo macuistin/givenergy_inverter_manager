@@ -47,9 +47,11 @@ When a plan's published prices already include VAT, they are saved as published 
 
 ### Updates from the list
 
-A tariff that follows the list is read again every day at 00:05 and once when the integration starts. When the supplier's newer prices are in force, they replace the saved rates, standing charge, levy, VAT and discount as one set, and a notification says so. They never apply part way through a day or a bill period, so the day that just ended is still priced with the old prices. The old rates are kept in the `tariff_source` option so a later release can offer to put them back.
+A tariff that follows the list is read again every day at 00:05 and once when the integration starts. When the supplier's newer prices are in force, they replace the saved rates, standing charge, levy, VAT and discount as one set, and a notification says so. They never apply part way through a day or a bill period, so the day that just ended is still priced with the old prices. The old rates are kept in the `tariff_source` option.
 
-If the list cannot be read, nothing changes and nothing is reported: the saved rates keep working. If the list no longer holds the plan, or its newest prices use a rule the saved rates cannot hold, the repair **Your tariff needs attention** appears and the saved rates stay as they are. A tariff you edited by hand is never changed. See [A newer version of your tariff is available](troubleshooting.md#a-newer-version-of-your-tariff-is-available) and [Your tariff needs attention](troubleshooting.md#your-tariff-needs-attention).
+If the list cannot be read, nothing changes and nothing is reported: the saved rates keep working. If the list no longer holds the plan, or its newest prices use a rule the saved rates cannot hold, the repair **Your tariff needs attention** appears and the saved rates stay as they are. A tariff you edited by hand is never changed.
+
+**Configure → Tariff → Tariff source** has two more choices for a tariff that follows the list. **Turn automatic updates off** keeps your prices when the supplier publishes new ones and raises the repair "A newer version of your tariff is available" instead. **Turn automatic updates on** follows the list again. **Undo the last update** (shown once an update has been applied) puts back the prices from before it and turns automatic updates off, so the same prices are not applied again. See [A newer version of your tariff is available](troubleshooting.md#a-newer-version-of-your-tariff-is-available) and [Your tariff needs attention](troubleshooting.md#your-tariff-needs-attention).
 
 ## Change the rates from a date
 

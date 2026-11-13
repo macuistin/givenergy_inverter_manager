@@ -177,4 +177,6 @@ def source_text(record: Mapping[str, Any] | None) -> str:
     since = f"prices from {record.get('effective_from')}"
     if record["kind"] == "based_on":
         return f"{plan}, {since}, then edited by hand"
-    return f"{plan}, {since}, from the store"
+    if record.get("auto_update", True):
+        return f"{plan}, {since}, from the store"
+    return f"{plan}, {since}, from the store, updates off"

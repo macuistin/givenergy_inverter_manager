@@ -121,6 +121,7 @@ async def test_stopping_following_the_store_keeps_the_rates_and_marks_it_edited(
     manager, result = await _tariff_source(hass, entry)
     assert result["menu_options"] == [
         "store_country",
+        "store_updates_off",
         "store_detach",
         "tariff_menu",
     ]
@@ -185,3 +186,61 @@ async def test_a_store_that_cannot_be_read_returns_to_the_tariff_menu(
     assert result["type"] is FlowResultType.MENU
     assert result["menu_options"] == ["tariff_menu"]
     manager.async_abort(result["flow_id"])
+
+
+async def test_turning_automatic_updates_off_and_on_changes_only_the_record(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    _use_store(monkeypatch, hass, tmp_path)
+    entry = _entry(FOLLOWING)
+    entry.add_to_hass(hass)
+
+    manager, result = await _tariff_source(hass, entry)
+    result = await choose(manager, result, "store_updates_off")
+    text, saved = await _save(manager, result)
+    assert "from the store, updates off" in text
+    assert saved["data"]["tariff_source"]["auto_update"] is False
+    assert saved["data"]["tariff_source"]["kind"] == "store"
+    assert "base_rate" not in saved["data"]
+
+
+async def test_updates_off_offers_turning_them_on(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    _use_store(monkeypatch, hass, tmp_path)
+    entry = _entry({**FOLLOWING, "auto_update": False})
+    entry.add_to_hass(hass)
+
+    manager, result = await _tariff_source(hass, entry)
+    assert "store_updates_on" in result["menu_options"]
+    assert "store_updates_off" not in result["menu_options"]
+    result = await choose(manager, result, "store_updates_on")
+    _, saved = await _save(manager, result)
+    assert saved["data"]["tariff_source"]["auto_update"] is True
+
+
+async def test_undo_puts_back_the_prices_from_before_the_last_update(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    _use_store(monkeypatch, hass, tmp_path)
+    updated = {
+        **FOLLOWING,
+        "effective_from": "2026-06-01",
+        "previous": {
+            "options": {"base_rate": 0.3, "standing_charge_per_day": 1.0},
+            "record": {**FOLLOWING},
+        },
+    }
+    entry = _entry(updated)
+    entry.add_to_hass(hass)
+
+    manager, result = await _tariff_source(hass, entry)
+    assert "store_undo" in result["menu_options"]
+    result = await choose(manager, result, "store_undo")
+    _, saved = await _save(manager, result)
+    data = saved["data"]
+    assert data["base_rate"] == 0.3
+    assert data["standing_charge_per_day"] == 1.0
+    assert data["tariff_source"]["effective_from"] == "2026-01-01"
+    assert data["tariff_source"]["auto_update"] is False
+    assert "previous" not in data["tariff_source"]

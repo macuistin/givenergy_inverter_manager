@@ -46,6 +46,7 @@ from ..core.shadow_tariffs import (
     without_shadow,
 )
 from ..core.tariff import options_after_tariff_save, tariff_in_force
+from ..core.tariff_update import undo
 from ..core.wizard_changes import confirm_text
 from ..core.wizard_model import (
     PAGE_KEYS,
@@ -395,6 +396,10 @@ class OptionsSteps(StoreSteps, WizardPages):
         record = self._source_record()
         options = [FROM_LIST]
         if record and record.get("kind") == "store":
+            following = record.get("auto_update", True)
+            options.append("store_updates_off" if following else "store_updates_on")
+            if undo(record) is not None:
+                options.append("store_undo")
             options.append("store_detach")
         return self._menu("", [*options, "tariff_menu"])
 
@@ -410,6 +415,23 @@ class OptionsSteps(StoreSteps, WizardPages):
         self._values[CONF_TARIFF_SOURCE] = {**record, **changes}
         self._store_touched = True
         self._tariff_touched = True
+
+    async def async_step_store_updates_off(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Keep these prices until the user chooses to follow the list again."""
+        self._change_source(auto_update=False)
+        return await self.async_step_tariff_menu()
+
+    async def async_step_store_updates_on(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Follow the list again from the next daily check."""
+        self._change_source(auto_update=True)
+        return await self.async_step_tariff_menu()
+
+    async def async_step_store_undo(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Put back the prices from before the last automatic update, and stop updating."""
+        restored = undo(self._source_record() or {})
+        if restored is not None:
+            return await self._store_finished(restored)
+        return await self.async_step_tariff_menu()
 
     async def async_step_store_detach(self, user_input: dict[str, Any] | None = None) -> Any:
         """Keep the rates as they are and stop following the store."""

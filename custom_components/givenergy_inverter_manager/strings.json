@@ -784,11 +784,17 @@
         "description": "{source}\n\n{note}",
         "menu_options": {
           "store_country": "Choose from the list",
+          "store_updates_off": "Turn automatic updates off",
+          "store_updates_on": "Turn automatic updates on",
+          "store_undo": "Undo the last update",
           "store_detach": "Stop following the store",
           "tariff_menu": "Back"
         },
         "menu_option_descriptions": {
           "store_country": "Pick your country, supplier and plan. The rates replace the ones saved now when you save your changes.",
+          "store_updates_off": "Keep these prices when the supplier publishes new ones. You are told that a newer version is available.",
+          "store_updates_on": "Take the supplier's new prices by themselves, on the day they start.",
+          "store_undo": "Put back the prices from before the last automatic update, and stop updating.",
           "store_detach": "Keep the rates as they are and edit them by hand from now on.",
           "tariff_menu": "Back to the tariff."
         }
@@ -1603,7 +1609,7 @@
     },
     "tariff_update_available": {
       "title": "A newer version of your tariff is available",
-      "description": "{name} has a new set of prices that started on {start}. Automatic updates are off, so your saved rates have not changed.\n\nOpen **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff → Tariff source**, then choose the tariff again to use the new prices."
+      "description": "{name} has a new set of prices that started on {start}. Automatic updates are off, so your saved rates have not changed.\n\nTo use the new prices, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff → Tariff source**, then choose the tariff again from the list. To have them applied by themselves from now on, choose **Turn automatic updates on**."
     },
     "tariff_needs_attention": {
       "title": "Your tariff needs attention",
