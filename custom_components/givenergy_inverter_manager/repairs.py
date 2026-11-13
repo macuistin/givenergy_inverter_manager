@@ -158,6 +158,8 @@ ISSUE_CHARGE_BLOCKED_BY_PAUSE = "charge_blocked_by_pause"
 ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING = "immersion_temperature_not_reporting"
 ISSUE_IMMERSION_SWITCH_NOT_RESPONDING = "immersion_switch_not_responding"
 ISSUE_DASHBOARD_OUT_OF_DATE = "dashboard_out_of_date"
+ISSUE_TARIFF_UPDATE_AVAILABLE = "tariff_update_available"
+ISSUE_TARIFF_NEEDS_ATTENTION = "tariff_needs_attention"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -186,6 +188,10 @@ LEARN_MORE_URLS: dict[str, str] = {
         f"{TROUBLESHOOTING_URL}#the-immersion-switch-is-not-taking-commands"
     ),
     ISSUE_DASHBOARD_OUT_OF_DATE: f"{TROUBLESHOOTING_URL}#the-stored-dashboard-is-out-of-date",
+    ISSUE_TARIFF_UPDATE_AVAILABLE: (
+        f"{TROUBLESHOOTING_URL}#a-newer-version-of-your-tariff-is-available"
+    ),
+    ISSUE_TARIFF_NEEDS_ATTENTION: f"{TROUBLESHOOTING_URL}#your-tariff-needs-attention",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -279,6 +285,40 @@ def async_create_tariff_review_issue(hass: HomeAssistant, last_reviewed: date, d
 def async_delete_tariff_review_issue(hass: HomeAssistant) -> None:
     """Clear the tariff review repair issue once the tariff has been reviewed."""
     async_delete_issue(hass, DOMAIN, ISSUE_TARIFF_REVIEW_DUE)
+
+
+def async_create_tariff_update_available_issue(hass: HomeAssistant, name: str, start: str) -> None:
+    """Say a newer revision of the followed tariff is in force and automatic updates are off."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_TARIFF_UPDATE_AVAILABLE,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_TARIFF_UPDATE_AVAILABLE],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_TARIFF_UPDATE_AVAILABLE,
+        translation_placeholders={"name": name, "start": start},
+    )
+
+
+def async_create_tariff_needs_attention_issue(hass: HomeAssistant, name: str, why: str) -> None:
+    """Say the followed tariff ended or its newest revision cannot be held by the saved rates."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_TARIFF_NEEDS_ATTENTION,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_TARIFF_NEEDS_ATTENTION],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_TARIFF_NEEDS_ATTENTION,
+        translation_placeholders={"name": name, "why": why},
+    )
+
+
+def async_delete_tariff_update_issues(hass: HomeAssistant) -> None:
+    """Clear both tariff update repairs."""
+    async_delete_issue(hass, DOMAIN, ISSUE_TARIFF_UPDATE_AVAILABLE)
+    async_delete_issue(hass, DOMAIN, ISSUE_TARIFF_NEEDS_ATTENTION)
 
 
 def async_create_battery_cost_issue(hass: HomeAssistant) -> None:
