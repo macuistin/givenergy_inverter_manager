@@ -209,6 +209,14 @@ The repair **Tariff rates have not been reviewed** appears when the tariff has g
 2. If a rate changed, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Tariff** and save the new rates. To start them on a later date, tick **Schedule a rate change**. See [Tariff](tariff.md#change-the-rates-from-a-date).
 3. If the rates are right, open **Settings → System → Repairs**, open **Tariff rates have not been reviewed** and select **Submit**. The repair clears on the next update cycle and returns after another 365 days.
 
+## A newer version of your tariff is available
+
+You chose a tariff from the list and turned automatic updates off. The store now holds a newer set of prices for it, in force from the date shown in the repair. Nothing has changed in your saved rates. Open **Configure**, then **Tariff**, then **Tariff source**, and choose the tariff again to take the new prices. The repair clears once the saved tariff is the newest one.
+
+## Your tariff needs attention
+
+The repair appears for a tariff chosen from the list when the store no longer lists it, or when its newest prices use a rule the saved rates cannot hold, such as a rate that starts between half hours. Your saved rates stay as they were and costs still use them. Check the tariff against your bill, then open **Configure**, then **Tariff** to choose another tariff or enter the rates by hand. The repair clears when the saved tariff is one the store still lists and can be held.
+
 ## Daily sensors are frozen after an upgrade
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.

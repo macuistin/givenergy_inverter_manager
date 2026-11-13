@@ -47,6 +47,7 @@ from .optional_devices import (
 from .services import async_register_services, async_unregister_services, loaded_entries
 from .stored_dashboard_repair import async_watch_stored_dashboard
 from .strategy import async_register_strategy, async_remove_resource
+from .tariff_updater import async_start_tariff_updates
 from .wizard.wiring import limit_sources_for
 
 _LOG = get_logger(__name__)
@@ -209,6 +210,12 @@ async def _announce_dashboard(hass: HomeAssistant, entry: GivEnergyConfigEntry) 
         _LOG.exception("Could not tell the user how to add the dashboard")
 
 
+def _start_watchers(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Start what looks at things from outside the inverter: the dashboard and the tariff."""
+    async_watch_stored_dashboard(hass, entry)
+    async_start_tariff_updates(hass, entry)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
@@ -245,7 +252,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
 
     entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
     # After the platforms, so the first look compares a dashboard built from every entity.
-    async_watch_stored_dashboard(hass, entry)
+    _start_watchers(hass, entry)
 
     # async_setup runs once per start; this restores services removed by the last unload.
     await async_register_services(hass)

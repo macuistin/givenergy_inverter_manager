@@ -1597,6 +1597,14 @@
         }
       }
     },
+    "tariff_update_available": {
+      "title": "A newer version of your tariff is available",
+      "description": "{name} has a new set of prices that started on {start}. Automatic updates are off, so your saved rates have not changed.\n\nOpen **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff → Tariff source**, then choose the tariff again to use the new prices."
+    },
+    "tariff_needs_attention": {
+      "title": "Your tariff needs attention",
+      "description": "{name} could not be kept up to date: {why}.\n\nYour saved rates are unchanged and costs still use them. Check the tariff against your bill. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure → Tariff** to choose another tariff or enter the rates by hand."
+    },
     "system_looks_different": {
       "title": "The system looks different",
       "fix_flow": {

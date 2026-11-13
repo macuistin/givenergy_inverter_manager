@@ -41,6 +41,12 @@ Choosing from the list copies the prices into the same settings you can type in,
 
 When a plan's published prices already include VAT, they are saved as published and the VAT is not added again. Setup records the plan it came from in the `tariff_source` option.
 
+### Updates from the list
+
+A tariff that follows the list is read again every day at 00:05 and once when the integration starts. When the supplier's newer prices are in force, they replace the saved rates, standing charge, levy, VAT and discount as one set, and a notification says so. They never apply part way through a day or a bill period, so the day that just ended is still priced with the old prices. The old rates are kept in the `tariff_source` option so a later release can offer to put them back.
+
+If the list cannot be read, nothing changes and nothing is reported: the saved rates keep working. If the list no longer holds the plan, or its newest prices use a rule the saved rates cannot hold, the repair **Your tariff needs attention** appears and the saved rates stay as they are. A tariff you edited by hand is never changed. See [A newer version of your tariff is available](troubleshooting.md#a-newer-version-of-your-tariff-is-available) and [Your tariff needs attention](troubleshooting.md#your-tariff-needs-attention).
+
 ## Change the rates from a date
 
 When your supplier changes its prices from a set date, record the new rates with that date. You do not need to be at the screen on the day.
