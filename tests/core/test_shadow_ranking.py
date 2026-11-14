@@ -33,6 +33,8 @@ def test_the_cheapest_few_and_your_plan_are_listed_wherever_it_stands() -> None:
     assert ranking.cheapest == "P1"
     assert ranking.saving > 0
     assert ranking.left_out == 2 and ranking.assumed_export == 1
+    assert "The last bill would have been cheapest on P1," in ranking.sentence
+    assert f"{ranking.saving:.2f} less." in ranking.sentence
 
 
 def test_when_yours_is_the_cheapest_there_is_no_saving() -> None:
@@ -40,6 +42,8 @@ def test_when_yours_is_the_cheapest_there_is_no_saving() -> None:
     assert ranking.current_rank == 1
     assert ranking.cheapest == ""
     assert ranking.saving == 0
+    assert "cheapest on" not in ranking.sentence
+    assert ranking.sentence.startswith("Your plan is the cheapest")
     assert attributes(ranking)["cheapest_plan"] is None
 
 

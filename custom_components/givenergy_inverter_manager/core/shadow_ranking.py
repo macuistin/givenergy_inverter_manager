@@ -52,18 +52,28 @@ def _plan(ranked: Ranked) -> RankedPlan:
     return RankedPlan(ranked.rank, YOUR_PLAN if yours else ranked.label, ranked.total, yours)
 
 
+def _sentence(result: SearchResult, cheapest: Ranked, saving: float) -> str:
+    """Where your plan stands, then which plan the last bill would have been cheapest on."""
+    standing = rank_sentence(result)
+    if cheapest.key == CURRENT:
+        return standing
+    best = f"The last bill would have been cheapest on {cheapest.label}, {saving:.2f} less."
+    return f"{standing} {best}"
+
+
 def summarise(result: SearchResult, left_out: int, assumed_export: int) -> PlanRanking:
     """The ranking as shown: the best `LISTED` plans and the current one, with its standing."""
     chosen = [r for r in result.ranked if r.rank <= LISTED or r.key == CURRENT]
     cheapest = result.ranked[0]
     yours = result.ranked[result.current_rank - 1]
+    saving = round(max(yours.total - cheapest.total, 0.0), 2)
     return PlanRanking(
         current_rank=result.current_rank,
         compared=result.compared,
         plans=tuple(_plan(r) for r in chosen),
         cheapest="" if cheapest.key == CURRENT else cheapest.label,
-        saving=round(max(yours.total - cheapest.total, 0.0), 2),
-        sentence=rank_sentence(result),
+        saving=saving,
+        sentence=_sentence(result, cheapest, saving),
         first_day=result.first_day,
         last_day=result.last_day,
         days=result.days,
