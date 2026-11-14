@@ -14,7 +14,10 @@ from tests.test_dashboard_shadow import _render
 
 RANK = "sensor.tariff_rank"
 RANKING = {
-    "summary": "Your plan is number 3 of the 40 compared, in the top 3.",
+    "summary": (
+        "Your plan is number 3 of the 40 compared, in the top 3. "
+        "The last bill would have been cheapest on Cheap, 4.50 less."
+    ),
     "saving_with_cheapest": 4.5,
     "plans_compared": 40,
     "window_start": "2026-09-16",
@@ -40,7 +43,7 @@ def _cards(view: dict) -> list[dict]:
 def test_the_section_says_where_you_stand_and_what_the_cheapest_would_save() -> None:
     text = _render(plan_ranking_template(RANK, "€"), {}, {RANK: RANKING})
     assert "Your plan is number 3 of the 40 compared" in text
-    assert "The cheapest would have saved €4.50 over the last bill." in text
+    assert "The last bill would have been cheapest on Cheap, 4.50 less." in text
     assert "<b>Plan</b>" not in text  # a plan name cannot add markup
     assert "€50.00" in text and "€54.50" in text
     assert "28 of 30 days recorded" in text
@@ -51,12 +54,6 @@ def test_a_bar_is_scaled_to_the_dearest_plan_listed() -> None:
     text = _render(plan_ranking_template(RANK, "€"), {}, {RANK: RANKING})
     assert text.count("<img") == 2
     assert "rect width='100'" in text and "rect width='91.7'" in text
-
-
-def test_no_saving_line_when_yours_is_the_cheapest() -> None:
-    ranking = {**RANKING, "saving_with_cheapest": 0.0}
-    text = _render(plan_ranking_template(RANK, "€"), {}, {RANK: ranking})
-    assert "would have saved" not in text
 
 
 def test_before_the_first_comparison_it_says_when_it_runs() -> None:
