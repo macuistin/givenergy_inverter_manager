@@ -1016,6 +1016,12 @@
       "hours_to_cheap_rate": {
         "name": "Hours to Cheap Rate"
       },
+      "plan_rank": {
+        "name": "Tariff Rank"
+      },
+      "cheapest_plan_saving": {
+        "name": "Cheapest Plan Saving"
+      },
       "cheapest_rate": {
         "name": "Cheapest Tariff Rate"
       },

@@ -128,6 +128,8 @@ KEY_GROUPS: dict[str, str] = {
             "live_grid_cost_rate",
             "next_cheap_rate_start",
             "hours_to_cheap_rate",
+            "plan_rank",
+            "cheapest_plan_saving",
             "cheapest_rate",
             "cheapest_rate_period",
             "is_on_cheapest_rate",
@@ -358,6 +360,14 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "hours_to_cheap_rate": (
         "Hours until a period cheaper than the base rate starts. 0 while one is active."
+    ),
+    "plan_rank": (
+        "Where your tariff ranks among the plans in the tariff store, 1 being the cheapest,"
+        " priced over your last whole bill. Updates daily."
+    ),
+    "cheapest_plan_saving": (
+        "What the cheapest plan in the store would have saved over your last whole bill."
+        " 0 when yours is the cheapest."
     ),
     "cheapest_rate": "Lowest rate across the base rate and all periods.",
     "cheapest_rate_period": "Name of the cheapest rate.",

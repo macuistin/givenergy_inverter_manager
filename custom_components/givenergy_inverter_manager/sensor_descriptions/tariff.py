@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.components.sensor import SensorStateClass
 
 from .. import sensor_values as values
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # --- Current tariff ---
@@ -91,5 +91,21 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:cash-fast",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.rate_savings_vs_daytime, 4),
+    ),
+    # --- Compared with the plans in the store (re-priced over the last whole bill) ---
+    GivEnergyManagerSensorDescription(
+        key="plan_rank",
+        translation_key="plan_rank",
+        icon="mdi:podium",
+        value_fn=values.plan_rank,
+        attrs_fn=values.plan_rank_attributes,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="cheapest_plan_saving",
+        translation_key="cheapest_plan_saving",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
+        icon="mdi:cash-check",
+        value_fn=values.cheapest_plan_saving,
     ),
 )

@@ -310,6 +310,11 @@
   "name": "Cheap rate import fraction this week"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_cheapest_plan_saving",
+  "key": "cheapest_plan_saving",
+  "name": "Cheapest Plan Saving"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_cheapest_rate_period_name",
   "key": "cheapest_rate_period",
   "name": "Cheapest Rate Period Name"
@@ -838,6 +843,11 @@
   "entity_id": "sensor.givenergy_inverter_manager_tariff_in_use",
   "key": "tariff_in_use",
   "name": "Tariff in use"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_tariff_rank",
+  "key": "plan_rank",
+  "name": "Tariff Rank"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_this_week_s_energy_summary",

@@ -240,6 +240,10 @@ The car_reading and car_plug leaves were added when the coordinator started read
 up in the options. Only the fresh snapshot gained them (both None), and none of the 255 cases
 moved, because the coordinator fills them from the raw readings and none of the cases has a car.
 They are pinned in tests/test_car_coordinator.py.
+
+No case moved when the plan ranking was added. Only the new plan_ranking leaf (None) was added to
+the fresh snapshot. The ranking is pinned in tests/core/test_shadow_ranking.py and
+tests/test_shadow_ranker.py.
 """
 
 from __future__ import annotations

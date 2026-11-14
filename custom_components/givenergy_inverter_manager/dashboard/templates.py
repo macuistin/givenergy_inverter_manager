@@ -659,3 +659,31 @@ def shadow_figure_template(row: ShadowRow, symbol: str) -> str:
     compared = _compared(row, symbol, " than your tariff")
     figure = _big(_money(symbol, f"states('{row.bill}') | float(0)"))
     return f"{figure} &nbsp;<font color='grey'>so far</font>\n\n{compared}"
+
+
+def plan_ranking_template(rank: str, symbol: str) -> str:
+    """Where your plan stands among the store's plans, each a bar on the scale of the dearest.
+
+    *rank* is the Tariff Rank sensor, whose `ranking` attribute lists the cheapest plans and yours.
+    """
+    return (
+        f"{{% set rows = state_attr('{rank}', 'ranking') %}}"
+        "{% if not rows %}Plans are compared once a day, after midnight. "
+        "The ranking shows here once the first comparison has run.{% else %}"
+        f"### {{{{ state_attr('{rank}', 'summary') }}}}\n"
+        "{% set top = [rows | map(attribute='bill') | max, 0.01] | max %}"
+        "{% for r in rows %}"
+        "{% set pct = (100 * r.bill / top) | round(1) %}"
+        "{{ r.rank }}. <b>{{ r.name | e }}</b> "
+        f"{_money(symbol, 'r.bill')}\n"
+        f"{{% if r.yours %}}{bar('{{ pct }}', _PAID_BAR)}"
+        f"{{% else %}}{bar('{{ pct }}', SAVING_HEX)}{{% endif %}}\n\n"
+        "{% endfor %}"
+        f"{{{{ state_attr('{rank}', 'plans_compared') }}}} plans in the store, priced over "
+        f"{{{{ state_attr('{rank}', 'window_start') }}}} to "
+        f"{{{{ state_attr('{rank}', 'window_end') }}}} "
+        f"({{{{ state_attr('{rank}', 'days_with_data') }}}} of "
+        f"{{{{ state_attr('{rank}', 'days_priced') }}}} days recorded). "
+        "Your usage re-priced, not a bill."
+        "{% endif %}"
+    )

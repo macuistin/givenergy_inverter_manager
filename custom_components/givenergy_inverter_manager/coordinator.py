@@ -277,6 +277,7 @@ from .repairs import (
     async_delete_system_different_issue,
     async_delete_tariff_review_issue,
 )
+from .shadow_ranker import ShadowRanker, async_track_daily_ranking
 from .slot_store import SlotStore
 from .tariff_updater import async_track_daily_tariff_check
 from .unconfirmed_write_repair import UnconfirmedWriteRepair
@@ -368,6 +369,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # True while the test instance marker file exists. async_detect_test_instance reads the
     # file once at setup and caches the answer here.
     test_instance: bool = False
+    # Ranks the store plans against the active tariff. None on a bare test double.
+    ranker: ShadowRanker | None = None
     # The owner's Charge Now and Pause switches, and whether this integration put the charger in
     # its grid or stop mode. None of them survives a restart.
     override_ev_charge_now: bool = False
@@ -438,6 +441,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """The half-hourly energy history, and the reader that feeds it each cycle."""
         self._slots = SlotStore(self.hass, dt_util.get_default_time_zone())
         self._slot_sampler = SlotSampler()
+        self.ranker = ShadowRanker(self.hass, self.entry, lambda: self._slots.history)
         self._shadow_cache: tuple[datetime, tuple[Any, Any], ShadowReport | None] | None = None
 
     def _attach_tariff_reports(
@@ -447,6 +451,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.tariff_report_state = build_tariff_state(cfg, now.date())
         data.tariff_report_html = build_tariff_html(cfg, now.date())
         data.shadow_report = self._shadow_report(cfg, now)
+        data.plan_ranking = self.ranker.ranking if self.ranker else None
 
     def _shadow_report(self, cfg: dict[str, Any], now: datetime) -> ShadowReport | None:
         """The bill so far under each shadow tariff, worked out at most every few minutes.
@@ -648,6 +653,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_track_time_change(self.hass, self._midnight_reset, hour=0, minute=0, second=0)
         )
         async_track_daily_tariff_check(self.hass, self.entry)
+        if self.ranker is not None:
+            async_track_daily_ranking(self.hass, self.entry, self.ranker)
         # Cheap-rate start listener (writes charge target to GivTCP). The start time comes
         # from the configured tariff, one minute before, so the target is set before charging.
         self.entry.async_on_unload(self._cancel_charge_target_listener)

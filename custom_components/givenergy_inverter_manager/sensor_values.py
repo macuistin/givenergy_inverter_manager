@@ -29,6 +29,7 @@ from .core.ev_session import EVSession, EVSessionLog, recent_table
 from .core.overnight_phase import OvernightPhase
 from .core.repair_summary import repairs_summary
 from .core.setup_progress import setup_state
+from .core.shadow_ranking import attributes as ranking_attributes
 from .core.tariff import EnergyAccumulator
 from .core.tomorrow_outlook import outlook_table
 from .core.write_log import newest_first
@@ -825,3 +826,18 @@ def car_at_home(data: CoordinatorData) -> str | None:
     if reading.at_home is None:
         return "unknown"
     return "home" if reading.at_home else "away"
+
+
+def plan_rank(data: CoordinatorData) -> int | None:
+    """Where the active plan ranks among the store's plans over the last bill, None until known."""
+    return None if data.plan_ranking is None else data.plan_ranking.current_rank
+
+
+def cheapest_plan_saving(data: CoordinatorData) -> float | None:
+    """What the cheapest store plan would have saved over the last bill, 0 when yours is it."""
+    return None if data.plan_ranking is None else data.plan_ranking.saving
+
+
+def plan_rank_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The cheapest plans, the window priced and what was left out."""
+    return None if data.plan_ranking is None else ranking_attributes(data.plan_ranking)

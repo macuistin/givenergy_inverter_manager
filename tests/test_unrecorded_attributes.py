@@ -20,6 +20,10 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import 
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
+from custom_components.givenergy_inverter_manager.core.shadow_ranking import (
+    PlanRanking,
+    RankedPlan,
+)
 from custom_components.givenergy_inverter_manager.core.tomorrow_outlook import TomorrowOutlook
 from custom_components.givenergy_inverter_manager.sensor import GivEnergyManagerSensor
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
@@ -81,6 +85,7 @@ UNRECORDED: dict[str, set[str]] = {
     "min_soc_pct": {"tomorrow_outlook"},
     "forecast_kwh": {"tomorrow_outlook"},
     "table": {"tomorrow_outlook"},
+    "ranking": {"plan_rank"},
 }
 
 # Attributes that explain a state and change rarely, or are the only record of why. They stay
@@ -103,6 +108,17 @@ RECORDED = {
     "started",  # EV session cost: changes once a session
     "ended",
     "day",  # Tomorrow Outlook: the date it projects, which changes once a day
+    # Tariff Rank: all of these change once a day, when the plans are priced again.
+    "plans_compared",
+    "in_top",
+    "cheapest_plan",
+    "saving_with_cheapest",
+    "window_start",
+    "window_end",
+    "days_priced",
+    "days_with_data",
+    "plans_left_out",
+    "plans_using_your_export_rate",
 }
 
 
@@ -154,6 +170,11 @@ def _everything() -> CoordinatorData:
         end_soc_pct=20.0,
         min_soc_pct=10.0,
         basis="Forecast 5.0 kWh from the forecast integration, the per-slot load profile.",
+    )
+    data.plan_ranking = PlanRanking(
+        current_rank=2, compared=5, plans=(RankedPlan(1, "A", 1.0, False),), cheapest="A",
+        saving=0.5, sentence="Your plan is number 2.", first_day=date(2026, 11, 1),
+        last_day=date(2026, 11, 30), days=30, days_recorded=30, left_out=0, assumed_export=0,
     )
     return data
 

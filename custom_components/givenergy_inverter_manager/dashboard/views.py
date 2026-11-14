@@ -121,6 +121,7 @@ from .templates import (
     bill_now_template,
     currency_symbol,
     ev_story_template,
+    plan_ranking_template,
     plan_text_template,
     setup_checklist_template,
     shadow_coverage_template,
@@ -1390,6 +1391,7 @@ class Builder:
                 heading_card("This bill, line by line", "mdi:receipt-text-outline"),
                 [self.table(self.attribute_card(audit, "bill_table"), total=True)],
             ),
+            self._plan_ranking(),
             self._shadow_link(),
         )
 
@@ -1495,6 +1497,17 @@ class Builder:
             row = ShadowRow(str(entry[KEY_NAME]), bill, self.entity(f"shadow_{key}_difference"))
             found.append(_Shadow(row, entry))
         return found
+
+    def _plan_ranking(self) -> list[Any]:
+        """Under the bill: where your plan ranks among every plan in the tariff store."""
+        rank = self.entity("plan_rank")
+        if rank is None:
+            return []
+        heading = heading_card("Cheapest plans", "mdi:podium")
+        return [
+            {**heading, "heading_style": "subtitle"},
+            markdown_card(plan_ranking_template(rank, self.symbol)),
+        ]
 
     def _shadow_link(self) -> list[Any]:
         """Under the bill: which shadow tariff would have cost least, and the way to them all."""

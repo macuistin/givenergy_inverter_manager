@@ -7,7 +7,8 @@ re-pricing of measured usage, never a forecast, and it never writes: this module
 tariff library and the option keys.
 
 A plan with no export price is priced with the export rate the user gave for it, or is left out
-when none was given (`needs_export_rate`).
+when none was given (`needs_export_rate`). The current plan is always priced as saved, since an
+export rate of 0 is a real choice for it.
 """
 
 from __future__ import annotations
@@ -148,7 +149,7 @@ def search(usage: Usage, current: Candidate, others: Sequence[Candidate]) -> Sea
     priced: list[tuple[Candidate, Decimal]] = []
     for candidate in [current, *others]:
         definition = candidate.definition
-        if needs_export_rate(definition):
+        if needs_export_rate(definition) and candidate.key != current.key:
             if candidate.export_rate is None:
                 skipped += 1
                 continue

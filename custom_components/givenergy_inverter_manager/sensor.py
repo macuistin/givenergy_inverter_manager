@@ -67,6 +67,8 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         "days_table",
         "summary_table",
         "period",
+        # The cheapest plans of the store, a list that changes once a day.
+        "ranking",
         # Charge register writes and outside changes, newest first.
         "recent_writes",
         # EV session cost: the running session's energy and the finished sessions with their table.

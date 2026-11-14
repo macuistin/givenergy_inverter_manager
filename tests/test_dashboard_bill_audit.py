@@ -29,7 +29,7 @@ def _without(*keys: str) -> FakeRegistry:
 
 
 def _table(view: dict, heading: str) -> str:
-    (card,) = [c for c in _section(view, heading)["cards"] if c["type"] == "markdown"]
+    card = next(c for c in _section(view, heading)["cards"] if c["type"] == "markdown")
     return card["content"]
 
 
