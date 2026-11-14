@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import weakref
 from collections.abc import Callable
 from datetime import date
 from functools import partial
@@ -75,6 +76,15 @@ def session_reader(
     return read
 
 
+_LOCKS: weakref.WeakKeyDictionary[Any, asyncio.Lock] = weakref.WeakKeyDictionary()
+
+
+def _lock_of(hass: Any) -> asyncio.Lock:
+    if hass not in _LOCKS:
+        _LOCKS[hass] = asyncio.Lock()
+    return _LOCKS[hass]
+
+
 class TariffStoreAccess:
     """The store as the screens use it: awaitable calls that never block the event loop."""
 
@@ -91,7 +101,10 @@ class TariffStoreAccess:
         return self._store.offline
 
     async def _run(self, call: Callable[[], _T]) -> _T:
-        return await self._hass.async_add_executor_job(call)
+        # One read at a time per install. The daily update check and the plan ranking both read
+        # the store, and the client and its cache folder are not safe to use from two threads.
+        async with _lock_of(self._hass):
+            return await self._hass.async_add_executor_job(call)
 
     async def async_refresh(self) -> None:
         """Read the countries index again on the next call, whatever its age."""

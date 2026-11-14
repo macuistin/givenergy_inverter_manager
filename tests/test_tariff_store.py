@@ -172,3 +172,25 @@ def test_the_default_session_is_homes_assistants_shared_one(
     from custom_components.givenergy_inverter_manager.tariff_store import _home_assistant_session
 
     assert _home_assistant_session("hass") == ("session", "hass")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_two_readers_of_one_install_never_read_the_store_at_the_same_time() -> None:
+    """The update check and the plan ranking share one client, so their reads take turns."""
+    running = 0
+    overlap = 0
+
+    class Hass(FakeHass):
+        async def async_add_executor_job(self, call, *args):  # type: ignore[no-untyped-def]
+            nonlocal running, overlap
+            running += 1
+            overlap = max(overlap, running)
+            await asyncio.sleep(0.01)
+            running -= 1
+            return call(*args)
+
+    hass = Hass()
+    one = TariffStoreAccess(hass, object())  # type: ignore[arg-type]
+    two = TariffStoreAccess(hass, object())  # type: ignore[arg-type]
+    await asyncio.gather(one._run(lambda: 1), two._run(lambda: 2), one._run(lambda: 3))
+    assert overlap == 1
