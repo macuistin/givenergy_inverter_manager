@@ -1,7 +1,7 @@
 {
   "repository": "macuistin/utility-tariffs",
   "path": "lib/tariffstore",
-  "commit": "40386b0d1001fc1f43572ba2329c63e1c803b038",
+  "commit": "552cc186442502fac99a762172c3ccca131c090c",
   "files": {
     "__init__.py": "b0cfd5e88e3bc3c68d7eaf94eac2275051bb5dff86771c7d52d7b13b12101c97",
     "client.py": "14f32e87146a94851896b290d0c8f1c7c3ca07c803f3fc17095f0102c1aca285",

@@ -4,9 +4,10 @@
     python scripts/copy_tariffstore.py --check ../utility-tariffs
 
 The tariff store (macuistin/utility-tariffs) is where all tariff and billing code is written:
-lib/tariff (the bill engine), lib/timeutil (its clock helpers) and lib/tariffstore (the store
-client). Their folders in this repository are never edited by hand. This writes each package as
-it stands at the checkout's HEAD commit and rewrites its UPSTREAM.json, which
+lib/tariff (the bill engine), lib/timeutil (its clock helpers), lib/tariffstore (the store
+client) and lib/tariffranking (the cheapest-plan search). Their folders in this repository are
+never edited by hand. This writes each package as it stands at the checkout's HEAD commit and
+rewrites its UPSTREAM.json, which
 tests/lib/test_upstream.py checks the files against. It also writes the store's own tests of
 each package, with their imports pointed at the copy, so a change there is tested here.
 `.github/workflows/tariffstore-copy.yml` runs this weekly and opens a pull request.
@@ -77,6 +78,7 @@ PACKAGES = (
     Package("tariff", "tests/tariff"),
     Package("timeutil", "tests/timeutil"),
     Package("tariffstore", "tests", CLIENT_TESTS, CLIENT_REWRITES),
+    Package("tariffranking", "tests/tariffranking"),
 )
 
 

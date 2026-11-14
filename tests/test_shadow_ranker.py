@@ -12,7 +12,7 @@ import pytest
 from custom_components.givenergy_inverter_manager import shadow_ranker
 from custom_components.givenergy_inverter_manager.lib.tariff import SlotHistory
 from custom_components.givenergy_inverter_manager.lib.tariffstore import StoreError
-from tests.core.test_shadow_search import _definition
+from tests.core.shadow_helpers import _definition
 from tests.core.test_shadow_tariffs import ACTIVE
 from tests.lib.tariff.test_reprice import _october_bill_days
 from tests.test_shadow_search_store import FakeStore

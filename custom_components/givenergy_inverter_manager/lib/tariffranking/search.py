@@ -1,10 +1,10 @@
 """
-shadow_search.py - rank every plan of a store against the current one over past usage.
+search.py: rank every plan of a store against the current one over past usage.
 
 The history holds energy and no price, so each plan is priced over the same days by the same bill
 engine. The window is a number of weeks, or a number of whole bills of the current tariff. A
 re-pricing of measured usage, never a forecast, and it never writes: this module imports only the
-tariff library and the option keys.
+tariff library.
 
 A plan with no export price is priced with the export rate the user gave for it, or is left out
 when none was given (`needs_export_rate`). The current plan is always priced as saved, since an
@@ -19,9 +19,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 from enum import Enum
 
-from ..lib.tariff import BillInputs, SlotHistory, TariffDefinition, price_bill
-from ..lib.tariff.bands import export_by_band, import_by_band, no_holidays
-from ..lib.tariff.period_bill import bill_period_bounds
+from ..tariff import BillInputs, SlotHistory, TariffDefinition, price_bill
+from ..tariff.bands import export_by_band, import_by_band, no_holidays
+from ..tariff.period_bill import bill_period_bounds
 
 MAX_WEEKS = 104
 MAX_BILLS = 24

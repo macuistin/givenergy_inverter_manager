@@ -2,7 +2,7 @@
 shadow_ranker.py - keeps the ranking of every store plan against the current tariff up to date.
 
 Once at start-up and once a day, shortly after the day's usage is final, every plan of the current
-tariff's country and area is priced over the last whole bill (`core/shadow_search.py`) and the
+tariff's country and area is priced over the last whole bill (`lib/tariffranking`) and the
 ranking is kept for the sensors and the dashboard. It re-prices measured usage and writes nothing,
 and it never changes the active tariff. A store that cannot be read, or too little history, leaves
 the last ranking in place.
@@ -20,8 +20,8 @@ from .conf import CONF_BILL_START_DAY, CONF_EXPORT_RATE, CONF_TARIFF_SOURCE
 from .config_helpers import effective_config
 from .core.shadow_pricing import config_definition
 from .core.shadow_ranking import CURRENT, WINDOW, PlanRanking, summarise
-from .core.shadow_search import Candidate, Usage, needs_export_rate, ranges, search
 from .lib.tariff import SlotHistory
+from .lib.tariffranking import Candidate, Usage, needs_export_rate, ranges, search
 from .shadow_search_store import READ_ERRORS, gather
 from .tariff_store import TariffStoreAccess
 

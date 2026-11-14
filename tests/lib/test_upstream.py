@@ -25,7 +25,7 @@ def _upstream(name: str) -> dict:
 
 
 def test_the_engine_its_clock_helpers_and_the_store_client_are_the_copied_packages():
-    assert sorted(COPIED) == ["tariff", "tariffstore", "timeutil"]
+    assert sorted(COPIED) == ["tariff", "tariffranking", "tariffstore", "timeutil"]
 
 
 @pytest.mark.parametrize("name", COPIED)
@@ -50,7 +50,7 @@ def test_the_record_names_the_commit_it_was_copied_from(name):
     assert len(upstream["commit"]) == 40
 
 
-def test_all_three_packages_were_copied_from_one_commit():
+def test_every_copied_package_came_from_one_commit():
     assert len({_upstream(name)["commit"] for name in COPIED}) == 1
 
 

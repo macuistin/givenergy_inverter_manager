@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
 
-from .core.shadow_search import Candidate
 from .lib.tariff import DefinitionError, TariffDefinition
+from .lib.tariffranking import Candidate
 from .lib.tariffstore import StoreError
 
 _LOG = logging.getLogger(__name__)

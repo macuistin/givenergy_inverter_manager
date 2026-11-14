@@ -291,7 +291,7 @@ async def test_a_plan_the_saved_rates_cannot_hold_stays_on_the_results(
 def test_the_ranking_lists_the_best_and_always_the_current_plan() -> None:
     from datetime import date
 
-    from custom_components.givenergy_inverter_manager.core.shadow_search import (
+    from custom_components.givenergy_inverter_manager.lib.tariffranking import (
         Ranked,
         SearchResult,
     )

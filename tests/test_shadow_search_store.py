@@ -8,7 +8,7 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.lib.tariffstore import StoreError
 from custom_components.givenergy_inverter_manager.shadow_search_store import gather
-from tests.core.test_shadow_search import _definition
+from tests.core.shadow_helpers import _definition
 
 ON = date(2026, 11, 13)
 
