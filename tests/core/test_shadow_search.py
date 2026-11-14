@@ -104,6 +104,14 @@ def test_a_plan_with_no_export_price_needs_a_rate_or_is_left_out() -> None:
     assert typed.ranked[typed.current_rank - 1].difference == 0 or typed.compared == 2
 
 
+def test_the_current_plan_is_priced_as_saved_even_with_no_export_rate() -> None:
+    bare = _definition(export_rate=0.0)
+    result = search(
+        _usage(Window(Unit.WEEKS, 4)), Candidate("current", "Current", bare), [_candidate("a")]
+    )
+    assert result.skipped == 0 and result.compared == 2
+
+
 def test_a_typed_export_rate_prices_like_the_same_published_rate() -> None:
     bare = _definition(export_rate=0.0)
     assert with_export_rate(bare, Decimal("0.195")).export_prices.base.price == Decimal("0.195")

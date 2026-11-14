@@ -45,6 +45,7 @@ from .optional_devices import (
     remove_stale_devices,
 )
 from .services import async_register_services, async_unregister_services, loaded_entries
+from .shadow_ranker import async_rank_at_start
 from .stored_dashboard_repair import async_watch_stored_dashboard
 from .strategy import async_register_strategy, async_remove_resource
 from .tariff_updater import async_check_tariff_at_start
@@ -214,6 +215,8 @@ def _start_watchers(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
     """Start what looks at things from outside the inverter: the dashboard and the tariff."""
     async_watch_stored_dashboard(hass, entry)
     async_check_tariff_at_start(hass, entry)
+    if entry.runtime_data.ranker is not None:
+        async_rank_at_start(hass, entry, entry.runtime_data.ranker)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:

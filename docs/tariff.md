@@ -83,6 +83,16 @@ What a dated change covers and does not cover:
 - The figures are a re-pricing of past usage, not a forecast. Prices change, and so does your usage.
 - You can add one of the plans as a shadow tariff, if the saved rates can hold it. The search never changes your own tariff.
 
+## Cheapest plans (live)
+
+Without opening Configure, the integration keeps a ranking of the plans in the tariff store against your own tariff. At start-up and every day at 00:30 it prices your last whole bill of measured usage under every plan of your country and area, with the same bill engine as [Find a cheaper plan](#find-a-cheaper-plan). The country and area come from the tariff you chose from the list. If you entered your tariff yourself, the country is your Home Assistant country, and only plans with no area are compared.
+
+- **Tariff Rank** is your place among all the plans compared, 1 being the cheapest. Its attributes hold the sentence shown on the dashboard, the cheapest plans, the days priced and how many plans were left out.
+- **Cheapest Plan Saving** is what the cheapest plan would have saved over that bill. It is 0 when yours is the cheapest.
+- The **Cheapest plans** section under the bill on the Bill & tariff tab draws the cheapest five and your tariff as bars.
+
+A plan with no export price is priced with your own export rate, and the attribute `plans_using_your_export_rate` counts them. Every figure re-prices usage the inverter measured, so a bill period with missing days understates all of them alike. It never changes your tariff. To look back over several bills or weeks, or to add a plan as a shadow tariff, use Find a cheaper plan.
+
 ## Shadow tariffs
 
 A shadow tariff answers "would I have paid less on another tariff?" with your own usage. Set one up in **Configure → Shadow tariffs** (see [Configuration](configuration.md#shadow-tariffs)). You can have three. Instead of typing the rates, you can choose a plan from the published list, as in [Choose a tariff from the list](#choose-a-tariff-from-the-list). A shadow tariff chosen this way keeps its prices until you remove it and add it again.

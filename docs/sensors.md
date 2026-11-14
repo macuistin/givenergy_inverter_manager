@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 174 sensors. 123 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 176 sensors. 125 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -55,6 +55,8 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 | On Base (Daytime) Rate | `is_on_base_rate` | - | - | none | no | no | yes when no timed period is active. |
 | Minutes Remaining in Rate Period | `minutes_remaining_in_period` | min | - | measurement | no | no | Minutes until the current rate period ends. On the base rate, minutes until the next timed period starts. |
 | Rate Saving vs Daytime | `rate_savings_vs_daytime` | currency | - | measurement | no | no | Base rate minus current rate, floored at 0. |
+| Tariff Rank | `plan_rank` | - | - | none | no | yes | Where your tariff ranks among the plans in the tariff store, 1 being the cheapest, priced over your last whole bill. Updates daily. |
+| Cheapest Plan Saving | `cheapest_plan_saving` | currency | - | none | no | yes | What the cheapest plan in the store would have saved over your last whole bill. 0 when yours is the cheapest. |
 | Average Import Rate Today | `avg_import_rate_today` | currency | - | measurement | no | no | Import cost divided by imported kWh. Empty when nothing imported. |
 | Average Import Rate This Week | `avg_import_rate_this_week` | currency | - | measurement | no | no | Import cost divided by imported kWh this week. |
 | Average Import Rate This Month | `avg_import_rate_this_month` | currency | - | measurement | no | no | Import cost divided by imported kWh this month. |

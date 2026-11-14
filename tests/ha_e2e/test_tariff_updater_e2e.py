@@ -15,7 +15,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.givenergy_inverter_manager import repairs, tariff_updater
+from custom_components.givenergy_inverter_manager import repairs, shadow_ranker, tariff_updater
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.core.wizard_store import choose_tariff
 from custom_components.givenergy_inverter_manager.lib.tariffstore import (
@@ -68,6 +68,7 @@ def _revisions(second_start: str = "2026-06-01") -> dict[str, dict]:
 async def _loaded(hass, monkeypatch, source: dict | None, store: TariffStoreAccess):
     """A loaded entry that follows *source*, its saved rates those of the first revision."""
     monkeypatch.setattr(tariff_updater, "TariffStoreAccess", lambda _hass: store)
+    monkeypatch.setattr(shadow_ranker, "TariffStoreAccess", lambda _hass: store)
     options = {}
     if source:
         first = await store.async_definition("IE", "p", "plan", date(2026, 1, 15), "urban")
@@ -163,3 +164,22 @@ async def test_a_hand_entered_tariff_is_left_alone(
 
 def _unreadable(path: str) -> bytes:
     raise OSError("offline")
+
+
+async def test_the_plans_of_the_store_are_ranked_against_the_followed_tariff(
+    hass, hass_in_scenario, service_calls, monkeypatch, tmp_path
+):
+    """The ranking is worked out at start-up and read by the Tariff Rank sensors."""
+    store = _store(hass, tmp_path, _revisions(second_start="2026-07-01"))
+    entry = await _loaded(hass, monkeypatch, FOLLOWING, store)
+    assert entry.runtime_data.ranker.ranking is not None
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    states = {s.attributes.get("friendly_name"): s for s in hass.states.async_all("sensor")}
+    rank = next(s for n, s in states.items() if n and n.endswith("Tariff Rank"))
+    assert rank.state == "1"
+    assert rank.attributes["plans_compared"] == 1
+    assert rank.attributes["ranking"][0]["yours"] is True
+    saving = next(s for n, s in states.items() if n and n.endswith("Cheapest Plan Saving"))
+    assert float(saving.state) == 0

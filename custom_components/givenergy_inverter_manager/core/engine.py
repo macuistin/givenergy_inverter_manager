@@ -178,6 +178,7 @@ from .scheduled_run import HeldScheduledRun, RunStep, advance, warning_state
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .shadow_pricing import ShadowReport
+from .shadow_ranking import PlanRanking
 from .slot_sampler import SlotSampler
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
@@ -345,6 +346,8 @@ class CoordinatorData:
     # The rates in force, built from the saved options each cycle. See core/reporting.py.
     # The bill so far under each shadow tariff and the active one, or None. See shadow_pricing.py.
     shadow_report: ShadowReport | None = None
+    # Where the active plan ranks among the store's plans over the last bill, or None.
+    plan_ranking: PlanRanking | None = None
     tariff_report_state: str = ""
     tariff_report_html: str = ""
     # The bill audit of this period and of the one before, built by the coordinator each cycle.
