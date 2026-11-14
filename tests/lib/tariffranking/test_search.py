@@ -1,32 +1,36 @@
+# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """The cheapest-plan search: windows, pricing every plan the same way and the current rank."""
 
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.shadow_search import (
+from custom_components.givenergy_inverter_manager.lib.tariff import (
+    Locale,
+    RatePeriod,
+    SlotHistory,
+    TariffConfig,
+    definition_from_config,
+    parse_definition,
+)
+from custom_components.givenergy_inverter_manager.lib.tariffranking import (
     Candidate,
     Unit,
     Usage,
     Window,
     needs_export_rate,
+    price_ranges,
     ranges,
     rank_sentence,
     search,
     with_export_rate,
 )
-from custom_components.givenergy_inverter_manager.core.tariff_config import build_tariff
-from custom_components.givenergy_inverter_manager.lib.tariff import (
-    Locale,
-    SlotHistory,
-    definition_from_config,
-)
-from tests.core.test_shadow_tariffs import ACTIVE
+from tests.lib.tariff.example_definition import example_document
 from tests.lib.tariff.test_reprice import _october_bill_days
 
 DUBLIN = ZoneInfo("Europe/Dublin")
@@ -34,9 +38,21 @@ THROUGH = date(2026, 10, 15)
 
 
 def _definition(**changes):  # type: ignore[no-untyped-def]
-    options = {**ACTIVE, **{k: v for k, v in changes.items() if k != "name"}}
+    fields = {
+        "rate_periods": [RatePeriod("Night", 0.18, time(23, 0), time(8, 0))],
+        "base_rate": 0.365,
+        "base_rate_name": "Day",
+        "export_rate": 0.195,
+        "standing_charge": 0.8259,
+        "pso_levy": 1.46,
+        "vat_rate": 9.0,
+        "discount_rate": 5.5,
+        "bill_start_day": 16,
+    }
+    names = {"standing_charge_per_day": "standing_charge", "pso_levy_per_month": "pso_levy"}
+    fields.update({names.get(key, key): value for key, value in changes.items()})
     return definition_from_config(
-        build_tariff(options), Locale("EUR", "IE", "Europe/Dublin", date(2000, 1, 1))
+        TariffConfig(**fields), Locale("EUR", "IE", "Europe/Dublin", date(2000, 1, 1))
     )
 
 
@@ -148,3 +164,17 @@ def test_the_rank_is_said_in_words() -> None:
     assert rank_sentence(top) == "Your plan is the cheapest of the 6 compared."
     third = replace(base, current_rank=3)
     assert "top 3" in rank_sentence(third)
+
+
+def test_a_plan_with_banded_export_is_priced_by_band() -> None:
+    doc = example_document()
+    doc["export"]["zones"] = [
+        {"name": "Peak export", "priority": 1, "price": "0.30", "hours": "12:00-14:00"}
+    ]
+    banded = parse_definition(doc)
+    plain = _definition()
+    usage = _usage(Window(Unit.WEEKS, 4))
+    # The meter exports 47 kWh between 12:00 and 14:00, so the zone pays 0.30 and not 0.195.
+    zoned = price_ranges(usage, banded)
+    flat = price_ranges(usage, plain)
+    assert zoned < flat

@@ -1,0 +1,10 @@
+{
+  "repository": "macuistin/utility-tariffs",
+  "path": "lib/tariffranking",
+  "commit": "552cc186442502fac99a762172c3ccca131c090c",
+  "files": {
+    "README.md": "6db2dae22148f04846225d2d181446ce3eaa3bef4f24c4017eaab675f1d2c9f6",
+    "__init__.py": "cbc339a250a1ab684cded55eaabd62a2a63f1af40ddef4e03c344da6701c97b2",
+    "search.py": "ad419474322dfd922dd626d320ba9d908a50f1ca89933bad87fdb166400f3660"
+  }
+}

@@ -7,13 +7,13 @@ from custom_components.givenergy_inverter_manager.core.shadow_ranking import (
     attributes,
     summarise,
 )
-from custom_components.givenergy_inverter_manager.core.shadow_search import (
+from custom_components.givenergy_inverter_manager.lib.tariffranking import (
     Unit,
     Usage,
     Window,
     search,
 )
-from tests.core.test_shadow_search import THROUGH, _candidate, _usage
+from tests.core.shadow_helpers import THROUGH, _candidate, _usage
 
 
 def _result(rates: dict[str, float]):  # type: ignore[no-untyped-def]

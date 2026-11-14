@@ -1,7 +1,7 @@
 """
 shadow_ranking.py - the live ranking of the plans in the store against the current tariff.
 
-`shadow_search.py` prices every plan over measured usage and ranks them. This module turns that
+`lib/tariffranking` prices every plan over measured usage and ranks them. This module turns that
 result into what a sensor and the dashboard show: where the current plan stands, the cheapest few,
 and what the cheapest would have saved. It is a re-pricing of past usage, never a forecast, and it
 never changes the active tariff.
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from .shadow_search import TOP, Ranked, SearchResult, Unit, Window, rank_sentence
+from ..lib.tariffranking import TOP, Ranked, SearchResult, Unit, Window, rank_sentence
 
 CURRENT = "current"
 YOUR_PLAN = "Your plan"
