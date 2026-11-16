@@ -1,10 +1,10 @@
 {
   "repository": "macuistin/utility-tariffs",
   "path": "lib/tariff",
-  "commit": "552cc186442502fac99a762172c3ccca131c090c",
+  "commit": "e96bdcbbb30520a83346ddb704d2a734bcc10c61",
   "files": {
-    "README.md": "76b874e4f4b57e68f51df5382ecfd34587ee9ae3c708ce511e0c86bf538bd3aa",
-    "__init__.py": "78bf3c4ca4002979709a5c8f635c801502c55d27d19b7dab6094caab3cbf2cb4",
+    "README.md": "92d315040f17538d37ebcea87446b8f0453856d4349ab70b55f3775cda95127b",
+    "__init__.py": "d6b1ef6c815dc0a3b4bc90b3552646312027be952b1acdf848f6a64be681078b",
     "accumulator.py": "13791b747970ef313afde2274ba5a30ac0d1d4736a767c95d11237975cf3aabb",
     "bands.py": "77e06792ea0fc1a033d7d1e48c09561cc67501cfdab90d6bc2e1b4651d3f5d17",
     "bill_days.py": "094a1f4bd7532bacb109f3bc460759c85c7c1059515c776ec36af6f9dd75cacd",
@@ -18,9 +18,12 @@
     "index.py": "3fe62391a06770d583ccc76fef56ec22a427a74ea2da56e6a987274ef211e331",
     "period_bill.py": "45d78d4650227cb5d8072654f6b9c688d8d80e59c8f3af2ad54f528466db35cd",
     "periods.py": "fdb2c304bc260256012e0752a266041e3538c350e7b3345727fd904162b3be2d",
-    "reprice.py": "2888ba4a333df7213305000b6dfcb6d28f4b8125e2466b509c023ec062309aed",
+    "price_curve.py": "99798134da5a8777b3cc465c6a42fa6427020aff253758be220643bc0c5ee013",
+    "reprice.py": "41b7443c51135a217bf6f9add08569d12d90ab51b08b76c772c2295ca66df665",
+    "savings.py": "52d6709d6fc1ea0a7411b7905cd7ca3fb7428e31c16e3ee6255b74b47b746003",
     "slot_history.py": "d23742819e948ac83dc07ef3c70df75239694247bb85e2ae55b187442d28df20",
     "slots.py": "da02b4da47e12aea256641ff4fc50128107b3443b856495f71ffd056cc74be3e",
-    "stored_energy.py": "7031e278922cda368582b8462d255135414acd468a1728e7ca4a0553d87c39aa"
+    "stored_energy.py": "7031e278922cda368582b8462d255135414acd468a1728e7ca4a0553d87c39aa",
+    "windows.py": "8792f61d11627375ae4ab5c7914f4d5b5db7933fa08d1d0c1c57d9b31c9ad7eb"
   }
 }
