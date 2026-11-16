@@ -66,6 +66,12 @@ def import_by_band(days: Sequence[SlotDay], tariff: TariffConfig) -> dict[str, f
     return bands
 
 
+def import_rates(day: SlotDay, tariff: TariffConfig) -> list[float]:
+    """The import rate in force at the start of each slot, before the discount and VAT."""
+    rates = _band_rates(tariff)
+    return [rates[_band_at(day, index, tariff).name] for index in range(day.slot_count)]
+
+
 def reprice(
     days: Sequence[SlotDay],
     tariff: TariffConfig,
