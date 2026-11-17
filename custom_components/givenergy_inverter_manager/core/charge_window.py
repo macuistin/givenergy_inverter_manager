@@ -17,8 +17,9 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
+from utility_tariffs_lib.tariff import RatePeriod, TariffConfig, cheapest_period
+
 from ..const import CHARGE_WINDOW_MARGIN, CHARGE_WINDOW_ROUND_MINUTES
-from ..lib.tariff import RatePeriod, TariffConfig, cheapest_period
 from .timeutil import elapsed_seconds, local_time_on
 
 _MINUTES_PER_DAY = 24 * 60

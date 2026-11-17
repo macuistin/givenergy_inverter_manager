@@ -6,3 +6,5 @@
 # pins homeassistant==2026.5.0
 -e ./packages/givtcp_mock
 pytest-homeassistant-custom-component==0.13.329
+# The tariff libraries, at the commit the manifest pins.
+utility-tariffs-lib@https://github.com/macuistin/utility-tariffs/archive/refs/tags/lib-v0.1.0.zip

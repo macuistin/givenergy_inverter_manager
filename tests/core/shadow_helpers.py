@@ -8,20 +8,21 @@ from __future__ import annotations
 from datetime import date
 from zoneinfo import ZoneInfo
 
-from custom_components.givenergy_inverter_manager.core.tariff_config import build_tariff
-from custom_components.givenergy_inverter_manager.lib.tariff import (
+from utility_tariffs_lib.tariff import (
     Locale,
     SlotHistory,
     definition_from_config,
 )
-from custom_components.givenergy_inverter_manager.lib.tariffranking import (
+from utility_tariffs_lib.tariffranking import (
     Candidate,
     Usage,
     Window,
     ranges,
 )
+
+from custom_components.givenergy_inverter_manager.core.tariff_config import build_tariff
 from tests.core.test_shadow_tariffs import ACTIVE
-from tests.lib.tariff.test_reprice import _october_bill_days
+from tests.support.bill_shape import october_bill_days
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 THROUGH = date(2026, 10, 15)
@@ -40,5 +41,5 @@ def _candidate(key: str, **changes) -> Candidate:  # type: ignore[no-untyped-def
 
 def _usage(window: Window, through: date = THROUGH) -> Usage:
     history = SlotHistory(DUBLIN)
-    history._days = {day.day: day for day in _october_bill_days()}
+    history._days = {day.day: day for day in october_bill_days()}
     return Usage(history, ranges(window, through, 16))

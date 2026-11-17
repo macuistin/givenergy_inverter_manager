@@ -20,12 +20,8 @@ from typing import Any, cast
 import voluptuous as vol
 from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
-
-from ..const import CONF_BILL_START_DAY, CONF_CURRENCY, CONF_EXPORT_RATE
-from ..core.shadow_pricing import config_definition
-from ..core.wizard_store import choose_tariff, source_options, source_record
-from ..lib.tariff import SlotHistory
-from ..lib.tariffranking import (
+from utility_tariffs_lib.tariff import SlotHistory
+from utility_tariffs_lib.tariffranking import (
     Candidate,
     SearchResult,
     Unit,
@@ -35,6 +31,10 @@ from ..lib.tariffranking import (
     rank_sentence,
     search,
 )
+
+from ..const import CONF_BILL_START_DAY, CONF_CURRENCY, CONF_EXPORT_RATE
+from ..core.shadow_pricing import config_definition
+from ..core.wizard_store import choose_tariff, source_options, source_record
 from ..shadow_search_store import READ_ERRORS, Gathered, gather
 from ..tariff_store import TariffStoreAccess
 

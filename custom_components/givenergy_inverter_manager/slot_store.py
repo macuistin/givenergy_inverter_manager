@@ -15,10 +15,10 @@ from collections.abc import Mapping
 from datetime import date, datetime, tzinfo
 from typing import TYPE_CHECKING, Any
 
-from .lib.tariff.defaults import SLOT_SECONDS
-from .lib.tariff.slot_history import SlotHistory
-from .lib.tariff.slots import SlotEnergy, local_midnight
-from .lib.timeutil import elapsed_seconds
+from utility_tariffs_lib.tariff.defaults import SLOT_SECONDS
+from utility_tariffs_lib.tariff.slot_history import SlotHistory
+from utility_tariffs_lib.tariff.slots import SlotEnergy, local_midnight
+from utility_tariffs_lib.timeutil import elapsed_seconds
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant

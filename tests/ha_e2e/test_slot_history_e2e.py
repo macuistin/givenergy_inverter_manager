@@ -6,8 +6,8 @@ from datetime import timedelta
 
 import pytest
 from homeassistant.util import dt as dt_util
+from utility_tariffs_lib.tariff.slots import SlotDay, SlotEnergy
 
-from custom_components.givenergy_inverter_manager.lib.tariff.slots import SlotDay, SlotEnergy
 from custom_components.givenergy_inverter_manager.slot_store import _STORAGE_KEY
 
 

@@ -26,7 +26,8 @@ from datetime import date
 from html import escape
 from typing import Any
 
-from ..lib.tariff.bill_days import day_row, tariff_changes, tariff_in_effect
+from utility_tariffs_lib.tariff.bill_days import day_row, tariff_changes, tariff_in_effect
+
 from .html_table import bold, html_table, unbroken, with_note
 from .reporting import _S, _TD, _TD_RIGHT, _TH
 from .tariff import BillBreakdown, EnergyAccumulator, TariffConfig, build_tariff

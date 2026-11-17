@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from utility_tariffs_lib.tariff import SlotDay, SlotHistory
 
 from custom_components.givenergy_inverter_manager.core.shadow_pricing import (
     bands_table,
@@ -13,10 +14,9 @@ from custom_components.givenergy_inverter_manager.core.shadow_pricing import (
     shadow_key,
     shadow_keys,
 )
-from custom_components.givenergy_inverter_manager.lib.tariff import SlotDay, SlotHistory
 from tests.core.test_shadow_tariffs import ACTIVE, shadow
 from tests.helpers import table_rows
-from tests.lib.tariff.test_reprice import _october_bill_days
+from tests.support.bill_shape import october_bill_days
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 THROUGH = date(2026, 10, 15)
@@ -24,7 +24,7 @@ THROUGH = date(2026, 10, 15)
 
 def _history() -> SlotHistory:
     history = SlotHistory(DUBLIN)
-    history._days = {day.day: day for day in _october_bill_days()}
+    history._days = {day.day: day for day in october_bill_days()}
     return history
 
 

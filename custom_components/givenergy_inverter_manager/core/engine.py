@@ -28,6 +28,8 @@ from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
+from utility_tariffs_lib.tariff import stored_energy_change
+
 from ..const import (
     BATTERY_FULL_SOC_PCT,
     BATTERY_MAX_SOC_STEP_PCT,
@@ -104,7 +106,6 @@ from ..lib.heating import WaterReading
 from ..lib.heating.solar import SolarOutlook
 from ..lib.solar.day import HeldSolarDay, SolarReading, settled_solar_w
 from ..lib.solar.shape import solar_end_minute, valid_shape
-from ..lib.tariff import stored_energy_change
 from ..logging import get_logger
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
 from .alt_heat_schedule import (

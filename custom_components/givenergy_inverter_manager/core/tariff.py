@@ -14,6 +14,14 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from utility_tariffs_lib.tariff import (
+    BillBreakdown,
+    CounterMemory,
+    EnergyAccumulator,
+    RatePeriod,
+    TariffConfig,
+)
+
 from ..const import (
     CONF_BASE_RATE,
     CONF_EXPORT_RATE,
@@ -22,13 +30,6 @@ from ..const import (
     CONF_TARIFF_REVIEWED_ON,
     TARIFF_RATE_KEYS,
     TARIFF_REVIEW_STALE_DAYS,
-)
-from ..lib.tariff import (
-    BillBreakdown,
-    CounterMemory,
-    EnergyAccumulator,
-    RatePeriod,
-    TariffConfig,
 )
 from .tariff_config import build_tariff
 

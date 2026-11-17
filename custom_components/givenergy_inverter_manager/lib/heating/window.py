@@ -14,8 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from ..tariff import RatePeriod, TariffConfig, cheapest_period
-from ..timeutil import elapsed_seconds, local_time_on
+from utility_tariffs_lib.tariff import RatePeriod, TariffConfig, cheapest_period
+from utility_tariffs_lib.timeutil import elapsed_seconds, local_time_on
 
 
 def open_cheapest_window(tariff: TariffConfig, now: datetime) -> str | None:

@@ -55,7 +55,7 @@ def test_test_requirements_have_upper_bounds():
     unbounded = [
         line
         for line in lines
-        if not line.startswith(("homeassistant", "-e ./packages/")) and "<" not in line
+        if not line.startswith(("homeassistant", "-e ./packages/", "utility-tariffs-lib@")) and "<" not in line
     ]
 
     assert unbounded == []
@@ -335,9 +335,13 @@ def test_core_package_does_not_import_the_inverter_package_at_run_time():
     assert offenders == []
 
 
+# The one installed package a lib/ package may import besides the standard library: the tariff
+# library, pinned in the manifest.
+TARIFF_LIBRARY = "utility_tariffs_lib"
+
 # The lib/ packages each package may import besides itself. A new package is added here in the
 # PR that creates it, so its dependencies are reviewed.
-ALLOWED = {"timeutil": set(), "ev": {"timeutil", "guards"}, "tariff": {"timeutil"}, "heating": {"timeutil", "tariff"}, "guards": {"timeutil", "tariff"}, "givtcp": {"timeutil"}, "solar": {"timeutil"}, "tariffstore": set(), "tariffranking": {"tariff"}}
+ALLOWED = {"ev": {"guards"}, "heating": set(), "guards": set(), "givtcp": set(), "solar": set()}
 
 
 def _lib_import_offenders(root):
@@ -372,7 +376,7 @@ def _import_targets(node, package):
 
 def _import_is_allowed(target, allowed):
     if target[0] == "abs":
-        return len(target) > 1 and target[1] in sys.stdlib_module_names
+        return len(target) > 1 and (target[1] in sys.stdlib_module_names or target[1] == TARIFF_LIBRARY)
     return len(target) > 1 and target[0] == "lib" and target[1] in allowed
 
 
@@ -446,30 +450,8 @@ def test_only_the_release_and_copy_workflows_can_write_and_only_at_job_level():
         assert writers == _WRITERS.get(path.name, []), path.name
 
 
-def test_the_copy_workflow_opens_a_pull_request_and_never_merges_or_pushes_to_main():
-    runs = " ".join(
-        step.get("run", "")
-        for step in _workflow("tariffstore-copy.yml")["jobs"]["copy"]["steps"]
-    )
-
-    assert "gh pr create --base main" in runs
-    assert "gh pr merge" not in runs
-    assert "git push origin main" not in runs
-    assert 'git push origin "$branch"' in runs
-
-
 def _release_runs() -> list[str]:
     return [step.get("run", "") for step in _workflow("release.yml")["jobs"]["release"]["steps"]]
-
-
-def test_a_new_release_is_refused_when_a_copied_tariff_library_is_behind():
-    runs = _release_runs()
-    check = next(i for i, run in enumerate(runs) if "copy_tariffstore.py --check" in run)
-    tagging = next(i for i, run in enumerate(runs) if "git tag" in run)
-
-    # Before the tag exists, so a refused release leaves nothing behind
-    assert check < tagging
-    assert "gh release view" in runs[check]
 
 
 def test_the_release_workflow_starts_from_a_version_tag_or_by_hand():

@@ -7,19 +7,19 @@ from datetime import date, time
 from typing import Any
 
 import pytest
+from utility_tariffs_lib.tariff import (
+    Locale,
+    TariffConfig,
+    definition_from_config,
+    parse_definition,
+)
+from utility_tariffs_lib.tariff.periods import RatePeriod
 
 from custom_components.givenergy_inverter_manager.core.tariff_source import (
     NotRepresentable,
     materialise,
     prices_match,
 )
-from custom_components.givenergy_inverter_manager.lib.tariff import (
-    Locale,
-    TariffConfig,
-    definition_from_config,
-    parse_definition,
-)
-from custom_components.givenergy_inverter_manager.lib.tariff.periods import RatePeriod
 
 
 def hhmm(value: str) -> time:

@@ -12,19 +12,19 @@ import pytest
 from conftest import MIDDAY
 from homeassistant.data_entry_flow import FlowResultType
 from setup_support import finish, manager, start, unload
-from wizard_support import choose, submit, submit_raw
-
-from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+from utility_tariffs_lib.tariffstore import (
     FolderCache,
     Store,
     StoreError,
     folder_reader,
     layout,
 )
+from wizard_support import choose, submit, submit_raw
+
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
 from custom_components.givenergy_inverter_manager.wizard import store_steps
-from tests.lib.tariffstore.building import build_store
-from tests.lib.tariffstore.fixtures import tariff, write_store
+from tests.support.building import build_store
+from tests.support.store_fixtures import tariff, write_store
 
 
 @pytest.fixture

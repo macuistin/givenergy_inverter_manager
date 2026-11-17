@@ -9,3 +9,5 @@
 # The floor in hacs.json runs from tests/ha_e2e/requirements-floor.txt.
 -e ./packages/givtcp_mock
 pytest-homeassistant-custom-component==0.13.375
+# The tariff libraries, at the commit the manifest pins.
+utility-tariffs-lib@https://github.com/macuistin/utility-tariffs/archive/refs/tags/lib-v0.1.0.zip

@@ -1,6 +1,7 @@
 """The old module paths re-export lib/heating, and cheapest_period exists in one place."""
 
 import pytest
+import utility_tariffs_lib.tariff as lib_tariff
 
 from custom_components.givenergy_inverter_manager import lib
 from custom_components.givenergy_inverter_manager.core import (
@@ -23,4 +24,4 @@ def test_every_public_name_is_the_lib_object(module):
 
 def test_the_water_reading_and_the_cheapest_period_each_have_one_definition():
     assert alt_heat_start.WaterReading is lib.heating.WaterReading
-    assert charge_window.cheapest_period is lib.tariff.cheapest_period
+    assert charge_window.cheapest_period is lib_tariff.cheapest_period

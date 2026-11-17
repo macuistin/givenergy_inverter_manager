@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from ..lib.tariffranking import TOP, Ranked, SearchResult, Unit, Window, rank_sentence
+from utility_tariffs_lib.tariffranking import TOP, Ranked, SearchResult, Unit, Window, rank_sentence
 
 CURRENT = "current"
 YOUR_PLAN = "Your plan"

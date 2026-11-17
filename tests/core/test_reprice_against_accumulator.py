@@ -5,20 +5,20 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
+from utility_tariffs_lib.tariff import (
+    EnergyAccumulator,
+    TariffConfig,
+)
+from utility_tariffs_lib.tariff.reprice import BillPeriod, reprice
+from utility_tariffs_lib.tariff.slot_history import SlotHistory
+from utility_tariffs_lib.tariff.slots import SlotDay, SlotEnergy
 
 from custom_components.givenergy_inverter_manager.core.engine import (
     AccumulationWindow,
     RawSensorValues,
     accumulate_energy,
 )
-from custom_components.givenergy_inverter_manager.lib.tariff import (
-    EnergyAccumulator,
-    TariffConfig,
-)
-from custom_components.givenergy_inverter_manager.lib.tariff.reprice import BillPeriod, reprice
-from custom_components.givenergy_inverter_manager.lib.tariff.slot_history import SlotHistory
-from custom_components.givenergy_inverter_manager.lib.tariff.slots import SlotDay, SlotEnergy
-from tests.lib.tariff.test_reprice import _tariff
+from tests.support.bill_shape import bill_tariff
 
 UTC = timezone.utc
 
@@ -42,7 +42,7 @@ def _simulate_day(tariff: TariffConfig, import_w) -> tuple[EnergyAccumulator, Sl
 
 
 def test_pricing_the_slots_matches_what_the_accumulator_charged():
-    tariff = _tariff()
+    tariff = bill_tariff()
 
     def watts(now: datetime) -> float:
         return 3000.0 if now.hour in (2, 3) else 800.0 + 50 * now.hour

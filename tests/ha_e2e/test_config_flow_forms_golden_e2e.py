@@ -29,6 +29,11 @@ from conftest import (
 )
 from homeassistant.config_entries import SOURCE_USER
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from utility_tariffs_lib.tariffstore import (
+    FolderCache,
+    Store,
+    folder_reader,
+)
 from wizard_support import choose, open_page, submit, submit_raw, walk_options_forms
 
 from custom_components.givenergy_inverter_manager.const import (
@@ -46,15 +51,10 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_SOLAR_POWER,
     DOMAIN,
 )
-from custom_components.givenergy_inverter_manager.lib.tariffstore import (
-    FolderCache,
-    Store,
-    folder_reader,
-)
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
 from custom_components.givenergy_inverter_manager.wizard import store_steps
-from tests.lib.tariffstore.building import build_store
-from tests.lib.tariffstore.fixtures import tariff, write_store
+from tests.support.building import build_store
+from tests.support.store_fixtures import tariff, write_store
 
 GOLDEN = Path(__file__).parent / "golden" / "config_flow_forms.json"
 

@@ -16,12 +16,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from utility_tariffs_lib.tariff import SlotHistory
+from utility_tariffs_lib.tariffranking import Candidate, Usage, needs_export_rate, ranges, search
+
 from .conf import CONF_BILL_START_DAY, CONF_EXPORT_RATE, CONF_TARIFF_SOURCE
 from .config_helpers import effective_config
 from .core.shadow_pricing import config_definition
 from .core.shadow_ranking import CURRENT, WINDOW, PlanRanking, summarise
-from .lib.tariff import SlotHistory
-from .lib.tariffranking import Candidate, Usage, needs_export_rate, ranges, search
 from .shadow_search_store import READ_ERRORS, gather
 from .tariff_store import TariffStoreAccess
 

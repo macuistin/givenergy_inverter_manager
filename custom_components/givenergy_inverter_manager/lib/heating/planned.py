@@ -23,7 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time
 
-from ..tariff import TariffConfig
+from utility_tariffs_lib.tariff import TariffConfig
+
 from .ready import (
     HeatingSpan,
     ReadyInputs,

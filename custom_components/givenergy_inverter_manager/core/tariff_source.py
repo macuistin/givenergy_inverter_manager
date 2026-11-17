@@ -20,6 +20,26 @@ from datetime import time
 from decimal import Decimal
 from typing import Any
 
+from utility_tariffs_lib.tariff import (
+    BillInputs,
+    Locale,
+    TariffDefinition,
+    definition_from_config,
+    price_bill,
+)
+from utility_tariffs_lib.tariff.definition import (
+    Adjust,
+    EnergyByBand,
+    ExportCredit,
+    Node,
+    PerDay,
+    PerPeriod,
+    Sum,
+    Tax,
+    TaxMode,
+    Zone,
+)
+
 from ..conf import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
@@ -31,25 +51,6 @@ from ..conf import (
     CONF_STANDING_CHARGE,
     CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
-)
-from ..lib.tariff import (
-    BillInputs,
-    Locale,
-    TariffDefinition,
-    definition_from_config,
-    price_bill,
-)
-from ..lib.tariff.definition import (
-    Adjust,
-    EnergyByBand,
-    ExportCredit,
-    Node,
-    PerDay,
-    PerPeriod,
-    Sum,
-    Tax,
-    TaxMode,
-    Zone,
 )
 from .tariff_config import build_tariff
 

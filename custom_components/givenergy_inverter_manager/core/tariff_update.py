@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from ..lib.tariff import TariffDefinition
+from utility_tariffs_lib.tariff import TariffDefinition
+
 from .wizard_store import SOURCE_KIND, choose_tariff, pays_for_export
 
 PREVIOUS_KEY = "previous"

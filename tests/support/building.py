@@ -1,6 +1,6 @@
 """Build the indexes of a small store on disk, as the tariff store's own build step does.
 
-Written here, not copied: the store's build script is not part of the library.
+Written here: the store's build script is not part of the library.
 """
 
 from __future__ import annotations
@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from custom_components.givenergy_inverter_manager.lib.tariffstore import index as idx
-from custom_components.givenergy_inverter_manager.lib.tariffstore import layout
+from utility_tariffs_lib.tariffstore import index as idx
+from utility_tariffs_lib.tariffstore import layout
 
 
 def build_store(tariffs: Path) -> None:

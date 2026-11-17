@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from ..timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from .defaults import (
     IMMERSION_ASSUMED_TANK_LITRES,
     IMMERSION_RATE_DAYS_KEPT,

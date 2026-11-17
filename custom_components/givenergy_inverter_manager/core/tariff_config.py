@@ -12,6 +12,8 @@ import logging
 from datetime import time
 from typing import Any
 
+from utility_tariffs_lib.tariff import RatePeriod, TariffConfig
+
 from ..conf import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
@@ -36,7 +38,6 @@ from ..defaults import (
     DEFAULT_VAT_INCLUDED,
     DEFAULT_VAT_RATE,
 )
-from ..lib.tariff import RatePeriod, TariffConfig
 
 _LOG = logging.getLogger(__name__)
 

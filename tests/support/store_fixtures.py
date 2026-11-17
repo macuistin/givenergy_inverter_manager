@@ -1,4 +1,3 @@
-# Copied from the tariff store by scripts/copy_tariffstore.py. Do not edit here.
 """Made-up tariffs and a small store on disk, shared by the tests."""
 from __future__ import annotations
 
@@ -6,7 +5,7 @@ import copy
 import json
 from pathlib import Path
 
-from custom_components.givenergy_inverter_manager.lib.tariffstore import layout
+from utility_tariffs_lib.tariffstore import layout
 
 BILL = {"period": {"rule": "monthly", "start_day": "$input.bill_start_day"},
         "total": {"kind": "tax", "name": "VAT", "mode": "included", "percent": "$country.vat_percent",

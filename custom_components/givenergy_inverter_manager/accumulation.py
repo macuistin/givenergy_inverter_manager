@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from utility_tariffs_lib.tariff.bill_days import day_row, tariff_in_effect, with_day
+
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
 from .core.entity_refs import clean_remembered
@@ -37,7 +39,6 @@ from .core.rules import (
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
 from .lib.solar.shape import valid_shape
-from .lib.tariff.bill_days import day_row, tariff_in_effect, with_day
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant

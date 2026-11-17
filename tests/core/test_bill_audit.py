@@ -5,6 +5,10 @@ from __future__ import annotations
 from datetime import date, datetime
 
 import pytest
+from utility_tariffs_lib.tariff.bill_days import (
+    day_row,
+    with_day,
+)
 
 from custom_components.givenergy_inverter_manager.core.bill_audit import (
     AuditPeriod,
@@ -20,10 +24,6 @@ from custom_components.givenergy_inverter_manager.core.tariff import (
     build_tariff,
 )
 from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
-from custom_components.givenergy_inverter_manager.lib.tariff.bill_days import (
-    day_row,
-    with_day,
-)
 from tests.conftest import _nightboost_cfg
 
 CFG = _nightboost_cfg()

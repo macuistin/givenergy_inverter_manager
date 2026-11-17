@@ -21,8 +21,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from ..guards.alert import AlertAction
-from ..timeutil import elapsed_seconds
 from .defaults import EV_BASE_RATE_ALERT_DELAY_S, EV_CHARGER_MIN_POWER_W
 
 

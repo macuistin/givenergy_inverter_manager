@@ -13,18 +13,18 @@ import pytest
 from conftest import MIDDAY, SERIAL, full_config_data
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from wizard_support import choose, submit
-
-from custom_components.givenergy_inverter_manager.const import DOMAIN
-from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+from utility_tariffs_lib.tariffstore import (
     FolderCache,
     Store,
     folder_reader,
 )
+from wizard_support import choose, submit
+
+from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
 from custom_components.givenergy_inverter_manager.wizard import store_steps
-from tests.lib.tariffstore.building import build_store
-from tests.lib.tariffstore.fixtures import tariff, write_store
+from tests.support.building import build_store
+from tests.support.store_fixtures import tariff, write_store
 
 FOLLOWING = {
     "kind": "store",

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from custom_components.givenergy_inverter_manager.lib.tariff.slot_history import SlotHistory
-from custom_components.givenergy_inverter_manager.lib.tariff.slots import SlotDay, SlotEnergy
+from utility_tariffs_lib.tariff.slot_history import SlotHistory
+from utility_tariffs_lib.tariff.slots import SlotDay, SlotEnergy
+
 from custom_components.givenergy_inverter_manager.slot_store import SlotStore
 
 UTC = timezone.utc
