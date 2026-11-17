@@ -59,6 +59,9 @@ max-branches = 10
 "tests/lib/tariffstore/test_c*.py" = ["E501", "I001"]
 "tests/lib/tariffstore/test_index.py" = ["E501", "I001"]
 "tests/lib/tariffstore/test_schema.py" = ["E501", "I001"]
+# The store's bill-engine tests, copied the same way. Its lint sorts imports by its own package
+# names and does not ask for `zip(strict=)`.
+"tests/lib/tariff/*.py" = ["E501", "I001", "B905"]
 # The mock and fixtures are test support and held to the same limits as tests.
 "packages/givtcp_mock/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
 
