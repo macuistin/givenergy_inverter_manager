@@ -34,6 +34,8 @@ REWRITES = (
     ("from lib.", f"from {HERE}."),
     ("from lib import", f"from {HERE} import"),
     ("from tests.tariff.", "from tests.lib.tariff."),
+    # A test of another package that builds a store with the store's own fixtures.
+    ("from tests.fixtures import", "from tests.lib.tariffstore.fixtures import"),
 )
 # The store's tests of its client build a store on disk with its build script. Here
 # `tests/lib/tariffstore/building.py` does it.
