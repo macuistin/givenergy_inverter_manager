@@ -157,6 +157,6 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-test-e2e.txt
       - name: Install dependencies
-        run: pip install --pre pytest-homeassistant-custom-component -e ./packages/givtcp_mock "utility-tariffs-lib@https://github.com/macuistin/utility-tariffs/archive/1e5c531548d3dacece13ff91f1cc0001a0b80fed.zip"
+        run: pip install --pre pytest-homeassistant-custom-component -e ./packages/givtcp_mock "utility-tariffs-lib@https://github.com/macuistin/utility-tariffs/archive/refs/tags/lib-v0.1.0.zip"
       - name: Run end-to-end tests
         run: python -m pytest tests/ha_e2e -q

@@ -18,7 +18,7 @@ def test_the_manifest_pins_one_archive_of_the_library() -> None:
     pins = _manifest_pins()
     assert len(pins) == 1
     (pin,) = pins
-    assert pin.startswith(MARKER + "https://github.com/macuistin/utility-tariffs/archive/")
+    assert pin.startswith(MARKER + "https://github.com/macuistin/utility-tariffs/archive/refs/tags/lib-v")
 
 
 def test_every_test_environment_installs_the_manifest_pin() -> None:
