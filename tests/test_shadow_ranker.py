@@ -8,13 +8,13 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
+from utility_tariffs_lib.tariff import SlotHistory
+from utility_tariffs_lib.tariffstore import StoreError
 
 from custom_components.givenergy_inverter_manager import shadow_ranker
-from custom_components.givenergy_inverter_manager.lib.tariff import SlotHistory
-from custom_components.givenergy_inverter_manager.lib.tariffstore import StoreError
 from tests.core.shadow_helpers import _definition
 from tests.core.test_shadow_tariffs import ACTIVE
-from tests.lib.tariff.test_reprice import _october_bill_days
+from tests.support.bill_shape import october_bill_days
 from tests.test_shadow_search_store import FakeStore
 
 TODAY = date(2026, 11, 16)  # the last whole bill is 16 Sep to 15 Oct
@@ -45,7 +45,7 @@ class Hass:
 
 def _history() -> SlotHistory:
     history = SlotHistory(ZoneInfo("Europe/Dublin"))
-    history._days = {day.day: day for day in _october_bill_days()}
+    history._days = {day.day: day for day in october_bill_days()}
     return history
 
 

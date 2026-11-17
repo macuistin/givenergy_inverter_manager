@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from ..lib.tariff.slots import SlotEnergy
-from ..lib.timeutil import elapsed_seconds
+from utility_tariffs_lib.tariff.slots import SlotEnergy
+from utility_tariffs_lib.timeutil import elapsed_seconds
 
 if TYPE_CHECKING:
     from .engine import RawSensorValues

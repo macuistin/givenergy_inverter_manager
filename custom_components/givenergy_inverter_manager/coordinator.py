@@ -53,6 +53,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_point_in_time, async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
+from utility_tariffs_lib.tariff.slot_history import SlotHistory
 
 from .accumulation import AccumulationStore
 from .active_repairs import async_active_repairs, async_listen_repairs
@@ -241,7 +242,6 @@ from .lib.givtcp.status import WriteStatus
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
 from .lib.solar.shape import solar_shape_from_periods
-from .lib.tariff.slot_history import SlotHistory
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,

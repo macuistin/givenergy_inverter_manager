@@ -9,19 +9,19 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
-from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+from utility_tariffs_lib.tariffstore import (
     FolderCache,
     Store,
     StoreError,
     folder_reader,
 )
+
 from custom_components.givenergy_inverter_manager.tariff_store import (
     TariffStoreAccess,
     session_reader,
 )
-from tests.lib.tariffstore.building import build_store
-from tests.lib.tariffstore.fixtures import write_store
+from tests.support.building import build_store
+from tests.support.store_fixtures import write_store
 
 DAY = date(2026, 11, 12)
 

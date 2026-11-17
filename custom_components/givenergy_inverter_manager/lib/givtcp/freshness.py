@@ -19,7 +19,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime
 
-from ..timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from .defaults import GIVTCP_FROZEN_AFTER_S
 
 

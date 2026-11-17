@@ -21,6 +21,8 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.util import dt as dt_util
+from utility_tariffs_lib.tariff import TariffDefinition
+from utility_tariffs_lib.tariffstore import StoreError
 
 from ..const import CONF_BILL_START_DAY, CONF_EXPORT_RATE
 from ..core.wizard_store import (
@@ -33,8 +35,6 @@ from ..core.wizard_store import (
     source_options,
     source_record,
 )
-from ..lib.tariff import TariffDefinition
-from ..lib.tariffstore import StoreError
 from ..tariff_store import TariffStoreAccess
 from .selectors import number_selector, store_choice_selector
 

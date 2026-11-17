@@ -17,7 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from .defaults import (
     SOLAR_DAY_DEBOUNCE_MINUTES,
     SOLAR_NOISE_FLOOR_W,

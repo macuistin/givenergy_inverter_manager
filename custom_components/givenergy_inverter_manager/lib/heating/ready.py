@@ -27,8 +27,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
-from ..tariff import TariffConfig
-from ..timeutil import elapsed_seconds, local_time_on, shift_real
+from utility_tariffs_lib.tariff import TariffConfig
+from utility_tariffs_lib.timeutil import elapsed_seconds, local_time_on, shift_real
+
 from .defaults import CHARGE_WINDOW_MARGIN, IMMERSION_SWITCH_COOLDOWN_MINUTES
 from .solar import SOLAR_BAND, SolarOutlook, solar_window
 

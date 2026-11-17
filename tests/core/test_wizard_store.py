@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from datetime import date, time
 
+from utility_tariffs_lib.tariff import (
+    Locale,
+    TariffConfig,
+    definition_from_config,
+)
+from utility_tariffs_lib.tariff.periods import RatePeriod
+
 from custom_components.givenergy_inverter_manager.core.wizard_store import (
     choose_tariff,
     country_choices,
@@ -13,12 +20,6 @@ from custom_components.givenergy_inverter_manager.core.wizard_store import (
     source_record,
     source_text,
 )
-from custom_components.givenergy_inverter_manager.lib.tariff import (
-    Locale,
-    TariffConfig,
-    definition_from_config,
-)
-from custom_components.givenergy_inverter_manager.lib.tariff.periods import RatePeriod
 
 LOCALE = Locale("EUR", "IE", "Europe/Dublin", date(2026, 1, 1))
 

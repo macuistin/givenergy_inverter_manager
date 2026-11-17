@@ -26,7 +26,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol, TypeVar
 
-from ..tariff import CounterMemory
+from utility_tariffs_lib.tariff import CounterMemory
+
 from .defaults import (
     COUNTER_RISE_FLOOR_KWH,
     COUNTER_RISE_MARGIN,

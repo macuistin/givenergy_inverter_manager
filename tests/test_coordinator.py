@@ -22,6 +22,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from utility_tariffs_lib.tariff import SlotHistory
 
 from custom_components.givenergy_inverter_manager.accumulation import (
     AccumulationState,
@@ -68,7 +69,6 @@ from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     SwitchState,
 )
 from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
-from custom_components.givenergy_inverter_manager.lib.tariff import SlotHistory
 from custom_components.givenergy_inverter_manager.unconfirmed_write_repair import (
     UnconfirmedWriteRepair,
 )

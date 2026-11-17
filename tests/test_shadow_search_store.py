@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from utility_tariffs_lib.tariffstore import StoreError
 
-from custom_components.givenergy_inverter_manager.lib.tariffstore import StoreError
 from custom_components.givenergy_inverter_manager.shadow_search_store import gather
 from tests.core.shadow_helpers import _definition
 

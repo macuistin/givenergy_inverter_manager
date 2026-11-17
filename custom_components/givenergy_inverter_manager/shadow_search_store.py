@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
 
-from .lib.tariff import DefinitionError, TariffDefinition
-from .lib.tariffranking import Candidate
-from .lib.tariffstore import StoreError
+from utility_tariffs_lib.tariff import DefinitionError, TariffDefinition
+from utility_tariffs_lib.tariffranking import Candidate
+from utility_tariffs_lib.tariffstore import StoreError
 
 _LOG = logging.getLogger(__name__)
 ALL_AREAS = "all"

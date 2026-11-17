@@ -128,17 +128,17 @@ async def test_nothing_is_written_when_the_list_is_unchanged(hass, loaded_entry)
 async def test_a_shadow_tariff_is_chosen_from_the_store_lists(
     hass, loaded_entry, monkeypatch, tmp_path
 ):
-    from wizard_support import submit
-
-    from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+    from utility_tariffs_lib.tariffstore import (
         FolderCache,
         Store,
         folder_reader,
     )
+    from wizard_support import submit
+
     from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
     from custom_components.givenergy_inverter_manager.wizard import store_steps
-    from tests.lib.tariffstore.building import build_store
-    from tests.lib.tariffstore.fixtures import tariff, write_store
+    from tests.support.building import build_store
+    from tests.support.store_fixtures import tariff, write_store
 
     folder = write_store(tmp_path, {"p/plan/1.json": tariff(effective_from="2026-01-01")})
     build_store(folder)
@@ -169,17 +169,17 @@ async def test_a_shadow_tariff_is_chosen_from_the_store_lists(
 
 
 async def test_a_cheaper_plan_is_searched_for_and_added(hass, loaded_entry, monkeypatch, tmp_path):
-    from wizard_support import submit
-
-    from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+    from utility_tariffs_lib.tariffstore import (
         FolderCache,
         Store,
         folder_reader,
     )
+    from wizard_support import submit
+
     from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
     from custom_components.givenergy_inverter_manager.wizard import shadow_search_steps
-    from tests.lib.tariffstore.building import build_store
-    from tests.lib.tariffstore.fixtures import flat, write_store
+    from tests.support.building import build_store
+    from tests.support.store_fixtures import flat, write_store
 
     folder = write_store(tmp_path, {"p/plan/1.json": flat(start="2026-01-01")})
     build_store(folder)
@@ -207,15 +207,16 @@ async def test_a_cheaper_plan_is_searched_for_and_added(hass, loaded_entry, monk
 
 
 async def _search_form(hass, loaded_entry, monkeypatch, tmp_path, files=None):
-    from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+    from utility_tariffs_lib.tariffstore import (
         FolderCache,
         Store,
         folder_reader,
     )
+
     from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
     from custom_components.givenergy_inverter_manager.wizard import shadow_search_steps
-    from tests.lib.tariffstore.building import build_store
-    from tests.lib.tariffstore.fixtures import flat, write_store
+    from tests.support.building import build_store
+    from tests.support.store_fixtures import flat, write_store
 
     folder = write_store(tmp_path, {"p/plan/1.json": flat(start="2026-01-01")})
     build_store(folder)
@@ -291,10 +292,11 @@ async def test_a_plan_the_saved_rates_cannot_hold_stays_on_the_results(
 def test_the_ranking_lists_the_best_and_always_the_current_plan() -> None:
     from datetime import date
 
-    from custom_components.givenergy_inverter_manager.lib.tariffranking import (
+    from utility_tariffs_lib.tariffranking import (
         Ranked,
         SearchResult,
     )
+
     from custom_components.givenergy_inverter_manager.wizard.shadow_search_steps import (
         ranking_text,
     )

@@ -23,6 +23,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.util import dt as dt_util
+from utility_tariffs_lib.tariff.slot_history import SlotHistory
 
 from ..config_helpers import effective_config, merge_config
 from ..const import (
@@ -86,7 +87,6 @@ from ..core.wizard_tariff import (
     validate_rates,
     validate_tariff,
 )
-from ..lib.tariff.slot_history import SlotHistory
 from .detect import detect
 from .flow_base import PageView, WizardPages, car_suggestions, own_entity_ids, states_by_id
 from .schemas import (

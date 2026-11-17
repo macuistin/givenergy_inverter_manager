@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from custom_components.givenergy_inverter_manager.core.shadow_ranking import (
-    LISTED,
-    attributes,
-    summarise,
-)
-from custom_components.givenergy_inverter_manager.lib.tariffranking import (
+from utility_tariffs_lib.tariffranking import (
     Unit,
     Usage,
     Window,
     search,
+)
+
+from custom_components.givenergy_inverter_manager.core.shadow_ranking import (
+    LISTED,
+    attributes,
+    summarise,
 )
 from tests.core.shadow_helpers import THROUGH, _candidate, _usage
 

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from ..lib.timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
 
 # A hot water temperature can sit still for a long while, so the limit is an hour.
 SENSOR_STALE_AFTER_S = 3600

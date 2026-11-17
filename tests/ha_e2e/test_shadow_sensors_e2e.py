@@ -9,9 +9,9 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from utility_tariffs_lib.tariff import SlotDay
 
 from custom_components.givenergy_inverter_manager.const import CONF_SHADOW_TARIFFS, DOMAIN
-from custom_components.givenergy_inverter_manager.lib.tariff import SlotDay
 from tests.helpers import table_rows
 
 SHADOW = {

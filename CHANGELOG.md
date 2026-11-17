@@ -40,6 +40,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The EV charger text now says **The car is disconnected** when no car is plugged in, and says whether spare solar is available and would go to the car once it is. Before, it read "The charger is disconnected" and told you to turn on Charge now. The **Charge now** and **Pause** buttons also show on the EV charger page, and only while a car is plugged in.
 - Every user who can open the dashboard can now tap **Charge now** and **Pause** on the main page and the EV charger page, not only administrators. Before, only administrators saw them. The charge hours settings stay in Settings, for administrators. Press **Submit** on the out-of-date repair to update a stored dashboard.
 
+**Upgrading**
+- The tariff code is now installed by Home Assistant as the package `utility-tariffs-lib`, instead of being copied into the integration. The first start after the upgrade downloads it from GitHub, so Home Assistant needs internet access once. After that it is kept. Nothing about your tariff, bill or entities changes.
+
 ## v0.23.0
 
 This release adds cheaper-rate charging for a plugged-in Zappi, new charge controls and a charging plan on the EV charger page. Nothing needs changing on upgrade. Charge hours before and after start at 0, so the car charges only in the cheaper rate periods until you set them.

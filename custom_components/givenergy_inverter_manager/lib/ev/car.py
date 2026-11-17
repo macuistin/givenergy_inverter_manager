@@ -13,7 +13,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from ..timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from .defaults import CAR_READING_MAX_AGE_S
 
 # The keys of one car in the saved config. A car is a dict with these keys.

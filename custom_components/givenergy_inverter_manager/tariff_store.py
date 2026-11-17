@@ -25,9 +25,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from utility_tariffs_lib.tariff import TariffDefinition, parse_definition
+from utility_tariffs_lib.tariffstore import FolderCache, Store, StoreError
+
 from .const import DEFAULT_TARIFF_STORE_URL, DOMAIN
-from .lib.tariff import TariffDefinition, parse_definition
-from .lib.tariffstore import FolderCache, Store, StoreError
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant

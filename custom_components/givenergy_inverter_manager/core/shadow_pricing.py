@@ -17,8 +17,7 @@ from datetime import date
 from html import escape
 from typing import Any
 
-from ..conf import CONF_SHADOW_TARIFFS
-from ..lib.tariff import (
+from utility_tariffs_lib.tariff import (
     DefinitionError,
     Line,
     Locale,
@@ -28,6 +27,8 @@ from ..lib.tariff import (
     definition_from_config,
     price_period,
 )
+
+from ..conf import CONF_SHADOW_TARIFFS
 from .html_table import bold, html_table
 from .shadow_tariffs import KEY_NAME, shadow_config, shadow_entries
 from .tariff_config import build_tariff

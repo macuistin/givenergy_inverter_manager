@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from utility_tariffs_lib.tariff import TariffDefinition
+
 from ..conf import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
@@ -26,7 +28,6 @@ from ..conf import (
     CONF_VAT_INCLUDED,
     CONF_VAT_RATE,
 )
-from ..lib.tariff import TariffDefinition
 from .tariff_source import PROBE_EXPORTS, NotRepresentable, materialise, prices_match
 
 # Country names for the codes the store holds. Any other code is shown as it is.

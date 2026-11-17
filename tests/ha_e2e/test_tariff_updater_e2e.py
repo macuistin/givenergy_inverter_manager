@@ -14,18 +14,18 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.givenergy_inverter_manager import repairs, shadow_ranker, tariff_updater
-from custom_components.givenergy_inverter_manager.const import DOMAIN
-from custom_components.givenergy_inverter_manager.core.wizard_store import choose_tariff
-from custom_components.givenergy_inverter_manager.lib.tariffstore import (
+from utility_tariffs_lib.tariffstore import (
     FolderCache,
     Store,
     folder_reader,
 )
+
+from custom_components.givenergy_inverter_manager import repairs, shadow_ranker, tariff_updater
+from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.wizard_store import choose_tariff
 from custom_components.givenergy_inverter_manager.tariff_store import TariffStoreAccess
-from tests.lib.tariffstore.building import build_store
-from tests.lib.tariffstore.fixtures import tariff, write_store
+from tests.support.building import build_store
+from tests.support.store_fixtures import tariff, write_store
 
 TODAY = date(2026, 6, 15)
 FOLLOWING = {

@@ -6,7 +6,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from ..timeutil import elapsed_seconds
+from utility_tariffs_lib.timeutil import elapsed_seconds
+
 from .defaults import EV_OFFLINE_AFTER_S
 from .model import ACTIVE_STATES, EVCharger, EVChargerState
 

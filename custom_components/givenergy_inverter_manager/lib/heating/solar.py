@@ -20,7 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time
 
-from ..timeutil import elapsed_seconds, local_time_on
+from utility_tariffs_lib.timeutil import elapsed_seconds, local_time_on
+
 from .defaults import IMMERSION_SOLAR_COVER_FACTOR
 
 SOLAR_BAND = "expected solar"
