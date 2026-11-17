@@ -49,6 +49,7 @@ CLIENT_TESTS = (
     "test_client.py",
     "test_compile.py",
     "test_index.py",
+    "test_price_format.py",
     "test_schema.py",
 )
 

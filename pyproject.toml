@@ -58,6 +58,7 @@ max-branches = 10
 "tests/lib/tariffstore/fixtures.py" = ["E501", "I001"]
 "tests/lib/tariffstore/test_c*.py" = ["E501", "I001"]
 "tests/lib/tariffstore/test_index.py" = ["E501", "I001"]
+"tests/lib/tariffstore/test_price_format.py" = ["E501", "I001"]
 "tests/lib/tariffstore/test_schema.py" = ["E501", "I001"]
 # The store's bill-engine tests, copied the same way. Its lint sorts imports by its own package
 # names, and it does not run the unused-import, `zip(strict=)` or call-in-default rules on tests.
