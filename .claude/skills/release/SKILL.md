@@ -28,7 +28,7 @@ and the six version strings. Commit title: `chore(release): bump version to X.Y.
 5. Run `python scripts/set_version.py --check vX.Y.Z` and `python -m pytest tests/test_metadata.py -q`.
    Both fail if one of the six places disagrees.
 6. Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite.
-   Check the tariff library pin in `manifest.json` is a tag of `macuistin/utility-tariffs` (`lib-vX.Y.Z`), not a commit,
+   Check the tariff library pin in `manifest.json` is an exact released version of `utility-tariffs-lib` on PyPI (`==X.Y.Z`),
    and that the three requirements files carry the same line.
 7. Commit, then open the PR with `.github/PULL_REQUEST_TEMPLATE.md`. The PR body says what the
    release contains, taken from the changelog.

@@ -22,10 +22,10 @@ inside that folder until it is published somewhere installable.
 ## The tariff library is installed, not copied
 
 The tariff model, bill maths, time helpers, store client and plan ranking are written and tested in
-`macuistin/utility-tariffs`. Home Assistant installs them as the package `utility-tariffs-lib`,
+`macuistin/utility-tariffs`. Home Assistant installs them from PyPI as the package `utility-tariffs-lib`,
 imported as `utility_tariffs_lib.tariff`, `.timeutil`, `.tariffstore` and `.tariffranking`.
 
-- Never patch it here. Change it in the store's repository, tag it, then move the pin.
+- Never patch it here. Change it in the store's repository and release it, then move the pin to the new version.
 - The pin is the one `requirements` line in `manifest.json`. `requirements-test.txt`,
   `requirements-test-e2e.txt` and `tests/ha_e2e/requirements-floor.txt` carry the same line, and
   `tests/test_library_pin.py` fails when they differ.
