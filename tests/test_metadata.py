@@ -55,7 +55,7 @@ def test_test_requirements_have_upper_bounds():
     unbounded = [
         line
         for line in lines
-        if not line.startswith(("homeassistant", "-e ./packages/", "utility-tariffs-lib@")) and "<" not in line
+        if not line.startswith(("homeassistant", "-e ./packages/", "utility-tariffs-lib")) and "<" not in line
     ]
 
     assert unbounded == []

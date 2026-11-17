@@ -41,7 +41,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - Every user who can open the dashboard can now tap **Charge now** and **Pause** on the main page and the EV charger page, not only administrators. Before, only administrators saw them. The charge hours settings stay in Settings, for administrators. Press **Submit** on the out-of-date repair to update a stored dashboard.
 
 **Upgrading**
-- The tariff code is now installed by Home Assistant as the package `utility-tariffs-lib`, instead of being copied into the integration. The first start after the upgrade downloads it from GitHub, so Home Assistant needs internet access once. After that it is kept. Nothing about your tariff, bill or entities changes.
+- The tariff code is now installed by Home Assistant from PyPI as the package `utility-tariffs-lib`, instead of being copied into the integration. The first start after the upgrade downloads it from GitHub, so Home Assistant needs internet access once. After that it is kept. Nothing about your tariff, bill or entities changes.
 
 ## v0.23.0
 
