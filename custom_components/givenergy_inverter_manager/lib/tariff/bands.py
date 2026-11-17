@@ -92,6 +92,12 @@ def _by_band(
     return {band: Decimal(repr(round(kwh, 6))) for band, kwh in totals.items()}
 
 
+def zone_applies(zone: Zone, local: datetime, is_holiday: Callable[[date], bool]) -> bool:
+    """Whether *zone* is in force at the local time *local*. A zone whose start equals its end
+    covers the whole day."""
+    return _applies(zone, local, is_holiday)
+
+
 def _applies(zone: Zone, local: datetime, is_holiday: Callable[[date], bool]) -> bool:
     if not _in_hours(zone, local.time()):
         return False

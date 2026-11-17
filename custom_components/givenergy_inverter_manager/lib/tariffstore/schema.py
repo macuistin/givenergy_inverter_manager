@@ -11,6 +11,7 @@ import json
 import re
 from collections.abc import Collection
 from datetime import date
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -36,13 +37,20 @@ WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 AVAILABILITY = ("available", "partial", "unavailable")
 NODE_FIELDS = {
     "energy_by_band": {"kind", "round_bands", "round"},
+    "series_energy": {"kind", "series", "round"},
+    "tiered_energy": {"kind", "blocks", "limits", "bands", "round"},
     "export_credit": {"kind", "round"},
     "per_day": {"kind", "amount", "round"},
+    "per_kwh": {"kind", "amount", "on", "round"},
+    "demand": {"kind", "window", "price", "per", "hours", "days", "months", "holidays", "round"},
     "per_period": {"kind", "amount", "share", "per", "round"},
     "adjust": {"kind", "name", "percent", "of", "round"},
     "tax": {"kind", "name", "percent", "mode", "of", "round"},
+    "minimum": {"kind", "amount", "per", "of", "round"},
+    "maximum": {"kind", "amount", "per", "of", "round"},
     "sum": {"kind", "of", "round"},
 }
+BLOCK_FIELDS = {"from_kwh", "upto_kwh", "price"}
 MAX_DEPTH = 8
 PERIOD_FIELDS = {"rule", "start_day", "months", "start_month"}
 PERIOD_MONTHS = (1, 2, 3, 4, 6, 12)  # lengths that start in the same months every year
@@ -93,7 +101,7 @@ def _date(value: object, field: str, errors: list[str]) -> None:
 
 def _children(node: Doc, path: str, depth: int, errors: list[str]) -> None:
     kind = node["kind"]
-    if kind in ("adjust", "tax"):
+    if kind in ("adjust", "tax", "minimum", "maximum"):
         _node(node.get("of"), f"{path}.of", depth + 1, errors)
     if kind != "sum":
         return
@@ -103,6 +111,96 @@ def _children(node: Doc, path: str, depth: int, errors: list[str]) -> None:
         return
     for name, child in children.items():
         _node(child, f"{path}.of.{name}", depth + 1, errors)
+
+
+def _tiers(node: Doc, path: str, errors: list[str]) -> None:
+    """A tier table: named blocks that start at 0, meet end to start, and end open."""
+    if node.get("limits", "period") not in ("period", "month", "day"):
+        errors.append(f"{path}.limits: must be period, month or day")
+    bands = node.get("bands", [])
+    if not isinstance(bands, list) or any(not isinstance(b, str) for b in bands) or (
+        "bands" in node and not bands
+    ):
+        errors.append(f"{path}.bands: must be a list of band names")
+    blocks = node.get("blocks")
+    if not isinstance(blocks, dict) or not blocks:
+        errors.append(f"{path}.blocks: needs one or more named blocks")
+        return
+    rows = {n: _block(n, r, f"{path}.blocks.{n}", errors) for n, r in blocks.items()}
+    ranges = [(row[0], row[1], name) for name, row in rows.items() if row is not None]
+    if len(ranges) < len(rows):
+        return
+    expected: Decimal | None = Decimal(0)
+    for start, end, name in sorted(ranges, key=lambda item: item[0]):
+        if expected is None or start != expected:
+            errors.append(f"{path}.blocks.{name}: must start where the block before ends, from 0")
+        expected = end
+    if expected is not None:
+        errors.append(f"{path}.blocks: the last block needs no upto_kwh")
+
+
+def _block(
+    name: str, row: object, path: str, errors: list[str]
+) -> tuple[Decimal, Decimal | None] | None:
+    """Check one block and return its start and end, or None when it cannot be read."""
+    before = len(errors)
+    if not NAME.match(name) or not isinstance(row, dict) or not BLOCK_FIELDS >= set(row):
+        errors.append(f"{path}: needs a name like a node and only from_kwh, upto_kwh and price")
+        return None
+    for key in BLOCK_FIELDS & (set(row) | {"from_kwh", "price"}):
+        _price(row.get(key), f"{path}.{key}", errors)
+        if str(row.get(key)).startswith("-"):
+            errors.append(f"{path}.{key}: must be 0 or more")
+    if len(errors) > before:
+        return None
+    start = Decimal(row["from_kwh"])
+    end = Decimal(row["upto_kwh"]) if "upto_kwh" in row else None
+    if end is not None and end <= start:
+        errors.append(f"{path}.upto_kwh: must be above from_kwh")
+        return None
+    return start, end
+
+
+def _demand(node: Doc, path: str, errors: list[str]) -> None:
+    """A demand charge: a window name, a price per kW, and when the window is open."""
+    if not NAME.match(str(node.get("window"))):
+        errors.append(f"{path}.window: needs a name like a node")
+    _price(node.get("price"), f"{path}.price", errors)
+    if str(node.get("price")).startswith("-"):
+        errors.append(f"{path}.price: must be 0 or more")
+    if node.get("per", "month") not in ("month", "period"):
+        errors.append(f"{path}.per: must be month or period")
+    when = {k: v for k, v in node.items() if k in ("hours", "days", "months", "holidays")}
+    _band_window({"hours": "00:00-12:00", **when}, path, errors)
+
+
+def _per_rule(node: Doc, path: str, errors: list[str]) -> None:
+    """`per` says what an amount is written for. A floor or cap may also be per day."""
+    kind = node["kind"]
+    allowed = ("period", "month", "day") if kind in ("minimum", "maximum") else ("month", "period")
+    default = "period" if kind in ("minimum", "maximum") else "month"
+    if node.get("per", default) not in allowed:
+        errors.append(f"{path}.per: must be {', '.join(allowed[:-1])} or {allowed[-1]}")
+
+
+def _kind_rules(node: Doc, path: str, errors: list[str]) -> None:
+    """The rules of the kinds that have fields of their own."""
+    kind = node["kind"]
+    if kind == "tiered_energy":
+        _tiers(node, path, errors)
+    if kind == "demand":
+        _demand(node, path, errors)
+    else:
+        _per_rule(node, path, errors)
+    if kind == "tax" and node.get("mode") not in ("added", "included"):
+        errors.append(f"{path}.mode: must be added or included")
+    if kind == "series_energy" and not (isinstance(node.get("series"), str)
+                                        and NAME.match(node["series"])):
+        errors.append(f"{path}.series: must be a lower case name")
+    if kind in ("per_kwh", "minimum", "maximum") and "amount" not in node:
+        errors.append(f"{path}.amount: missing")
+    if node.get("on", "import") not in ("import", "export"):
+        errors.append(f"{path}.on: must be import or export")
 
 
 def _node(node: object, path: str, depth: int, errors: list[str]) -> None:
@@ -118,10 +216,7 @@ def _node(node: object, path: str, depth: int, errors: list[str]) -> None:
     for key in ("amount", "percent"):
         if key in node:
             _number(node[key], f"{path}.{key}", errors)
-    if kind == "tax" and node.get("mode") not in ("added", "included"):
-        errors.append(f"{path}.mode: must be added or included")
-    if node.get("per", "month") not in ("month", "period"):
-        errors.append(f"{path}.per: must be month or period")
+    _kind_rules(node, path, errors)
     _children(node, path, depth, errors)
 
 
@@ -177,13 +272,15 @@ def _period(period: object, errors: list[str]) -> None:
 
 def _bill(bill: object, errors: list[str], *, country: bool = False) -> None:
     """A country's bill needs a tree. A tariff's may give a tree, a period or both."""
-    if not isinstance(bill, dict) or set(bill) - {"period", "total"} \
+    if not isinstance(bill, dict) or set(bill) - {"period", "total", "netting"} \
             or not ({"total"} if country else {"period", "total"}) & set(bill):
         errors.append("bill: needs total and optional period" if country
                       else "bill: needs total, period or both")
         return
     if bill.get("period") is not None:
         _period(bill["period"], errors)
+    if bill.get("netting", "none") not in ("none", "band"):
+        errors.append("bill.netting: must be none or band")
     if "total" in bill:
         _node(bill["total"], "bill.total", 0, errors)
 
@@ -280,6 +377,19 @@ def _areas(areas: object, tariff: tuple[list[str], bool], errors: list[str]) -> 
         _area(key, row, tariff, errors)
 
 
+def _band_refs(tree: object, path: str, names: list[str], errors: list[str]) -> None:
+    """A tier table may name only bands the file has."""
+    if not isinstance(tree, dict):
+        return
+    if tree.get("kind") == "tiered_energy" and isinstance(tree.get("bands"), list):
+        errors += [f"{path}.bands: {b!r} is not a band of this tariff"
+                   for b in tree["bands"] if b not in names]
+    for key, child in tree.items():
+        sub = f"{path}.{key}"
+        if isinstance(child, dict):
+            _band_refs(child, sub, names, errors)
+
+
 def _extras(doc: Doc, errors: list[str], *, is_export: bool) -> None:
     """The optional parts: a bill of its own, inputs, checks and a paired export."""
     if "bill" in doc:
@@ -306,6 +416,7 @@ def validate_tariff(doc: object) -> list[str]:
     _header(doc, errors)
     _dates(doc, errors)
     names = _bands(doc["bands"], errors)
+    _band_refs(doc.get("bill"), "bill", names, errors)
     _areas(doc["areas"], (names, is_export), errors)
     _extras(doc, errors, is_export=is_export)
     return sorted(errors)

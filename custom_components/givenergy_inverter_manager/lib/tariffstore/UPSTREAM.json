@@ -1,13 +1,14 @@
 {
   "repository": "macuistin/utility-tariffs",
   "path": "lib/tariffstore",
-  "commit": "e96bdcbbb30520a83346ddb704d2a734bcc10c61",
+  "commit": "2f8c1670a18c64e64c3d755d74fad78e73ee8a7b",
   "files": {
     "__init__.py": "b0cfd5e88e3bc3c68d7eaf94eac2275051bb5dff86771c7d52d7b13b12101c97",
     "client.py": "14f32e87146a94851896b290d0c8f1c7c3ca07c803f3fc17095f0102c1aca285",
-    "compile.py": "e31b01db5bdc732e270271dfc8f024e393a671eb9e7aeeb0533ff880d0623a44",
+    "compile.py": "27724d592b7059a1e757e8c5e1de891334181a5e1e081f663b216a763d2ca078",
     "index.py": "78c4bc2986d45c076bee353bee3d78d09ac7ce02fd091ecb8e2c85d6ca8b51c6",
     "layout.py": "9b108a0ef6125b7c4831b529c1ca2a1cf8a5c98f9f45b11c80438964fc10faf4",
-    "schema.py": "34f23274002898466db030e6eb25385fd6ebe9201218818918fb319d94ecc386"
+    "prices.py": "a6389f3e4643e5a5f6319bafc48db6d58bc4941ed87a67068da8450c60341e8f",
+    "schema.py": "0b3ce8068de5feb32565df0c0917c9990f905fa28c3b73741f112e8d894a46f2"
   }
 }

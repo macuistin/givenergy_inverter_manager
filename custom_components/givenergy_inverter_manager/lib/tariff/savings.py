@@ -62,7 +62,7 @@ def savings(
     if not any(day.total("house") for day in days):
         raise ValueError("no house load was recorded, so there is nothing to compare")
     actual = reprice(days, tariff, period, Rounding.TOTAL)
-    baseline = reprice([_all_from_grid(day) for day in days], tariff, period, Rounding.TOTAL)
+    baseline = reprice([all_from_grid(day) for day in days], tariff, period, Rounding.TOTAL)
     difference = money(baseline.bill.total - actual.bill.total)
     stored = _stored_value(days, tariff, battery)
     wear = money(sum(day.total("battery_discharge") for day in days) * _wear(battery))
@@ -81,7 +81,7 @@ def _wear(battery: Battery | None) -> float:
     return battery.wear_per_kwh if battery else 0.0
 
 
-def _all_from_grid(day: SlotDay) -> SlotDay:
+def all_from_grid(day: SlotDay) -> SlotDay:
     """The day as it would have been with no solar and no battery."""
     return SlotDay(
         day.day,

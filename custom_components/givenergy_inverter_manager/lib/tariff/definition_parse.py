@@ -33,8 +33,11 @@ from .definition import (
     SCHEMA_VERSION,
     Adjust,
     Band,
+    Block,
+    Bound,
     Check,
     DefinitionError,
+    Demand,
     EnergyByBand,
     ExportCredit,
     ExportPrices,
@@ -45,12 +48,15 @@ from .definition import (
     PerDay,
     PeriodRule,
     PeriodValue,
+    PerKwh,
     PerPeriod,
     Provider,
+    SeriesEnergy,
     Sum,
     TariffDefinition,
     Tax,
     TaxMode,
+    TieredEnergy,
     Zone,
 )
 
@@ -69,6 +75,9 @@ _CUSTOMER_CLASSES = ("residential", "commercial")
 _PERIOD_RULES = ("monthly",)
 _SHARES = ("days_in_period", "whole")
 _PER = ("period", "month")
+_LIMITS = ("period", "month", "day")
+_FLOWS = ("import", "export")
+_NETTING = ("none", "band")
 _START_DAYS = (1, 28)  # a month always has these days
 _PERIOD_MONTHS = (1, 2, 3, 4, 6, 12)  # lengths that start in the same months every year
 _MONTHS = (1, 12)
@@ -112,7 +121,8 @@ def parse_definition(data: object) -> TariffDefinition:
     inputs = _inputs(doc.child("inputs"))
     import_prices, export_prices = _prices(doc)
     period, total = _bill(doc.child("bill"), inputs)
-    checks = _checks(doc, import_prices, export_prices)
+    _check_bands(total, _names(import_prices))
+    checks = _checks(doc, import_prices, export_prices, set(demand_windows(total)))
     complete = doc.choice("completeness", ("complete", "partial")) == "complete"
     if complete and not checks:
         raise DefinitionError("completeness", "complete needs at least one entry in checks")
@@ -127,6 +137,7 @@ def parse_definition(data: object) -> TariffDefinition:
         rounding_places=_MINOR_UNIT_PLACES.get(identity["currency"], 2),
         total=total,
         checks=checks,
+        netting=_netting(doc.child("bill"), import_prices, export_prices),
         timezone=_zone(zone_name, "timezone"),
         timezone_name=zone_name,
     )
@@ -374,13 +385,7 @@ def _zone_of(fields: Fields) -> Zone:
     fields.only(
         required=("name", "priority", "price", "hours"), optional=("days", "months", "holidays")
     )
-    match = _HOURS.match(fields.text("hours"))
-    if match is None:
-        raise DefinitionError(fields.at("hours"), 'must be HH:MM-HH:MM such as "23:00-08:00"')
-    start = time(int(match.group(1)), int(match.group(2)))
-    end = time(int(match.group(3)), int(match.group(4)))
-    if start == end:
-        raise DefinitionError(fields.at("hours"), "must not start and end at the same time")
+    start, end = _hours(fields)
     return Zone(
         name=fields.text("name"),
         priority=fields.whole("priority", 1, 1000),
@@ -418,9 +423,18 @@ def _holidays(fields: Fields) -> bool:
 
 
 def _bill(fields: Fields, inputs: Mapping[str, InputSpec]) -> tuple[PeriodRule, Node]:
-    fields.only(required=("period", "total"))
+    fields.only(required=("period", "total"), optional=("netting",))
     period = _period(fields.child("period"), inputs)
     return period, _node(fields.child("total"), 1)
+
+
+def _netting(bill: Fields, import_prices: ImportPrices, export_prices: ExportPrices) -> str:
+    """`band` nets export against import by band name, so each export band needs an import band."""
+    netting = bill.choice("netting", _NETTING) if bill.has("netting") else "none"
+    stray = sorted(_names(export_prices) - _names(import_prices))
+    if netting == "band" and stray:
+        raise DefinitionError(bill.at("netting"), f"export band {stray[0]!r} has no import band")
+    return netting
 
 
 def _period(fields: Fields, inputs: Mapping[str, InputSpec]) -> PeriodRule:
@@ -495,6 +509,85 @@ def _energy_by_band(fields: Fields, depth: int) -> Node:
     return EnergyByBand(round_bands, _rounding(fields))
 
 
+def _tiered_energy(fields: Fields, depth: int) -> Node:
+    fields.only(required=("kind", "blocks"), optional=("limits", "bands", "round"))
+    limits = fields.choice("limits", _LIMITS) if fields.has("limits") else "period"
+    bands = _band_list(fields) if fields.has("bands") else frozenset[str]()
+    return TieredEnergy(_blocks(fields.child("blocks")), limits, _rounding(fields), bands)
+
+
+def _band_list(fields: Fields) -> frozenset[str]:
+    names = fields.sequence("bands")
+    if not names or any(not isinstance(n, str) or not n for n in names):
+        raise DefinitionError(fields.at("bands"), "must be a list of band names")
+    if len(set(names)) != len(names):
+        raise DefinitionError(fields.at("bands"), "names a band twice")
+    return frozenset(names)
+
+
+def _children_of(node: Node, path: str) -> Iterable[tuple[Node, str]]:
+    """Every node under *node*, itself first, with the path to it."""
+    yield node, path
+    if isinstance(node, Sum):
+        for key, child in node.children.items():
+            yield from _children_of(child, f"{path}.of.{key}")
+    elif isinstance(node, (Adjust, Tax, Bound)):
+        yield from _children_of(node.child, f"{path}.of")
+
+
+def _check_bands(total: Node, known: Collection[str]) -> None:
+    """A tier table may name only import bands the tariff has."""
+    for node, path in _children_of(total, "bill.total"):
+        if isinstance(node, TieredEnergy):
+            for name in sorted(node.bands - set(known)):
+                raise DefinitionError(f"{path}.bands", f"{name!r} is not an import band")
+
+
+def demand_windows(total: Node) -> dict[str, Zone]:
+    """The demand windows a bill tree uses, by name. A name used twice must mean one window."""
+    windows: dict[str, Zone] = {}
+    for node, path in _children_of(total, "bill.total"):
+        if isinstance(node, Demand):
+            if windows.setdefault(node.window, node.when) != node.when:
+                raise DefinitionError(f"{path}.window", f"{node.window!r} is two different windows")
+    return windows
+
+
+def _blocks(fields: Fields) -> dict[str, Block]:
+    blocks: list[tuple[str, Block]] = []
+    for name, _ in fields.items():
+        if not _NODE_NAME.match(name):
+            raise DefinitionError(fields.at(name), "is not a valid name")
+        blocks.append((name, _block(fields.child(name))))
+    if not blocks:
+        raise DefinitionError(fields.path, "needs at least one block")
+    blocks.sort(key=lambda item: item[1].start)
+    _check_contiguous(fields, blocks)
+    return dict(blocks)
+
+
+def _block(fields: Fields) -> Block:
+    fields.only(required=("from_kwh", "price"), optional=("upto_kwh",))
+    start = fields.money("from_kwh")
+    end = fields.money("upto_kwh") if fields.has("upto_kwh") else None
+    if end is not None and end <= start:
+        raise DefinitionError(fields.at("upto_kwh"), "must be above from_kwh")
+    return Block(start, end, fields.money("price"))
+
+
+def _check_contiguous(fields: Fields, blocks: list[tuple[str, Block]]) -> None:
+    """Blocks start at 0, each starts where the one before ended, and only the last is open."""
+    expected: Decimal | None = Decimal(0)
+    for name, block in blocks:
+        if expected is None:
+            raise DefinitionError(fields.at(name), "comes after a block with no upto_kwh")
+        if block.start != expected:
+            raise DefinitionError(fields.at(name), f"must start at {expected} kWh")
+        expected = block.end
+    if expected is not None:
+        raise DefinitionError(fields.path, "needs a last block with no upto_kwh")
+
+
 def _export_credit(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind",), optional=("round",))
     return ExportCredit(_rounding(fields))
@@ -505,12 +598,63 @@ def _per_day(fields: Fields, depth: int) -> Node:
     return PerDay(fields.money("amount"), _rounding(fields))
 
 
+def _series_energy(fields: Fields, depth: int) -> Node:
+    fields.only(required=("kind", "series"), optional=("round",))
+    name = fields.text("series")
+    if not _NODE_NAME.match(name):
+        raise DefinitionError(fields.at("series"), "must be a lower case name")
+    return SeriesEnergy(name, _rounding(fields))
+
+
+def _per_kwh(fields: Fields, depth: int) -> Node:
+    fields.only(required=("kind", "amount"), optional=("on", "round"))
+    on = fields.choice("on", _FLOWS) if fields.has("on") else "import"
+    return PerKwh(fields.signed("amount"), on, _rounding(fields))
+
+
 def _per_period(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "amount", "share"), optional=("per", "round"))
     per = fields.choice("per", _PER) if fields.has("per") else "period"
     return PerPeriod(
         fields.money("amount"), fields.choice("share", _SHARES), _rounding(fields), per
     )
+
+
+def _demand(fields: Fields, depth: int) -> Node:
+    fields.only(
+        required=("kind", "window", "price"),
+        optional=("per", "hours", "days", "months", "holidays", "round"),
+    )
+    if not _NODE_NAME.match(fields.text("window")):
+        raise DefinitionError(fields.at("window"), "is not a valid name")
+    per = fields.choice("per", _PER) if fields.has("per") else "month"
+    start, end = _hours(fields) if fields.has("hours") else (time(0, 0), time(0, 0))
+    when = Zone(
+        fields.text("window"), 1, Decimal(0), start, end,
+        _days(fields), _months(fields), _holidays(fields),
+    )
+    return Demand(fields.text("window"), fields.money("price"), per, when, _rounding(fields))
+
+
+def _hours(fields: Fields) -> tuple[time, time]:
+    match = _HOURS.match(fields.text("hours"))
+    if match is None:
+        raise DefinitionError(fields.at("hours"), 'must be HH:MM-HH:MM such as "23:00-08:00"')
+    start = time(int(match.group(1)), int(match.group(2)))
+    end = time(int(match.group(3)), int(match.group(4)))
+    if start == end:
+        raise DefinitionError(fields.at("hours"), "must not start and end at the same time")
+    return start, end
+
+
+def _bound(kind: str) -> Callable[[Fields, int], Node]:
+    def parse(fields: Fields, depth: int) -> Node:
+        fields.only(required=("kind", "amount", "of"), optional=("per", "round"))
+        per = fields.choice("per", _LIMITS) if fields.has("per") else "period"
+        child = _node(fields.child("of"), depth + 1)
+        return Bound(kind, fields.money("amount"), per, child, _rounding(fields))
+
+    return parse
 
 
 def _adjust(fields: Fields, depth: int) -> Node:
@@ -545,9 +689,15 @@ def _sum(fields: Fields, depth: int) -> Node:
 
 _NODE_PARSERS: dict[str, Callable[[Fields, int], Node]] = {
     "energy_by_band": _energy_by_band,
+    "series_energy": _series_energy,
+    "tiered_energy": _tiered_energy,
     "export_credit": _export_credit,
     "per_day": _per_day,
+    "per_kwh": _per_kwh,
+    "demand": _demand,
     "per_period": _per_period,
+    "minimum": _bound("minimum"),
+    "maximum": _bound("maximum"),
     "adjust": _adjust,
     "tax": _tax,
     "sum": _sum,
@@ -555,11 +705,11 @@ _NODE_PARSERS: dict[str, Callable[[Fields, int], Node]] = {
 
 
 def _checks(
-    doc: Fields, import_prices: ImportPrices, export_prices: ExportPrices
+    doc: Fields, import_prices: ImportPrices, export_prices: ExportPrices, windows: Collection[str]
 ) -> dict[str, Check]:
     if not doc.has("checks"):
         return {}
-    bands = _Bands(_names(import_prices), _names(export_prices))
+    bands = _Bands(_names(import_prices), _names(export_prices), windows)
     fields = doc.child("checks")
     checks: dict[str, Check] = {}
     for name, _ in fields.items():
@@ -572,6 +722,7 @@ def _checks(
 class _Bands(NamedTuple):
     imported: Collection[str]
     exported: Collection[str]
+    windows: Collection[str]
 
 
 def _names(prices: ImportPrices | ExportPrices) -> set[str]:
@@ -579,7 +730,10 @@ def _names(prices: ImportPrices | ExportPrices) -> set[str]:
 
 
 def _check(fields: Fields, bands: _Bands) -> Check:
-    fields.only(required=("period_days", "import_kwh_by_band", "export_kwh", "expected_total"))
+    fields.only(
+        required=("period_days", "import_kwh_by_band", "export_kwh", "expected_total"),
+        optional=("peak_kw",),
+    )
     # A plain export figure is paid at the base export price. An object names the bands.
     export: Decimal | dict[str, Decimal]
     if isinstance(fields.raw("export_kwh"), Mapping):
@@ -592,7 +746,14 @@ def _check(fields: Fields, bands: _Bands) -> Check:
         import_kwh_by_band=imported,
         export_kwh=export,
         expected_total=fields.signed("expected_total"),
+        peak_kw=_peaks(fields, bands),
     )
+
+
+def _peaks(fields: Fields, bands: _Bands) -> dict[str, Decimal]:
+    if not fields.has("peak_kw"):
+        return {}
+    return _kwh_by_band(fields.child("peak_kw"), bands.windows, "a demand window")
 
 
 def _kwh_by_band(by_band: Fields, bands: Collection[str], what: str) -> dict[str, Decimal]:

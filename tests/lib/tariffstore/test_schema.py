@@ -133,6 +133,108 @@ class TariffFile(unittest.TestCase):
             deep = {"kind": "adjust", "name": "x", "percent": "1", "of": deep}
         self.assertTrue(any("tree too deep" in e for e in errors_for(bill={"total": deep})))
 
+    def test_a_tier_table(self) -> None:
+        def tiers(**changes) -> list[str]:
+            node = {"kind": "tiered_energy", "blocks": {
+                "baseline": {"from_kwh": "0", "upto_kwh": "300", "price": "0.2"},
+                "rest": {"from_kwh": "300", "price": "0.3"}}}
+            node.update(changes)
+            return errors_for(bill={"total": node})
+
+        self.assertEqual(tiers(), [])
+        self.assertEqual(tiers(limits="day"), [])
+        self.assertIn("bill.total.limits: must be period, month or day", tiers(limits="year"))
+        self.assertIn("bill.total.blocks: needs one or more named blocks", tiers(blocks={}))
+        self.assertIn("bill.total.script: not allowed on tiered_energy", tiers(script="x"))
+
+    def test_a_tier_table_may_name_the_bands_it_prices(self) -> None:
+        def table(bands) -> list[str]:
+            node = {"kind": "tiered_energy", "bands": bands,
+                    "blocks": {"all": {"from_kwh": "0", "price": "0.2"}}}
+            return errors_for(bill={"total": {"kind": "sum", "of": {"t": node}}})
+
+        self.assertEqual(table(["Day"]), [])
+        self.assertIn("bill.total.of.t.bands: must be a list of band names", table([]))
+        self.assertIn("bill.total.of.t.bands: must be a list of band names", table("Day"))
+        self.assertIn("bill.total.of.t.bands: 'Peak' is not a band of this tariff", table(["Peak"]))
+
+    def test_a_bad_tier_table_names_the_block(self) -> None:
+        def blocks(**named) -> list[str]:
+            return errors_for(bill={"total": {"kind": "tiered_energy", "blocks": named}})
+
+        low = {"from_kwh": "0", "upto_kwh": "5", "price": "0.1"}
+        self.assertIn("bill.total.blocks.b: must start where the block before ends, from 0",
+                      blocks(a=low, b={"from_kwh": "6", "price": "0.2"}))
+        self.assertIn("bill.total.blocks.a: must start where the block before ends, from 0",
+                      blocks(a={"from_kwh": "1", "price": "0.2"}))
+        self.assertIn("bill.total.blocks.b: must start where the block before ends, from 0",
+                      blocks(a={"from_kwh": "0", "price": "0.1"}, b={"from_kwh": "5", "price": "1"}))
+        self.assertIn("bill.total.blocks: the last block needs no upto_kwh", blocks(a=low))
+        self.assertIn("bill.total.blocks.a.upto_kwh: must be above from_kwh",
+                      blocks(a={"from_kwh": "5", "upto_kwh": "5", "price": "1"}))
+        self.assertIn("bill.total.blocks.a.price: must be 0 or more",
+                      blocks(a={"from_kwh": "0", "price": "-1"}))
+        self.assertIn("bill.total.blocks.a.from_kwh: must be a decimal string",
+                      blocks(a={"from_kwh": 0, "price": "1"}))
+        self.assertTrue(any("needs a name" in e for e in blocks(A=low)))
+        self.assertTrue(any("only from_kwh" in e for e in blocks(a={**low, "extra": "1"})))
+
+    def test_a_per_kwh_node(self) -> None:
+        def adder(**node) -> list[str]:
+            return errors_for(bill={"total": {"kind": "per_kwh", **node}})
+
+        self.assertEqual(adder(amount="0.012"), [])
+        self.assertEqual(adder(amount="$country.levy", on="export"), [])
+        self.assertIn("bill.total.amount: missing", adder())
+        self.assertIn("bill.total.on: must be import or export", adder(amount="1", on="both"))
+
+    def test_a_series_energy_node(self) -> None:
+        def node(**fields) -> list[str]:
+            return errors_for(bill={"total": {"kind": "series_energy", **fields}})
+
+        self.assertEqual(node(series="agile"), [])
+        self.assertIn("bill.total.series: must be a lower case name", node())
+        self.assertIn("bill.total.series: must be a lower case name", node(series="Agile Prices"))
+        self.assertIn("bill.total.price: not allowed on series_energy", node(series="agile", price="1"))
+
+    def test_a_bill_may_say_how_export_nets_against_import(self) -> None:
+        total = {"kind": "per_day", "amount": "1"}
+        self.assertEqual(errors_for(bill={"netting": "band", "total": total}), [])
+        self.assertEqual(errors_for(bill={"netting": "none", "total": total}), [])
+        self.assertIn("bill.netting: must be none or band",
+                      errors_for(bill={"netting": "annual", "total": total}))
+
+    def test_a_minimum_and_maximum_wrap_one_node(self) -> None:
+        def bound(kind: str, **node) -> list[str]:
+            inner = {"kind": "per_kwh", "amount": "0.1"}
+            return errors_for(bill={"total": {"kind": kind, "amount": "5", "of": inner, **node}})
+
+        for kind in ("minimum", "maximum"):
+            self.assertEqual(bound(kind), [])
+            self.assertEqual(bound(kind, per="day"), [])
+            self.assertIn("bill.total.per: must be period, month or day", bound(kind, per="year"))
+            self.assertIn("bill.total.of.amount: missing", bound(kind, of={"kind": "per_kwh"}))
+        self.assertIn("bill.total.amount: missing", errors_for(
+            bill={"total": {"kind": "minimum", "of": {"kind": "per_day", "amount": "1"}}}))
+
+    def test_a_demand_node(self) -> None:
+        def demand(**node) -> list[str]:
+            base = {"kind": "demand", "window": "peak", "price": "10", "hours": "16:00-20:00"}
+            return errors_for(bill={"total": {**base, **node}})
+
+        self.assertEqual(demand(), [])
+        self.assertEqual(demand(per="period", days=["mon"], months=[6, 7], holidays="weekend"), [])
+        self.assertEqual(errors_for(bill={"total": {"kind": "demand", "window": "any",
+                                                    "price": "1"}}), [])
+        self.assertIn("bill.total.window: needs a name like a node", demand(window="Peak"))
+        self.assertIn("bill.total.price: must be a decimal string", demand(price=1))
+        self.assertIn("bill.total.price: must be 0 or more", demand(price="-1"))
+        self.assertIn("bill.total.per: must be month or period", demand(per="day"))
+        self.assertIn("bill.total.hours: must be HH:MM-HH:MM with different ends",
+                      demand(hours="16:00-16:00"))
+        self.assertIn("bill.total.days: distinct values from mon, tue, wed, thu, fri, sat, sun",
+                      demand(days=["funday"]))
+
     def test_a_bill_period_and_inputs(self) -> None:
         total = {"kind": "per_day"}
         self.assertEqual(errors_for(bill={"period": {"rule": "monthly", "start_day": 5}, "total": total}), [])

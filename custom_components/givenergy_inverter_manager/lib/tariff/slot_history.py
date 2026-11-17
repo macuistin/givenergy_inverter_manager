@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
@@ -20,6 +20,19 @@ class SlotHistory:
         self._days: dict[date, SlotDay] = {}
         # Stored days that could not be read the last time the history was restored.
         self.skipped = 0
+
+    @property
+    def tz(self) -> tzinfo:
+        return self._tz
+
+    @classmethod
+    def from_days(
+        cls, tz: tzinfo, days: Iterable[SlotDay], retention_days: int = SLOT_RETENTION_DAYS
+    ) -> SlotHistory:
+        """A history holding exactly *days*, as they are, without rounding them to storage."""
+        history = cls(tz, retention_days)
+        history._days = {day.day: day for day in days}
+        return history
 
     def record(self, energy: SlotEnergy, start: datetime, end: datetime) -> bool:
         """Book *energy* used between start and end. False when the interval is a gap or empty.

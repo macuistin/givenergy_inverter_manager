@@ -13,7 +13,7 @@ refuses anything it does not understand. Nothing here reads a price source or a 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, time, tzinfo
 from decimal import Decimal
 from enum import Enum
@@ -131,6 +131,42 @@ class EnergyByBand:
 
 
 @dataclass(frozen=True)
+class SeriesEnergy:
+    """Import kWh priced against a named price series, a price for each interval of the day.
+
+    The engine reads only totals, so the cost is worked out first from the slots and the series
+    (`price_series.series_cost`) and handed over under *series*."""
+
+    series: str  # the name the bill inputs give the cost under
+    rounding: NodeRounding
+
+
+@dataclass(frozen=True)
+class Block:
+    """One block of a tiered price: the kWh from *start* up to *end* cost *price* each."""
+
+    start: Decimal  # kWh where the block begins, as the limits are written
+    end: Decimal | None  # kWh where it ends. None for the last block, which has no top
+    price: Decimal  # per kWh, in the document's currency
+
+
+@dataclass(frozen=True)
+class TieredEnergy:
+    """All import kWh priced by block, the first kWh at the first block's price and so on.
+
+    The blocks replace the band prices, so the kWh in a band do not change the price. *limits* says
+    what the block limits are written for: the whole bill period, one month of it, or one day.
+    With *bands*, the node prices only the kWh in those bands, so each band, or group of bands,
+    can have a tier table of its own.
+    """
+
+    blocks: Mapping[str, Block]  # by name, in order of start
+    limits: str  # "period", "month" or "day"
+    rounding: NodeRounding
+    bands: frozenset[str] = frozenset()  # the import bands it prices. Empty means every band
+
+
+@dataclass(frozen=True)
 class ExportCredit:
     """Export kWh times the export price, or the kWh in each export band times its price. A
     credit."""
@@ -157,6 +193,46 @@ class PerPeriod:
     share: str  # "days_in_period" or "whole"
     rounding: NodeRounding
     per: str = "period"  # "period" or "month"
+
+
+@dataclass(frozen=True)
+class PerKwh:
+    """An amount for each kWh imported or exported, for a levy, rider or fuel adjustment."""
+
+    amount: Decimal  # per kWh, in the document's currency. Negative for a credit
+    on: str  # "import" or "export"
+    rounding: NodeRounding
+
+
+@dataclass(frozen=True)
+class Demand:
+    """A charge on the highest power drawn, in kW, in a window of the day.
+
+    The peak is the highest half-hour average import in the window, over the bill period. The
+    engine does not read slots, so the caller gives the peak for *window* in `BillInputs`. Two
+    nodes that name the same window must describe the same hours, days and months.
+    """
+
+    window: str  # the name the peak is given under, in `BillInputs` and in a check
+    price: Decimal  # per kW, in the document's currency
+    per: str  # "period": once for the bill, or "month": for each month of it
+    when: Zone  # the hours, days and months it counts. Equal start and end mean the whole day
+    rounding: NodeRounding
+
+
+@dataclass(frozen=True)
+class Bound:
+    """Wraps one node and sets a floor (`minimum`) or a cap (`maximum`) on its amount.
+
+    *amount* is written for a whole *per* ("period", "month" or "day"), and the engine multiplies
+    it by the months or days of the bill.
+    """
+
+    kind: str  # "minimum" or "maximum"
+    amount: Decimal
+    per: str
+    child: Node
+    rounding: NodeRounding
 
 
 @dataclass(frozen=True)
@@ -188,7 +264,10 @@ class Sum:
     rounding: NodeRounding
 
 
-Node = EnergyByBand | ExportCredit | PerDay | PerPeriod | Adjust | Tax | Sum
+Node = (
+    EnergyByBand | SeriesEnergy | TieredEnergy | ExportCredit | PerDay | PerPeriod | PerKwh
+    | Demand | Bound | Adjust | Tax | Sum
+)
 
 
 @dataclass(frozen=True)
@@ -199,6 +278,7 @@ class Check:
     import_kwh_by_band: Mapping[str, Decimal]
     export_kwh: Decimal | Mapping[str, Decimal]  # one total, or the kWh in each export band
     expected_total: Decimal
+    peak_kw: Mapping[str, Decimal] = field(default_factory=dict)  # kW by demand window
 
 
 @dataclass(frozen=True)
@@ -229,6 +309,9 @@ class TariffDefinition:
     rounding_places: int  # decimal places of the currency's smallest unit
     total: Node
     checks: Mapping[str, Check]
+    # "none", or "band": export kWh offset the import kWh of the import band with the same name
+    # before any price is applied, and only what is left over is paid at the export price.
+    netting: str = "none"
 
     def period_value(self, value: PeriodValue) -> int:
         """The number *value* stands for: its fixed number, or the default of its input."""

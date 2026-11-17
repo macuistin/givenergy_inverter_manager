@@ -106,6 +106,11 @@ def _total(bill: Doc, block: Doc, on: str, standing: object) -> Doc:
     return total
 
 
+def _netting(bill: Doc) -> Doc:
+    """The bill's netting rule, written only when it is not the default."""
+    return {"netting": bill["netting"]} if bill.get("netting", "none") != "none" else {}
+
+
 def compile_area(tariff: Doc, area: str, *, block: Doc, meta: Doc,  # noqa: PLR0913
                  on: str, export_file: Doc | None = None) -> Doc:
     """The engine's definition for one area of a tariff, priced on the ISO date `on`.
@@ -137,7 +142,8 @@ def compile_area(tariff: Doc, area: str, *, block: Doc, meta: Doc,  # noqa: PLR0
         "source_url": tariff["source"]["url"], "last_verified": None,
         "completeness": "complete" if tariff.get("checks") else "partial",
         "inputs": inputs, "import": _prices(tariff["bands"], row["rates"]), "export": export,
-        "bill": {"period": period, "total": total}, "checks": tariff.get("checks", {}),
+        "bill": {"period": period, "total": total, **_netting(bill)},
+        "checks": tariff.get("checks", {}),
     }
 
 

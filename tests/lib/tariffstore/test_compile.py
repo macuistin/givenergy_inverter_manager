@@ -147,5 +147,14 @@ class Compile(unittest.TestCase):
         self.assertEqual(export_prices(by_area, "elsewhere")["base"]["price"], "0.10")
 
 
+class Netting(unittest.TestCase):
+    def test_a_netting_rule_reaches_the_engine_and_the_default_is_left_out(self) -> None:
+        plain = compile_area(tariff(), "urban", block=country(), meta=META, on="2026-11-01")
+        self.assertNotIn("netting", plain["bill"])
+        doc = tariff(bill={"netting": "band", "total": {"kind": "per_day", "amount": "1"}})
+        net = compile_area(doc, "urban", block=country(), meta=META, on="2026-11-01")
+        self.assertEqual(net["bill"]["netting"], "band")
+
+
 if __name__ == "__main__":
     unittest.main()
