@@ -2,13 +2,13 @@
 controls.py - the tuning controls: switches and numbers that each own one saved option.
 
 A setting is either a form field (set once, changes rarely) or a control (a knob the user tries,
-watches and adjusts), never both. The nine controls here write the flat option key they were
+watches and adjusts), never both. The controls here write the flat option key they were
 always stored under, so no data moves and an install keeps the value it had:
 
   switches  dry_run, verbose_logging, charge_replan, ev_hold_battery
   numbers   surplus_divert_soc_pct, surplus_divert_min_power_w, cheap_rate_floor_soc,
-            skip_charge_soc_threshold_pct, forecast_conservatism,
-            ev_hours_before_cheap, ev_hours_after_cheap
+            skip_charge_soc_threshold_pct, forecast_conservatism
+  times     ev_start_time, ev_end_time (the hours the car charges from the grid, stored "HH:MM")
 
 The unique id is "{entry_id}_{key}" and the translation key is the option key. A control shows
 the value in force (saved options over setup data, else the default), so a change made anywhere
@@ -20,11 +20,13 @@ reloads the integration. The coordinator re-reads the merged config on every cyc
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 from typing import Any
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower, UnitOfTime
+from homeassistant.components.time import TimeEntity
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 
@@ -33,9 +35,9 @@ from .const import (
     CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
+    CONF_EV_END_TIME,
     CONF_EV_HOLD_BATTERY,
-    CONF_EV_HOURS_AFTER_CHEAP,
-    CONF_EV_HOURS_BEFORE_CHEAP,
+    CONF_EV_START_TIME,
     CONF_FORECAST_CONSERVATISM,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -44,9 +46,9 @@ from .const import (
     DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
+    DEFAULT_EV_END_TIME,
     DEFAULT_EV_HOLD_BATTERY,
-    DEFAULT_EV_HOURS_AFTER_CHEAP,
-    DEFAULT_EV_HOURS_BEFORE_CHEAP,
+    DEFAULT_EV_START_TIME,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_VERBOSE_LOGGING,
@@ -134,28 +136,21 @@ NUMBER_SPECS: tuple[NumberSpec, ...] = (
     NumberSpec(
         CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM, 0.0, 1.0, 0.05, decimals=2
     ),
-    NumberSpec(
-        CONF_EV_HOURS_BEFORE_CHEAP,
-        DEFAULT_EV_HOURS_BEFORE_CHEAP,
-        0.0,
-        6.0,
-        0.5,
-        UnitOfTime.HOURS,
-        mode=NumberMode.SLIDER,
-        decimals=1,
-        requires=Device.EV_CHARGER,
-    ),
-    NumberSpec(
-        CONF_EV_HOURS_AFTER_CHEAP,
-        DEFAULT_EV_HOURS_AFTER_CHEAP,
-        0.0,
-        6.0,
-        0.5,
-        UnitOfTime.HOURS,
-        mode=NumberMode.SLIDER,
-        decimals=1,
-        requires=Device.EV_CHARGER,
-    ),
+)
+
+
+@dataclass(frozen=True)
+class TimeSpec:
+    """The key, default and optional device of one time control."""
+
+    key: str
+    default: str
+    requires: Device | None = None
+
+
+TIME_SPECS: tuple[TimeSpec, ...] = (
+    TimeSpec(CONF_EV_START_TIME, DEFAULT_EV_START_TIME, Device.EV_CHARGER),
+    TimeSpec(CONF_EV_END_TIME, DEFAULT_EV_END_TIME, Device.EV_CHARGER),
 )
 
 
@@ -210,6 +205,25 @@ class ControlNumber(ControlEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         self._save(self._spec.stored(value))
+
+
+class ControlTime(ControlEntity, TimeEntity):
+    """A time control. It saves the time as "HH:MM"."""
+
+    def __init__(self, coordinator: GivEnergyCoordinator, spec: TimeSpec) -> None:
+        super().__init__(coordinator, spec.key, spec.default, spec.requires)
+        self._spec = spec
+
+    @property
+    def native_value(self) -> time:
+        try:
+            return time.fromisoformat(str(self._in_force()))
+        except ValueError:
+            _LOG.warning("Ignoring the saved %s, which is not a time", self._option_key)
+            return time.fromisoformat(self._spec.default)
+
+    async def async_set_value(self, value: time) -> None:
+        self._save(value.strftime("%H:%M"))
 
 
 class ControlSwitch(ControlEntity, SwitchEntity):
@@ -286,3 +300,10 @@ def control_numbers(
     one is set, like the other immersion entities.
     """
     return [ControlNumber(coordinator, s) for s in NUMBER_SPECS if s.requires == requires]
+
+
+def control_times(
+    coordinator: GivEnergyCoordinator, requires: Device | None = None
+) -> list[ControlTime]:
+    """The time controls that need *requires*, or that every install has when it is None."""
+    return [ControlTime(coordinator, s) for s in TIME_SPECS if s.requires == requires]

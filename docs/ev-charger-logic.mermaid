@@ -2,25 +2,41 @@
 title: EV Charger Decision Logic (decide_ev_charger_action in rules.py)
 ---
 flowchart TD
-    START([Called from engine.py\neach 30s update cycle]) --> PLUGGED{EV plugged in?}
+    START([Called from engine.py\neach 30s update cycle]) --> WINDOW{Inside the charge window\n(start time to end time)\nand the charger has Fast?}
+
+    WINDOW -- Yes --> PLUGGED{EV plugged in?}
     PLUGGED -- No --> NONE1(["No action\n(not connected)"])
+    PLUGGED -- Yes --> INFAST{already\nin Fast?}
+    INFAST -- Yes --> NONE2(["No action"])
+    INFAST -- No --> FAST(["Request mode → Fast\n(Pause and Charge now step aside)"])
 
-    PLUGGED -- Yes --> MINPOWER{solar_surplus_w\n< EV_CHARGER_MIN_POWER_W\n(1,380 W)?}
+    WINDOW -- No --> PAUSE{Pause on?}
+    PAUSE -- Yes --> STOPPED(["Request mode → Stopped\n(unless already Stopped)"])
+    PAUSE -- No --> NOW{Charge now on\nand a car plugged in?}
+    NOW -- Yes --> FAST2(["Request mode → Fast\n(unless already in it)"])
+    NOW -- No --> HELD{Charger in Fast\nand this integration\nset it?}
+    HELD -- Yes --> BACK(["Request mode → Eco+\n(window over, once)"])
+    HELD -- No --> PLUGGED2{EV plugged in?}
+    PLUGGED2 -- No --> NONE3(["No action\n(not connected)"])
+    PLUGGED2 -- Yes --> MINPOWER{solar_surplus_w\n< EV_CHARGER_MIN_POWER_W\n(1,380 W)?}
+    MINPOWER -- Yes --> NONE4(["No action\n(below the charger minimum)"])
+    MINPOWER -- No --> ECO{Eco+ or Solar\nalready on?}
+    ECO -- Yes --> NONE5(["No action"])
+    ECO -- No --> ECOPLUS(["Request mode → Eco+ or Solar\n(absorb solar surplus)"])
 
-    MINPOWER -- Yes --> NONE2(["No action\n(below the charger minimum)"])
+    FAST --> APPLY["coordinator._apply_ev_action\nskipped in dry run\nskipped if written in the last 300 s"]
+    FAST2 --> APPLY
+    STOPPED --> APPLY
+    BACK --> APPLY
+    ECOPLUS --> APPLY
 
-    MINPOWER -- No --> ZAPPI{Zappi?}
-
-    ZAPPI -- No --> NONE3(["No action\n(signals only for other brands)"])
-
-    ZAPPI -- Yes --> ECO{already\nin Eco+?}
-    ECO -- Yes --> NONE4(["No action\n(already in Eco+)"])
-    ECO -- No --> ECOPLUS(["Request mode → Eco+\n(absorb solar surplus)"])
-
-    ECOPLUS --> APPLY["coordinator._apply_ev_action\nskipped in dry run\nskipped if written in the last 300 s"]
-
+    style FAST fill:#e3f2fd,stroke:#1976d2
+    style FAST2 fill:#e3f2fd,stroke:#1976d2
     style ECOPLUS fill:#e8f5e9,stroke:#4CAF50
+    style BACK fill:#e8f5e9,stroke:#4CAF50
+    style STOPPED fill:#fff3e0,stroke:#f57c00
     style NONE1 fill:#f5f5f5,stroke:#9e9e9e
     style NONE2 fill:#f5f5f5,stroke:#9e9e9e
     style NONE3 fill:#f5f5f5,stroke:#9e9e9e
     style NONE4 fill:#f5f5f5,stroke:#9e9e9e
+    style NONE5 fill:#f5f5f5,stroke:#9e9e9e

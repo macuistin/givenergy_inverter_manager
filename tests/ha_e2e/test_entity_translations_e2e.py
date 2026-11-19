@@ -59,7 +59,7 @@ class TestEverySwitchAndNumber:
         strings = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
         icons = (await async_get_icons(hass, "entity", [DOMAIN]))[DOMAIN]
         registry = er.async_get(hass)
-        for domain in ("switch", "number"):
+        for domain in ("switch", "number", "time"):
             registered = {
                 e.unique_id.removeprefix(f"{loaded_entry.entry_id}_")
                 for e in er.async_entries_for_config_entry(registry, loaded_entry.entry_id)

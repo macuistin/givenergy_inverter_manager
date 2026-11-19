@@ -219,8 +219,9 @@ _EV_HELP = (
         "it, and put the battery pause back afterwards.",
     ),
     (
-        "Charge hours before, Charge hours after",
-        "hours either side of the cheaper rate when the car may still charge from the grid.",
+        "Charge starts, Charge ends",
+        "the hours each day the car charges from the grid, whatever the rate. Pause and "
+        "Charge now do not change it inside these hours.",
     ),
 )
 
@@ -1875,8 +1876,8 @@ class Builder:
                 self.ev("ev_charge_now"),
                 self.ev("ev_pause"),
                 self.ev("ev_hold_battery"),
-                self.ev("ev_hours_before_cheap"),
-                self.ev("ev_hours_after_cheap"),
+                self.ev("ev_start_time"),
+                self.ev("ev_end_time"),
             ]
             if Device.EV_CHARGER in shown
             else []
@@ -1964,8 +1965,12 @@ class Builder:
                 switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV),
                 switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV),
                 switch_tile(self.ev("ev_hold_battery"), HOLD_BATTERY_NAME, EV),
-                stepper_row(self.ev("ev_hours_before_cheap"), "Charge hours before", EV),
-                stepper_row(self.ev("ev_hours_after_cheap"), "Charge hours after", EV),
+                tile_card(
+                    self.ev("ev_start_time"), "Charge starts", columns=FULL, color=EV, inline=True
+                ),
+                tile_card(
+                    self.ev("ev_end_time"), "Charge ends", columns=FULL, color=EV, inline=True
+                ),
                 _help(_EV_HELP),
             ],
             **self._when(Device.EV_CHARGER),

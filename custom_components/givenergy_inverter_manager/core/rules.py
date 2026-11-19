@@ -1298,86 +1298,60 @@ ModeChoice = tuple[str | None, str]
 class EVRequest:
     """What asks the charger for a mode besides the solar surplus.
 
-    on_cheap_rate: a rate period cheaper than the base rate is running.
-    charge_now: the owner's Charge Now switch, which asks for the grid mode at any rate.
-    pause: the owner's Pause switch, which asks for the stop mode and wins over the others.
-    mode_held: this rule put the charger in its stop mode, so a charger the owner stopped by
-    hand is left alone when the reason for it ends. The grid mode is never held this way.
+    scheduled: the clock is inside the owner's charge window. It wins over everything else.
+    charge_now: the owner's Charge Now switch, which asks for the grid mode outside the window.
+    pause: the owner's Pause switch, which asks for the stop mode outside the window.
+    grid_held: this integration put the charger in its grid mode, so it takes it out again when
+    nothing asks for it. A charger the owner put in that mode by hand is left alone.
     """
 
-    on_cheap_rate: bool = False
+    scheduled: bool = False
     charge_now: bool = False
     pause: bool = False
-    mode_held: bool = False
+    grid_held: bool = False
 
 
-def _pause_choice(charger: EVCharger, current: str) -> ModeChoice:
-    stop_mode = charger.stop_mode()
-    if stop_mode is None:
-        return None, f"Pause needs a Stopped mode, which {charger.display_name} does not offer"
-    if current == stop_mode.lower():
-        return None, f"Paused by you, already {stop_mode}"
-    return stop_mode, f"Paused by you — switching to {stop_mode}"
+def _is_in(charger: EVCharger, mode: str | None) -> bool:
+    return mode is not None and (charger.charge_mode or "").strip().lower() == mode.lower()
+
+
+def _scheduled_choice(charger: EVCharger, grid_mode: str) -> ModeChoice:
+    """Inside the charge window a plugged-in car gets the grid mode and nothing else decides."""
+    if not charger.is_plugged_in:
+        return None, "EV not connected"
+    if _is_in(charger, grid_mode):
+        return None, f"Charge window, already charging in {grid_mode}"
+    return grid_mode, f"Charge window — switching to {grid_mode} to charge the car"
 
 
 def _owner_choice(
-    charger: EVCharger, request: EVRequest, solar_surplus_w: float
+    charger: EVCharger, request: EVRequest, grid_mode: str | None
 ) -> ModeChoice | None:
-    """The mode the owner's switches or a cheaper rate ask for, None when none does."""
-    current = (charger.charge_mode or "").strip().lower()
-    if request.pause:
-        return _pause_choice(charger, current)
-
+    """What the owner's Pause and Charge now switches ask for outside the charge window."""
     stop_mode = charger.stop_mode()
-    grid_mode = charger.cheap_rate_mode()
-    wanted = request.on_cheap_rate or request.charge_now
-    if request.charge_now and grid_mode is None:
-        return None, f"Charge now needs a Fast mode, which {charger.display_name} does not offer"
-    if wanted and grid_mode is not None:
-        why = "Charge now is on" if request.charge_now else "Cheaper rate running"
-        if current == grid_mode.lower():
-            return None, f"{why}, already charging in {grid_mode}"
-        return grid_mode, f"{why} — switching to {grid_mode} to charge the car"
-
-    leave_mode = charger.grid_mode()
-    if not wanted and leave_mode is not None and current == leave_mode.lower():
-        return _leave_grid_mode(charger, solar_surplus_w)
-
-    if request.mode_held and not wanted and stop_mode is not None and current == stop_mode.lower():
-        back = charger.surplus_mode()
-        if back is not None:
-            return back, f"Back to {back}"
-        return None, f"{charger.display_name} offers no surplus-only mode, so its mode is left"
+    if request.pause:
+        if stop_mode is None:
+            return None, f"Pause needs a Stopped mode, which {charger.display_name} does not offer"
+        if _is_in(charger, stop_mode):
+            return None, f"Paused by you, already {stop_mode}"
+        return stop_mode, f"Paused by you — switching to {stop_mode}"
+    if request.charge_now and charger.is_plugged_in and grid_mode is not None:
+        if _is_in(charger, grid_mode):
+            return None, f"Charge now is on, already charging in {grid_mode}"
+        return grid_mode, f"Charge now is on — switching to {grid_mode} to charge the car"
     return None
 
 
-def _leave_grid_mode(charger: EVCharger, solar_surplus_w: float) -> ModeChoice | None:
-    """Nothing asks for the grid mode, so take the charger out of it, whoever put it there.
-
-    A grid mode left on outside the charge hours starts charging the moment a car plugs in.
-    Enough surplus to start a charge returns None, so the surplus rule picks the surplus-only
-    mode. Otherwise the charger is stopped.
-    """
-    stop_mode = charger.stop_mode()
-    surplus_mode = charger.surplus_mode()
-    if surplus_mode is not None and solar_surplus_w >= EV_CHARGER_MIN_POWER_W:
+def _window_over_choice(
+    charger: EVCharger, request: EVRequest, grid_mode: str | None
+) -> ModeChoice | None:
+    """Take a charger this integration put in its grid mode out of it, once, when nothing asks."""
+    if not (request.grid_held and _is_in(charger, grid_mode)):
         return None
-    if stop_mode is not None:
-        return stop_mode, f"Charge hours are over, switching to {stop_mode}"
-    if surplus_mode is not None:
-        return surplus_mode, f"Charge hours are over, back to {surplus_mode}"
-    return None, f"{charger.display_name} offers no stop or surplus-only mode, so its mode is left"
-
-
-def _unplugged_choice(charger: EVCharger, request: EVRequest) -> ModeChoice:
-    """Park an unplugged charger in its stop mode so the next car does not start charging."""
-    stop_mode = charger.stop_mode()
-    asks_for_grid = (request.on_cheap_rate or request.charge_now) and not request.pause
-    if stop_mode is None or asks_for_grid:
-        return None, "EV not connected"
-    if (charger.charge_mode or "").strip().lower() == stop_mode.lower():
-        return None, "EV not connected"
-    return stop_mode, f"EV not connected, switching to {stop_mode}"
+    back = charger.surplus_mode()
+    if back is None:
+        return None, f"{charger.display_name} offers no surplus-only mode, so its mode is left"
+    return back, f"Charge window over — back to {back}"
 
 
 def decide_ev_charger_action(
@@ -1392,29 +1366,33 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. No plugged-in vehicle → the stop mode, unless a cheaper rate or Charge now asks for
-         the grid mode, so the next car does not start charging at once
-      2. The owner asked to pause and the charger has a stop mode (Stopped on a Zappi) → that
-         mode, whatever the rate or the surplus
-      3. A cheaper-than-base rate period is running, or the owner asked to charge now, and the
-         charger has a grid mode (Fast on a Zappi) → switch to it, so a car that takes hours to
-         fill charges at the cheap rate
-      4. Nothing asks for the grid mode and the charger is in it → the surplus-only mode when
-         the surplus can start a charge, otherwise the stop mode, whoever chose the grid mode.
-         The reason for the stop mode has ended and this rule put the charger there → back to
-         the surplus-only mode, or no change when the charger offers none
-      5. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
-      6. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
+      1. Inside the owner's charge window → the grid mode (Fast on a Zappi) for a plugged-in
+         car, whatever the Pause and Charge now switches say. Nothing else changes the mode.
+      2. The owner asked to pause and the charger has a stop mode → that mode
+      3. The owner asked to charge now and a car is plugged in → the grid mode
+      4. This integration put the charger in its grid mode and nothing asks for it any more →
+         the surplus-only mode, once
+      5. No plugged-in vehicle → no change
+      6. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
+      7. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
          that is not already in it → switch to that mode, never to a stop, pause, fast or grid mode
-      7. Otherwise → no change
+      8. Otherwise → no change
     """
     request = request or EVRequest()
-    if not charger.is_plugged_in:
-        return _unplugged_choice(charger, request)
-
-    if (choice := _owner_choice(charger, request, solar_surplus_w)) is not None:
+    grid_mode = charger.cheap_rate_mode()
+    if request.scheduled and grid_mode is not None:
+        return _scheduled_choice(charger, grid_mode)
+    if (choice := _owner_choice(charger, request, grid_mode)) is not None:
         return choice
+    if (choice := _window_over_choice(charger, request, grid_mode)) is not None:
+        return choice
+    if not charger.is_plugged_in:
+        return None, "EV not connected"
+    return _surplus_choice(charger, battery_soc, solar_surplus_w)
 
+
+def _surplus_choice(charger: EVCharger, battery_soc: float, solar_surplus_w: float) -> ModeChoice:
+    """The surplus-only mode when the spare solar can start a charge, else no change."""
     # Minimum power guard: OCPP chargers will not start below 6A (1,380W at 230V).
     # Sending an Eco+ command when surplus is below this threshold wastes a register
     # write and causes the charger to oscillate at the threshold boundary.
@@ -1430,7 +1408,7 @@ def decide_ev_charger_action(
             return None, (
                 f"{charger.display_name} offers no surplus-only mode, so its mode is left as it is"
             )
-        if (charger.charge_mode or "").strip().lower() == target.lower():
+        if _is_in(charger, target):
             return None, f"Already in {target} with {solar_surplus_w:.0f}W surplus"
         return target, (
             f"Solar surplus {solar_surplus_w:.0f}W available, battery at "

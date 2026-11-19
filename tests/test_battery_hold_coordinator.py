@@ -141,6 +141,16 @@ async def test_nothing_is_written_with_the_switch_off():
     assert coord.service_calls_for("select", "select_option") == []
 
 
+async def test_charge_now_holds_the_battery_even_with_the_switch_off():
+    coord = _coordinator(**{CONF_EV_HOLD_BATTERY: False})
+    coord.override_ev_charge_now = True
+    _car(coord, charging=True)
+
+    await _cycle(coord)
+
+    assert _pause(coord) == ("PauseDischarge", "10:15:00", "10:45:00")
+
+
 async def test_dry_run_sends_nothing_and_says_what_it_would_do():
     coord = _coordinator(**{CONF_EV_HOLD_BATTERY: True, CONF_DRY_RUN: True})
     _car(coord, charging=True)

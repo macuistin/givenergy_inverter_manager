@@ -96,7 +96,7 @@ def _states_exist(hass, entry, keys: set[str]) -> bool:
         entity_id = next(
             (
                 found
-                for domain in ("sensor", "switch", "number")
+                for domain in ("sensor", "switch", "number", "time")
                 if (found := registry.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}_{key}"))
             ),
             None,

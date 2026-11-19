@@ -156,9 +156,9 @@ CONF_BATTERY_THROUGHPUT_BUDGET = "battery_throughput_budget_kwh"
 # it to the saved options. The defaults are the ones defined above and below.
 CONF_SURPLUS_DIVERT_SOC = "surplus_divert_soc_pct"
 CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
-# Hours the car may charge before and after the cheaper-rate hours (core/charge_window.py).
-CONF_EV_HOURS_BEFORE_CHEAP = "ev_hours_before_cheap"
-CONF_EV_HOURS_AFTER_CHEAP = "ev_hours_after_cheap"
+# The clock times the car's grid charge starts and ends, "HH:MM", each day (core/charge_window.py).
+CONF_EV_START_TIME = "ev_start_time"
+CONF_EV_END_TIME = "ev_end_time"
 # Hold the house battery back while the car charges, so the car draws from the grid and not the
 # battery (core/ev_battery_hold.py). Off until the user turns it on.
 CONF_EV_HOLD_BATTERY = "ev_hold_battery"

@@ -60,6 +60,7 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.SWITCH,
     Platform.NUMBER,
+    Platform.TIME,
 ]
 
 # Sensors removed from the integration. Their registry entries stay behind as

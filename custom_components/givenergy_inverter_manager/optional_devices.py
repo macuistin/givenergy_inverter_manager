@@ -26,9 +26,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_helpers import effective_config
 from .const import (
+    CONF_EV_END_TIME,
     CONF_EV_HOLD_BATTERY,
-    CONF_EV_HOURS_AFTER_CHEAP,
-    CONF_EV_HOURS_BEFORE_CHEAP,
+    CONF_EV_START_TIME,
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     DOMAIN,
@@ -48,7 +48,7 @@ _LOG = get_logger(__name__)
 
 @dataclass(frozen=True)
 class DeviceEntity:
-    """A switch or number that needs an optional device.
+    """A switch, number or time that needs an optional device.
 
     name is the entity's own name. The dashboard predicts the entity ID of a device that
     is not installed yet from it, so the platform class and the dashboard share this one copy.
@@ -90,12 +90,8 @@ DIVERT_MIN_SURPLUS = DeviceEntity(
     Device.IMMERSION_SWITCH,
     "Divert minimum surplus",
 )
-EV_HOURS_BEFORE = DeviceEntity(
-    "number", CONF_EV_HOURS_BEFORE_CHEAP, Device.EV_CHARGER, "Charge Hours Before Cheap Rate"
-)
-EV_HOURS_AFTER = DeviceEntity(
-    "number", CONF_EV_HOURS_AFTER_CHEAP, Device.EV_CHARGER, "Charge Hours After Cheap Rate"
-)
+EV_START_TIME = DeviceEntity("time", CONF_EV_START_TIME, Device.EV_CHARGER, "Charge Start Time")
+EV_END_TIME = DeviceEntity("time", CONF_EV_END_TIME, Device.EV_CHARGER, "Charge End Time")
 EV_HOLD_BATTERY = DeviceEntity(
     "switch", CONF_EV_HOLD_BATTERY, Device.EV_CHARGER, "Hold Battery While EV Charges"
 )
@@ -105,8 +101,8 @@ DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     EV_CHARGE_NOW,
     EV_PAUSE,
     EV_HOLD_BATTERY,
-    EV_HOURS_BEFORE,
-    EV_HOURS_AFTER,
+    EV_START_TIME,
+    EV_END_TIME,
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
     IMMERSION_SCHEDULE,

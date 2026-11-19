@@ -40,14 +40,13 @@ def test_a_charger_without_a_grid_option_has_none_to_leave():
 def test_grid_is_never_chosen_for_a_cheaper_rate():
     charger = _evc("Solar")
     assert charger.cheap_rate_mode() is None
-    mode, _ = decide_ev_charger_action(charger, 50, 0, EVRequest(on_cheap_rate=True))
+    mode, _ = decide_ev_charger_action(charger, 50, 0, EVRequest(scheduled=True))
     assert mode is None
 
 
-def test_grid_with_low_surplus_goes_back_to_solar():
-    mode, reason = decide_ev_charger_action(_evc("Grid"), 50, 0, EVRequest())
-    assert mode == "Solar"
-    assert "Solar" in reason
+def test_grid_with_low_surplus_is_left_alone():
+    mode, _ = decide_ev_charger_action(_evc("Grid"), 50, 0, EVRequest())
+    assert mode is None
 
 
 def test_grid_with_enough_surplus_is_left_to_the_surplus_rule():
