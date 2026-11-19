@@ -46,14 +46,14 @@ _DEVICE_SLUGS = {
 
 
 def _switch_and_number_names() -> dict[str, tuple[str, str]]:
-    """{unique id suffix: (domain, name)} for the switches and numbers, from strings.json.
+    """{unique id suffix: (domain, name)} for the switches, numbers and times, from strings.json.
 
     Each one has a translation key equal to its unique id suffix, so its name is a translation.
     """
     entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
     return {
         key: (domain, value["name"])
-        for domain in ("switch", "number")
+        for domain in ("switch", "number", "time")
         for key, value in entity[domain].items()
     }
 

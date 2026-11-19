@@ -233,7 +233,7 @@ def test_every_platform_sets_parallel_updates():
     import ast
 
     missing = []
-    for name in ("sensor", "binary_sensor", "switch", "number"):
+    for name in ("sensor", "binary_sensor", "switch", "number", "time"):
         tree = ast.parse((PKG / f"{name}.py").read_text(encoding="utf-8"))
         assigned = {
             target.id

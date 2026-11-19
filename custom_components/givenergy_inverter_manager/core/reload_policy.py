@@ -43,7 +43,7 @@ unless noted):
   controls               dry_run (coordinator.is_dry_run and the engine), verbose_logging
                          (the logger's config accessor), charge_replan (read each cycle by
                          the re-plan check), surplus_divert_soc_pct,
-                         surplus_divert_min_power_w, ev_hours_before_cheap, ev_hours_after_cheap,
+                         surplus_divert_min_power_w, ev_start_time, ev_end_time,
                          ev_hold_battery (read each cycle by the battery hold),
                          tariff_reviewed_on (read by the repair check), dashboard_url_path
                          (written once at setup, read by no cycle),
@@ -94,9 +94,9 @@ from ..const import (
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
+    CONF_EV_END_TIME,
     CONF_EV_HOLD_BATTERY,
-    CONF_EV_HOURS_AFTER_CHEAP,
-    CONF_EV_HOURS_BEFORE_CHEAP,
+    CONF_EV_START_TIME,
     CONF_EXPORT_RATE,
     CONF_FORECAST_CONSERVATISM,
     CONF_FORECAST_ENTITY,
@@ -214,8 +214,8 @@ LIVE_KEYS: frozenset[str] = frozenset(
         CONF_CHEAP_RATE_FLOOR_SOC,
         CONF_SKIP_CHARGE_SOC_THRESHOLD,
         CONF_FORECAST_CONSERVATISM,
-        CONF_EV_HOURS_BEFORE_CHEAP,
-        CONF_EV_HOURS_AFTER_CHEAP,
+        CONF_EV_START_TIME,
+        CONF_EV_END_TIME,
         CONF_EV_HOLD_BATTERY,
         CONF_TARIFF_REVIEWED_ON,
         # Written once by setup, before the update listener exists. Nothing reads it each cycle.

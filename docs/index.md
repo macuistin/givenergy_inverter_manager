@@ -56,7 +56,7 @@ Mermaid sources. GitHub renders them, or paste one into the [Mermaid live editor
 | [30-second update cycle](update-cycle.mermaid) | One coordinator cycle and the nightly charge target write |
 | [Tariff rate precedence](tariff-precedence.mermaid) | How the current rate is chosen |
 | [Immersion decision](immersion-logic.mermaid) | The divert rules, the cooldown and manual overrides |
-| [EV charger decision](ev-charger-logic.mermaid) | When the integration selects Eco+ |
+| [EV charger decision](ev-charger-logic.mermaid) | When the integration selects Fast, Stopped, Eco+ or Solar |
 
 The charge target rules are in [Concepts](concepts.md#overnight-charge-target). A flowchart of them would only duplicate that list.
 

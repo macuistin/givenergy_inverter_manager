@@ -45,6 +45,7 @@ _HA_SUBMODULES = [
     "homeassistant.components.switch",
     "homeassistant.components.button",
     "homeassistant.components.number",
+    "homeassistant.components.time",
     "homeassistant.util",
     "homeassistant.util.dt",
     "voluptuous",
@@ -240,6 +241,10 @@ _number.NumberEntity = object
 _number.NumberMode = MagicMock()
 _number.NumberDeviceClass = MagicMock()
 _number.RestoreNumber = type("RestoreNumber", (), {})
+
+# --- time ---
+_time = sys.modules["homeassistant.components.time"]
+_time.TimeEntity = object
 
 # --- helpers ---
 _sel = sys.modules["homeassistant.helpers.selector"]

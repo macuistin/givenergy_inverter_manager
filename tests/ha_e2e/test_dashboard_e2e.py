@@ -43,7 +43,7 @@ from tests.dashboard_visibility import seen
 
 
 def _registered_id(registry, entry_id: str, key: str) -> str | None:
-    for domain in ("sensor", "switch", "number"):
+    for domain in ("sensor", "switch", "number", "time"):
         entity_id = registry.async_get_entity_id(domain, DOMAIN, f"{entry_id}_{key}")
         if entity_id:
             return entity_id

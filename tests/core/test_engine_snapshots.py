@@ -244,6 +244,14 @@ They are pinned in tests/test_car_coordinator.py.
 No case moved when the plan ranking was added. Only the new plan_ranking leaf (None) was added to
 the fresh snapshot. The ranking is pinned in tests/core/test_shadow_ranking.py and
 tests/test_shadow_ranker.py.
+
+47 of the 255 cases were regenerated when the car's charge window became an owner-set start and end
+time (23:00 to 09:00 by default) and the EV mode rules were cut down to the window, Charge now,
+Pause and surplus. Only ev_charging_plan (47), ev_charging_window (31), ev_protection_reason (10),
+ev_mode_change_requested (7) and the requested mode (7) moved. A plugged-in car inside the window
+now asks for Fast and a charger that was told to stop outside the window is left alone. The rules
+are pinned in tests/lib/ev/test_cheap_rate_charging.py and the plan text in
+tests/core/test_ev_plan.py.
 """
 
 from __future__ import annotations

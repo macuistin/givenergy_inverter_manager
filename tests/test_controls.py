@@ -8,6 +8,7 @@ entity logic against doubles.
 from __future__ import annotations
 
 import asyncio
+import datetime
 from types import MappingProxyType, SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -26,9 +27,9 @@ BRIEF_NUMBERS = {
     "cheap_rate_floor_soc": (40, 0, 80, 5),
     "skip_charge_soc_threshold_pct": (75, 20, 100, 1),
     "forecast_conservatism": (0.35, 0.0, 1.0, 0.05),
-    "ev_hours_before_cheap": (0.0, 0.0, 6.0, 0.5),
-    "ev_hours_after_cheap": (0.0, 0.0, 6.0, 0.5),
 }
+# The EV charge window: key and default, both "HH:MM".
+BRIEF_TIMES = {"ev_start_time": "23:00", "ev_end_time": "09:00"}
 BRIEF_SWITCHES = ("dry_run", "verbose_logging", "charge_replan")
 
 
@@ -85,10 +86,10 @@ class TestTheTableMatchesTheBrief:
             *controls.control_switches(coordinator),
             *controls.control_numbers(coordinator),
             *controls.control_numbers(coordinator, Device.IMMERSION_SWITCH),
-            *controls.control_numbers(coordinator, Device.EV_CHARGER),
+            *controls.control_times(coordinator, Device.EV_CHARGER),
         ]
         assert sorted(e._attr_unique_id for e in everything) == sorted(
-            f"entry_{key}" for key in (*BRIEF_SWITCHES, *BRIEF_NUMBERS)
+            f"entry_{key}" for key in (*BRIEF_SWITCHES, *BRIEF_NUMBERS, *BRIEF_TIMES)
         )
 
     def test_the_translation_key_is_the_option_key(self):
@@ -99,10 +100,13 @@ class TestTheTableMatchesTheBrief:
     def test_only_the_two_divert_thresholds_need_the_immersion_switch(self):
         always = {s.key for s in controls.NUMBER_SPECS if s.requires is None}
         divert = {s.key for s in controls.NUMBER_SPECS if s.requires is Device.IMMERSION_SWITCH}
-        ev = {s.key for s in controls.NUMBER_SPECS if s.requires is Device.EV_CHARGER}
         assert divert == {"surplus_divert_soc_pct", "surplus_divert_min_power_w"}
-        assert ev == {"ev_hours_before_cheap", "ev_hours_after_cheap"}
-        assert always == set(BRIEF_NUMBERS) - divert - ev
+        assert always == set(BRIEF_NUMBERS) - divert
+
+    def test_the_two_charge_window_times_need_the_ev_charger(self):
+        assert {s.key: s.default for s in controls.TIME_SPECS} == BRIEF_TIMES
+        assert all(s.requires is Device.EV_CHARGER for s in controls.TIME_SPECS)
+        assert controls.control_times(_coordinator()) == []
 
     def test_the_numbers_a_device_does_not_need_are_built_without_one(self):
         keys = {e._option_key for e in controls.control_numbers(_coordinator())}
@@ -113,7 +117,7 @@ class TestTheTableMatchesTheBrief:
         }
 
     def test_every_control_is_a_live_key_so_a_write_never_reloads(self):
-        for key in (*BRIEF_SWITCHES, *BRIEF_NUMBERS):
+        for key in (*BRIEF_SWITCHES, *BRIEF_NUMBERS, *BRIEF_TIMES):
             assert change_effect({key: 1}, {key: 2}) is Effect.LIVE, key
 
 
@@ -250,3 +254,33 @@ class TestTheDryRunSwitch:
     def test_a_test_instance_is_flagged_in_the_attributes_and_no_other_is(self):
         assert self._switch(test_instance=True).extra_state_attributes == {"test_instance": True}
         assert self._switch().extra_state_attributes is None
+
+
+def _time(key, **entry_values):
+    coordinator = _coordinator(**entry_values)
+    spec = next(s for s in controls.TIME_SPECS if s.key == key)
+    entity = controls.ControlTime(coordinator, spec)
+    entity.hass = SimpleNamespace(config_entries=FakeEntries())
+    entity.async_write_ha_state = MagicMock()
+    return entity
+
+
+class TestTheChargeWindowTimes:
+    @pytest.mark.parametrize(("key", "default"), list(BRIEF_TIMES.items()))
+    def test_a_missing_option_shows_the_default(self, key, default):
+        assert _time(key).native_value.strftime("%H:%M") == default
+
+    def test_a_saved_time_is_shown(self):
+        entity = _time("ev_start_time", options={"ev_start_time": "22:30"})
+        assert entity.native_value.strftime("%H:%M") == "22:30"
+
+    def test_a_value_that_is_not_a_time_shows_the_default(self):
+        entity = _time("ev_end_time", options={"ev_end_time": "late"})
+        assert entity.native_value.strftime("%H:%M") == "09:00"
+
+    def test_setting_a_time_saves_hours_and_minutes_and_nothing_else(self):
+        entity = _time("ev_end_time", options={"cheap_rate_floor_soc": 25})
+        asyncio.run(entity.async_set_value(datetime.time(10, 15)))
+        assert entity.hass.config_entries.updates == [
+            {"cheap_rate_floor_soc": 25, "ev_end_time": "10:15"}
+        ]

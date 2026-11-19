@@ -141,6 +141,58 @@ async def test_nothing_is_written_with_the_switch_off():
     assert coord.service_calls_for("select", "select_option") == []
 
 
+async def test_charge_now_holds_the_battery_even_with_the_switch_off():
+    coord = _coordinator(**{CONF_EV_HOLD_BATTERY: False})
+    coord.override_ev_charge_now = True
+    _car(coord, charging=True)
+
+    await _cycle(coord)
+
+    assert _pause(coord) == ("PauseDischarge", "10:15:00", "10:45:00")
+
+
+PAUSE_ENTITIES = {MODE, START, END}
+INSIDE_WINDOW = datetime(2031, 3, 4, 2, 17, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize("clock", [MORNING, INSIDE_WINDOW], ids=["outside_window", "inside_window"])
+async def test_the_charge_now_hold_only_pauses_discharge_so_the_battery_can_still_charge(clock):
+    """The hold writes the three pause entities and nothing else, and the mode is discharge only.
+
+    The charge slot, target, rate and enable switches are never touched, so the house battery
+    keeps charging from the grid while the car charges, inside the charge window or outside it.
+    """
+    coord = _coordinator(**{CONF_EV_HOLD_BATTERY: False})
+    coord.set_state(MODE, "Disabled", {"options": ["Disabled", "PauseCharge", "PauseDischarge", "PauseBoth"]})
+    coord.clock = clock
+    coord.override_ev_charge_now = True
+    _car(coord, charging=True)
+
+    await _cycle(coord)
+
+    assert coord._states[MODE].state == "PauseDischarge"
+    written = {c["entity_id"] for c in coord.service_calls_for("select", "select_option")}
+    assert written <= PAUSE_ENTITIES
+    assert {c["option"] for c in coord.service_calls_for("select", "select_option")
+            if c["entity_id"] == MODE} == {"PauseDischarge"}
+    assert coord.service_calls_for("number", "set_value") == []
+    assert coord.service_calls_for("switch", "turn_on") == []
+    assert coord.service_calls_for("switch", "turn_off") == []
+
+
+@pytest.mark.parametrize("pause", ["PauseCharge", "PauseBoth"])
+async def test_charge_now_never_writes_over_a_pause_that_already_stops_charging(pause):
+    coord = _coordinator(**{CONF_EV_HOLD_BATTERY: False})
+    coord.set_state(MODE, pause, {"options": ["Disabled", "PauseCharge", "PauseDischarge", "PauseBoth"]})
+    coord.override_ev_charge_now = True
+    _car(coord, charging=True)
+
+    await _cycle(coord)
+
+    assert coord._states[MODE].state == pause
+    assert coord.service_calls_for("select", "select_option") == []
+
+
 async def test_dry_run_sends_nothing_and_says_what_it_would_do():
     coord = _coordinator(**{CONF_EV_HOLD_BATTERY: True, CONF_DRY_RUN: True})
     _car(coord, charging=True)

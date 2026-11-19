@@ -25,8 +25,8 @@ DEFAULT_ALT_HEAT_LABEL = "Oil"
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %
-DEFAULT_EV_HOURS_BEFORE_CHEAP = 0.0  # h
-DEFAULT_EV_HOURS_AFTER_CHEAP = 0.0  # h
+DEFAULT_EV_START_TIME = "23:00"
+DEFAULT_EV_END_TIME = "09:00"
 DEFAULT_EV_HOLD_BATTERY = True
 DEFAULT_VAT_RATE = 9.0  # % (Irish domestic electricity)
 # Where the open tariff store is read from: the raw files of its main branch, over https.

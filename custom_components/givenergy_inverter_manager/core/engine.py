@@ -47,8 +47,6 @@ from ..const import (
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CURRENCY,
     CONF_DRY_RUN,
-    CONF_EV_HOURS_AFTER_CHEAP,
-    CONF_EV_HOURS_BEFORE_CHEAP,
     CONF_FORECAST_CONSERVATISM,
     CONF_FORECAST_ENTITY_D2,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -64,8 +62,6 @@ from ..const import (
     DEFAULT_CURRENCY,
     DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
-    DEFAULT_EV_HOURS_AFTER_CHEAP,
-    DEFAULT_EV_HOURS_BEFORE_CHEAP,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
@@ -132,8 +128,8 @@ from .charge_window import (
     ChargeNeed,
     ChargeWindow,
     cheap_run_remaining_minutes,
-    ev_charge_window,
-    in_extended_cheap_window,
+    ev_schedule,
+    in_clock_window,
     plan_charge_window,
     window_charge_cost,
 )
@@ -873,59 +869,23 @@ def _ev_charging_source(ev_w: float, grid_w: float, batt_w: float) -> str:
     return "Mixed"
 
 
-def _upcoming_cheap_period(data: CoordinatorData, cycle: _Cycle) -> RatePeriod | None:
-    """The cheaper-than-base period that starts at the next cheap rate start, if there is one."""
-    return next(
-        (
-            p
-            for p in cycle.tariff.rate_periods
-            if p.rate < cycle.tariff.base_rate
-            and p.start.strftime("%H:%M") == data.next_cheap_rate_start
-        ),
-        None,
-    )
+def _ev_schedule(cycle: _Cycle) -> tuple[time, time]:
+    """The clock times the car's grid charge starts and ends each day."""
+    return ev_schedule(cycle.cfg)
 
 
-def _ev_hours(cycle: _Cycle) -> tuple[float, float]:
-    """The hours the owner allows the car to charge before and after the cheaper rate hours."""
-    return (
-        float(cycle.cfg.get(CONF_EV_HOURS_BEFORE_CHEAP, DEFAULT_EV_HOURS_BEFORE_CHEAP)),
-        float(cycle.cfg.get(CONF_EV_HOURS_AFTER_CHEAP, DEFAULT_EV_HOURS_AFTER_CHEAP)),
-    )
-
-
-def _in_ev_charge_hours(cycle: _Cycle) -> bool:
-    """True in a cheaper rate period or in the extra hours the owner allowed around one."""
-    before, after = _ev_hours(cycle)
-    return in_extended_cheap_window(cycle.tariff, cycle.now, before, after)
-
-
-def _ev_charge_until(data: CoordinatorData, cycle: _Cycle) -> str | None:
-    """The clock time the car's grid charge ends in a cheaper period, with the hours after it."""
-    remaining = data.cheap_run_remaining_minutes
-    if remaining is None:
-        return None
-    _, after = _ev_hours(cycle)
-    return clock_text(minute_of_day(cycle.now) + remaining + after * 60)
-
-
-def _ev_next_start(data: CoordinatorData, cycle: _Cycle) -> str | None:
-    """When the car's grid charge next starts: the next cheaper period less the hours before."""
-    start = data.next_cheap_rate_start
-    if start is None:
-        return None
-    before, _ = _ev_hours(cycle)
-    hours, minutes = (int(part) for part in start.split(":"))
-    return clock_text(hours * 60 + minutes - before * 60)
+def _in_ev_schedule(cycle: _Cycle) -> bool:
+    """True inside the owner's charge window."""
+    start, end = _ev_schedule(cycle)
+    return in_clock_window(cycle.now, start, end)
 
 
 def _ev_window(ev_charger: EVCharger, cycle: _Cycle) -> str:
     """The hours the car may charge from the grid, for the EV page."""
-    before, after = _ev_hours(cycle)
-    window = ev_charge_window(cycle.tariff, cycle.now, before, after)
-    if window is None or ev_charger.cheap_rate_mode() is None:
+    if ev_charger.cheap_rate_mode() is None:
         return "Solar surplus only"
-    return f"{window[0].strftime('%H:%M')} to {window[1].strftime('%H:%M')}"
+    start, end = _ev_schedule(cycle)
+    return f"{start.strftime('%H:%M')} to {end.strftime('%H:%M')}"
 
 
 def _car_for_plan(data: CoordinatorData, cycle: _Cycle) -> tuple[float | None, float | None]:
@@ -945,24 +905,17 @@ def _car_for_plan(data: CoordinatorData, cycle: _Cycle) -> tuple[float | None, f
 
 def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str:
     """The car's charging plan as a sentence (core/ev_plan.py)."""
-    upcoming = _upcoming_cheap_period(data, cycle)
     car_level, car_missing = _car_for_plan(data, cycle)
+    start, end = _ev_schedule(cycle)
     return ev_plan_text(
         EVPlanFacts(
             plugged_in=ev_charger.is_plugged_in,
             can_charge_from_grid=ev_charger.cheap_rate_mode() is not None,
             charge_now=cycle.overrides.ev_charge_now,
             pause=cycle.overrides.ev_pause,
-            on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
-            rate_name=cycle.current_period.name,
-            rate=cycle.current_period.rate,
-            currency_symbol=data.currency_symbol,
-            in_extra_hours=_in_ev_charge_hours(cycle),
-            charge_until=_ev_charge_until(data, cycle),
-            next_charge_start=_ev_next_start(data, cycle),
-            next_cheap_start=data.next_cheap_rate_start,
-            next_cheap_name=upcoming.name if upcoming else "",
-            next_cheap_rate=upcoming.rate if upcoming else 0.0,
+            in_window=_in_ev_schedule(cycle),
+            window_start=start.strftime("%H:%M"),
+            window_end=end.strftime("%H:%M"),
             surplus_min_w=EV_CHARGER_MIN_POWER_W,
             car_level_pct=car_level,
             car_missing_kwh=car_missing,
@@ -992,7 +945,7 @@ def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
     cycle: _Cycle,
-    mode_held: bool,  # noqa: FBT001
+    grid_held: bool,  # noqa: FBT001
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -1011,10 +964,10 @@ def _process_ev_charger(
         battery_soc=raw.battery_soc,
         solar_surplus_w=solar_surplus_w,
         request=EVRequest(
-            on_cheap_rate=_in_ev_charge_hours(cycle),
+            scheduled=_in_ev_schedule(cycle),
             charge_now=cycle.overrides.ev_charge_now,
             pause=cycle.overrides.ev_pause,
-            mode_held=mode_held,
+            grid_held=grid_held,
         ),
     )
     data.ev_protection_reason = reason
@@ -1145,8 +1098,8 @@ class CycleInputs:
     cfg: dict[str, Any]
     now: datetime | None = None
     ev_charger: EVCharger | None = None
-    # True while the charger is in its grid mode because a cheaper rate period set it so.
-    ev_mode_held: bool = False
+    # True while the charger is in its grid mode because this integration put it there.
+    ev_grid_held: bool = False
     overrides: ManualOverrides = field(default_factory=ManualOverrides)
 
 
@@ -2188,7 +2141,7 @@ def build_coordinator_data(
     if inputs.ev_charger is None:
         return data, None
     ev_target_mode = _process_ev_charger(
-        data, inputs.ev_charger, cycle, inputs.ev_mode_held
+        data, inputs.ev_charger, cycle, inputs.ev_grid_held
     )
     step = _EVTotals.of(accumulators.today).step_since(ev_before, inputs.ev_charger.state, now)
     _track_ev_session(data, accumulators.ev_sessions, step)

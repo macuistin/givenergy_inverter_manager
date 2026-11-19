@@ -59,8 +59,8 @@ class TestWhatNeedsWhat:
             "zappi_today",
             "zappi_cost_today",
             "ev_charge_now",
-            "ev_hours_before_cheap",
-            "ev_hours_after_cheap",
+            "ev_start_time",
+            "ev_end_time",
             "ev_pause",
             "ev_hold_battery",
         }
@@ -144,7 +144,7 @@ class TestWhatNeedsWhat:
 
         entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
         for device_entity in od.DEVICE_ENTITIES:
-            if device_entity.platform not in ("switch", "number"):
+            if device_entity.platform not in ("switch", "number", "time"):
                 continue
             translated = entity[device_entity.platform][device_entity.key]["name"]
             assert translated == device_entity.name, device_entity.key
@@ -332,5 +332,5 @@ class TestRemovingOrphans:
 
 @pytest.mark.parametrize("entity", od.DEVICE_ENTITIES, ids=lambda e: e.key)
 def test_each_switch_and_number_has_a_name_and_a_platform(entity):
-    assert entity.platform in ("switch", "number")
+    assert entity.platform in ("switch", "number", "time")
     assert entity.name
