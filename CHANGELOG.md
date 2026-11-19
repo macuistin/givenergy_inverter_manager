@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.24.0
+
+This release adds a live ranking of the cheapest plans for your usage, shadow tariffs, car sensors, a redesigned Bill & tariff tab and a start and end time for the EV charge window. Check the EV charger settings after upgrading: the charge window is now a start and end time, and **Hold Battery While EV Charges** is on by default.
 
 **Added**
 - **A live ranking of the cheapest plans.** Once a day, after midnight, and once at start-up, the integration prices your last whole bill of measured usage under every plan in the tariff store for your country and area, and ranks them with your own tariff. Two new sensors show the result: **Tariff Rank** (your place among all the plans, 1 being the cheapest, with the cheapest plans and the days priced as attributes) and **Cheapest Plan Saving** (what the cheapest plan would have saved over that bill, 0 when yours is the cheapest). A **Cheapest plans** section under the bill on the Bill & tariff tab shows the cheapest five and your own tariff as bars on one scale, and opens with a sentence on where your tariff stands and which plan your last bill would have been cheapest on. A plan with no export price is priced with your own export rate. It re-prices past usage, never forecasts, and never changes your tariff. Nothing needs changing on upgrade. **Upgrading:** a stored dashboard shows the section after you press **Submit** on the out-of-date dashboard repair. See [Cheapest plans](docs/tariff.md#cheapest-plans-live).
