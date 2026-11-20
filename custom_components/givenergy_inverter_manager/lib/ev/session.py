@@ -10,7 +10,8 @@ ends a session.
 
 Each cycle adds the EV energy and EV cost that today's EV totals counted for the same step
 (the engine's daily totals), so a session that crosses midnight costs exactly what the two
-days' EV cost counted for its energy. Solar energy that reached the car costs nothing there, and so here.
+days' EV cost counted for its energy. Solar energy that reached the car costs nothing there,
+and so here.
 
 A finished session that delivered no energy is not kept. The last EV_RECENT_SESSIONS_MAX
 finished sessions are kept, newest first.
