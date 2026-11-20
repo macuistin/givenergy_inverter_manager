@@ -173,6 +173,9 @@ REPLAN_FORECAST_CHANGE_PCT = 15
 REPLAN_FORECAST_CHANGE_MIN_KWH = 1.0
 REPLAN_MIN_CHANGE_PTS = 5
 REPLAN_MAX_WRITES = 3
+# The charger must read unplugged this long before the charge plan treats the car as unplugged.
+# One dropped reading would otherwise re-plan the night. Plugging in counts at once.
+EV_UNPLUG_CONFIRM_S = 600
 CONFLICT_MIN_CHANGES = 2
 CONFLICT_WINDOW_DAYS = 3
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log

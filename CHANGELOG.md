@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- A single dropped reading from the EV charger no longer re-plans the night. The overnight charge plan now treats the car as unplugged only after the charger has read unplugged for 10 minutes. Plugging in still counts at once. Before, a one-minute dropout moved the charge target, and a few of them used up the three re-plans allowed a night, so the target could stay lower than planned. Nothing needs changing on upgrade.
+
 ## v0.24.0
 
 This release adds a live ranking of the cheapest plans for your usage, shadow tariffs, car sensors, a redesigned Bill & tariff tab and a start and end time for the EV charge window. Check the EV charger settings after upgrading: the charge window is now a start and end time, and **Hold Battery While EV Charges** is on by default.
