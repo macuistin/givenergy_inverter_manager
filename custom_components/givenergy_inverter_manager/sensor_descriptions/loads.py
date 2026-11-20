@@ -90,6 +90,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="ev_protection_reason",
         value_fn=lambda d: d.ev_protection_reason,
+        attrs_fn=values.ev_command_attributes,
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(

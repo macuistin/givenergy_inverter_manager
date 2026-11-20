@@ -928,6 +928,9 @@ class ImmersionRun:
     # True once a scheduled run has lasted its longest time (core/scheduled_run.py). The
     # scheduled decisions then step aside, so only solar surplus can keep the heater on.
     scheduled_capped: bool = False
+    # True while the car and the house battery are both charging from the grid, or the battery is
+    # about to. Scheduled grid heating waits for one of them to stop.
+    grid_loads_charging: bool = False
 
 
 @dataclass(frozen=True)
@@ -1158,11 +1161,31 @@ def _capped_reason(inputs: ImmersionInputs, verdict: Verdict) -> Verdict:
     return verdict
 
 
+WAIT_FOR_CHARGING_REASON = (
+    "Scheduled heating is waiting: the car and the house battery are charging from the grid"
+)
+
+
 def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     """
     Decide whether to turn on the immersion heater.
 
     Returns (should_divert, reason).
+
+    While the car and the house battery are both charging from the grid, scheduled grid heating
+    (rules 2a and 2b below) waits, so the three loads do not run on the supply together. It starts
+    when either one stops. Solar surplus and the legionella minimum are not held back.
+    """
+    waiting = inputs.run.grid_loads_charging and scheduled_heating_wanted(inputs)
+    if waiting:
+        inputs = replace(inputs, window=CheapWindow(), ready=ReadyPlan())
+    verdict = _divert_verdict(inputs)
+    return (False, WAIT_FOR_CHARGING_REASON) if waiting and not verdict[0] else verdict
+
+
+def _divert_verdict(inputs: ImmersionInputs) -> Verdict:
+    """
+    The rules for the immersion heater, in order.
 
     Algorithm:
       0. Never divert when there is no switch to drive the element

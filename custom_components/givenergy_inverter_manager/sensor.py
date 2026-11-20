@@ -71,6 +71,8 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         "ranking",
         # Charge register writes and outside changes, newest first.
         "recent_writes",
+        # Commands sent to the EV charger and outside changes to its mode, newest first.
+        "recent_commands",
         # EV session cost: the running session's energy and the finished sessions with their table.
         "session_energy_kwh",
         "recent_sessions",

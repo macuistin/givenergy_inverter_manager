@@ -117,6 +117,7 @@ CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistica
 CHARGE_SKIP_HEADROOM = 0.8  # forecast/fill headroom needed to justify skipping charge
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
 CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
+IMMERSION_CHARGE_LEAD_MINUTES = 3  # scheduled heating holds off this long before a charge
 EV_HOLD_MINUTES = 30  # how long one battery hold lasts before it is renewed
 EV_HOLD_RENEW_MINUTES = 10  # renew a hold when this much of it is left
 EV_HOLD_RELEASE_MINUTES = 5  # the car must stay off this long before the hold is ended
@@ -175,6 +176,7 @@ REPLAN_MIN_CHANGE_PTS = 5
 REPLAN_MAX_WRITES = 3
 CONFLICT_MIN_CHANGES = 2
 CONFLICT_WINDOW_DAYS = 3
+EV_COMMAND_LOG_MAX_ENTRIES = 50  # recent Zappi commands and outside mode changes kept
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 
 # ── Sensor state text ─────────────────────────────────────────────────────────

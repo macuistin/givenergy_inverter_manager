@@ -313,6 +313,16 @@ The charge target, the charge window start and the charge window end can be chan
 
 The integration only records these changes. It does not undo them. The log is saved with the integration's other stored data, so it survives restarts. The `external` entries cover the charge target, window start and window end entities only.
 
+## Find out what was sent to the EV charger
+
+The integration keeps a log of the commands it sends to the EV charger's charge mode, and of mode changes it did not send, so you can see what it did and when. It holds the last 50 entries and is saved with the integration's other stored data, so it survives restarts.
+
+1. Open **Developer Tools → States** and search for `ev_protection_reason`. The EV charger **Mode Decision** sensor holds the log in its `recent_commands` attribute, newest first.
+2. Read each entry. `time`, `entity_id` and `value` say what was set and when. `reason` says what happened to it: `sent:` followed by the decision means the integration sent the command, `failed (...)` means the call was refused or raised an error, `not sent, cooldown` means it decided to change the mode but the write cooldown held it back, and `dry run, not sent` means dry run was on.
+3. An `external` entry is a mode change the integration did not send. `user_id` is the Home Assistant user who made it, and `parent_id` is the automation or script. If both are empty, the change did not come through a Home Assistant service call: the charger, its own schedule or its app made it.
+4. A decision that finds the charger already in the mode sends nothing and adds no entry. The Mode Decision sensor then reads `already charging in` the mode.
+5. Search **Settings → System → Logs** for `EV charger action` to see each sent command as a log line when the log level for the integration is Info.
+
 ## The charge window was put back
 
 The write log shows a `window repair` line, or the dry run line `Would repair the charge window`. The integration found slot 1 running into the day rate and set it back to the planned window. The line says what the window was, for example `the window was 02:00 to 00:10, past the cheap rate, set back to 02:00 to 04:00`.
