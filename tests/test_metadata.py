@@ -391,6 +391,13 @@ def test_every_lib_package_has_an_allow_list_row_and_the_reverse():
     assert on_disk == set(ALLOWED)
 
 
+def test_every_lib_package_has_a_readme():
+    """lib/README.md asks for one in each package, so a package can be lifted out with its notes."""
+    missing = [p.name for p in sorted((PKG / "lib").iterdir()) if p.is_dir() and p.name != "__pycache__" and not (p / "README.md").is_file()]
+
+    assert missing == []
+
+
 def test_boundary_test_rejects_the_imports_a_lib_package_must_not_make(tmp_path):
     package = tmp_path / "lib" / "demo"
     package.mkdir(parents=True)

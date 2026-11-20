@@ -121,7 +121,7 @@ SURPLUS_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
 
 # The brands whose charge mode select has an option that charges from the grid at full speed, and
 # the option to use when the select does not say what it offers. It is only ever chosen in a
-# cheaper-than-base rate period (core/rules.py), and left again when that period ends.
+# cheaper-than-base rate period, and left again when that period ends.
 CHEAP_RATE_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
     EVChargerBrand.ZAPPI: "Fast",
 }
@@ -134,8 +134,8 @@ STOP_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
 }
 
 # The brands whose charge mode select has an option that draws from the grid, but that is never
-# chosen automatically: a charger found in it is taken out of it when nothing asks for it
-# (core/rules.py). The cheap-rate table above is for modes that may also be chosen.
+# chosen automatically: a charger found in it is taken out of it when nothing asks for it.
+# The cheap-rate table above is for modes that may also be chosen.
 GRID_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
     EVChargerBrand.GIVENERGY: "Grid",
 }
