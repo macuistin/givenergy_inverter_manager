@@ -5,7 +5,6 @@ import pytest
 from custom_components.givenergy_inverter_manager import lib
 from custom_components.givenergy_inverter_manager.core import (
     battery_pause,
-    feed_freshness,
     inverter_values,
     system_types,
 )
@@ -24,7 +23,6 @@ OWNERS = {
     battery_pause: lib.givtcp.pause,
     inverter_values: lib.givtcp.values,
     system_types: lib.givtcp.system,
-    feed_freshness: lib.givtcp.freshness,
     pause_modes: lib.givtcp.pause_modes,
     constants: lib.givtcp.defaults,
     discovery: lib.givtcp.discovery,

@@ -1,10 +1,10 @@
 """defaults.py: the heating thresholds. const.py re-imports them so there is one source.
 
-CHARGE_WINDOW_MARGIN is also the stretch the charge window sizing uses (core/charge_window.py),
+CHARGE_WINDOW_MARGIN is also the stretch the charge window sizing uses,
 which reads it through const.
 """
 
-# Charge window sizing (core/charge_window.py). The charge time the plan needs is stretched by
+# Charge window sizing. The charge time the plan needs is stretched by
 # this fraction, because the battery slows near full and the real rate sits below the setting.
 CHARGE_WINDOW_MARGIN = 0.15
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
