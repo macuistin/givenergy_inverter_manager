@@ -118,6 +118,7 @@ from .const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
+    EV_COMMAND_LOG_MAX_ENTRIES,
     EV_UNPLUG_CONFIRM_S,
     FORECAST_P10_ATTRIBUTE,
     FORECAST_PERIOD_ATTRIBUTES,
@@ -214,7 +215,13 @@ from .core.window_guard import (
 )
 from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
 from .core.wizard_pages import first_car
-from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
+from .core.write_log import (
+    REPLAN_REASON,
+    RETRY_REASON,
+    SETTLE_REASON,
+    WINDOW_REPAIR_REASON,
+    WriteRecord,
+)
 from .discovery import (
     EVCharger,
     EVChargerState,
@@ -644,6 +651,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # retry, write counting and one lock so writes never interleave. The lambdas look the
         # proxies up at call time so a test that swaps _call_service takes effect.
         self._audit = WriteAudit(self._acc, now=lambda: self._now())
+        # The EV charger's commands and outside mode changes, in a log of their own so they never
+        # crowd out the charge writes.
+        self._ev_audit = WriteAudit(
+            self._acc,
+            now=lambda: self._now(),
+            log="ev_command_log",
+            limit=EV_COMMAND_LOG_MAX_ENTRIES,
+        )
+        self._ev_mode_watched: set[str] = set()
         self._backend = make_backend(
             self._effective_cfg(),
             GivTCPPorts(
@@ -1658,6 +1674,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         self._ev_charger = found[0]
         _LOG.info("Discovered EV charger: %s", self._ev_charger.display_name)
+        self._watch_ev_mode(self._ev_charger)
 
     def _complete_ev_charger(self, charger: EVCharger, found: list[EVCharger]) -> None:
         """Add entities that have appeared since the charger was first found."""
@@ -1665,6 +1682,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         filled = charger.fill_missing_entities(rescanned) if rescanned else []
         if filled:
             _LOG.debug("EV charger %s: found %s", charger.display_name, ", ".join(filled))
+            self._watch_ev_mode(charger)
         else:
             _LOG.debug(
                 "EV charger %s: no new entities (cycle %d)",
@@ -1688,11 +1706,19 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         elif in_clock_window(now, *ev_schedule(self._effective_cfg())):
             self._ev_grid_held = True
 
-    def _apply_ev_action(self, target_mode: str | None) -> None:
+    def _watch_ev_mode(self, charger: EVCharger) -> None:
+        """Log any change to the charger's mode that this integration did not send."""
+        entity_id = charger.charge_mode_entity
+        if entity_id and entity_id not in self._ev_mode_watched:
+            self._ev_mode_watched.add(entity_id)
+            self.entry.async_on_unload(self._ev_audit.watch(self.hass, [entity_id]))
+
+    def _apply_ev_action(self, target_mode: str | None, reason: str = "") -> None:
         """Apply an EV charger mode change via HA service call.
 
         Skips the write when the charger is already in the target mode and honours
-        the same per-entity write cooldown as the GivTCP writes.
+        the same per-entity write cooldown as the GivTCP writes. Every command, and every
+        decision the cooldown holds back, goes into the EV command log.
         """
         charger = self._ev_charger
         if target_mode is None or charger is None or not charger.charge_mode_entity:
@@ -1704,26 +1730,40 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         if self.is_dry_run:
             self._record_ev_dry_run(charger, target_mode, current)
-        elif not self._backend.cooldown_active(
+        elif self._backend.cooldown_active(
             charger.charge_mode_entity, charger.display_name, target_mode
         ):
+            self._ev_audit.note(
+                charger.charge_mode_entity, target_mode, f"not sent, cooldown: {reason}"
+            )
+        else:
             self._backend.start_cooldown(charger.charge_mode_entity, target_mode)
-            self._send_ev_mode(charger, target_mode)
+            self._send_ev_mode(charger, target_mode, reason)
 
     def _record_ev_dry_run(self, charger: EVCharger, target_mode: str, current: str) -> None:
         action = f"Would set {charger.display_name} → {target_mode} (currently {current!r})"
         _LOG.info("DRY RUN: %s", action)
+        self._ev_audit.note(str(charger.charge_mode_entity), target_mode, "dry run, not sent")
         self._record_skipped(action)
 
-    def _send_ev_mode(self, charger: EVCharger, target_mode: str) -> None:
-        _LOG.info("EV charger action: %s → %s", charger.display_name, target_mode)
-        self._create_task(
-            self._call_service(
-                "select",
-                "select_option",
-                {"entity_id": charger.charge_mode_entity, "option": target_mode},
+    def _send_ev_mode(self, charger: EVCharger, target_mode: str, reason: str = "") -> None:
+        _LOG.info("EV charger action: %s → %s (%s)", charger.display_name, target_mode, reason)
+        self._create_task(self._call_ev_mode(charger, target_mode, reason))
+
+    async def _call_ev_mode(self, charger: EVCharger, target_mode: str, reason: str) -> None:
+        """Send the mode and log the command with its result, sent or failed."""
+        entity_id = str(charger.charge_mode_entity)
+        record = WriteRecord(entity_id, target_mode, reason)
+        self._ev_audit.before_write(record)
+        try:
+            await self._call_service(
+                "select", "select_option", {"entity_id": entity_id, "option": target_mode}
             )
-        )
+        except Exception as err:
+            self._ev_audit.write_failed(record)
+            self._ev_audit.note(entity_id, target_mode, f"failed ({err}): {reason}")
+            raise
+        self._ev_audit.after_write(WriteRecord(entity_id, target_mode, f"sent: {reason}"))
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 
@@ -2310,6 +2350,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.year_start_time = self._acc.state.year_start_iso
         data.register_write_count = self._backend.write_count
         data.register_write_log = list(self._acc.state.register_write_log)
+        data.ev_command_log = list(self._acc.state.ev_command_log)
         data.trailing_12m_export_kwh = self._acc.trailing_12m_export_kwh
         data.trailing_12m_solar_kwh = self._acc.trailing_12m_solar_kwh
         data.trailing_12m_import_kwh = self._acc.trailing_12m_import_kwh
@@ -2498,7 +2539,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     ) -> None:
         """Send the EV and immersion commands the engine asked for."""
         self._note_ev_grid_held(now)
-        self._apply_ev_action(ev_target_mode)
+        self._apply_ev_action(ev_target_mode, data.ev_protection_reason)
         if self.data is not None:
             # The first cycle only observes. At startup the real switch may not be up yet.
             self.immersion.actuate(data, now)

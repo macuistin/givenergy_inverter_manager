@@ -344,6 +344,10 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._hold_store = _FakeHoldStore()
         self._wire_battery_hold()
         self._audit = WriteAudit(self._acc, now=lambda: self._now())
+        self._ev_audit = WriteAudit(
+            self._acc, now=lambda: self._now(), log="ev_command_log", limit=50
+        )
+        self._ev_mode_watched = set()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0

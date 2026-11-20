@@ -4,6 +4,12 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Added**
+- An **EV command log**. Every command the integration sends to the EV charger's charge mode is now logged with its time, the mode set, the reason and the result: sent, failed, held back by the write cooldown, or skipped in dry run. A mode change it did not send, such as one made by the charger or its app, is logged too, with the Home Assistant user or automation when there is one. The last 50 entries are the `recent_commands` attribute of the EV charger **Mode Decision** sensor, newest first, and are saved across restarts. Nothing needs changing on upgrade. See [Find out what was sent to the EV charger](docs/troubleshooting.md#find-out-what-was-sent-to-the-ev-charger).
+
+**Changed**
+- Scheduled immersion heating now waits while the car and the house battery are both charging from the grid, or the battery charge is about to start, and starts again when either stops. Before, the 3 kW element came on at 02:00 as the battery charge started, on top of the car, and the car stopped charging when the supply voltage fell. A running heater is turned off for the wait, within the usual 10 minute switch hold. Solar surplus heating and the minimum temperature rule are not held back, and nothing changes when no car is charging. Nothing needs changing on upgrade. See [Scheduled immersion heating](docs/concepts.md#scheduled-immersion-heating).
+
 **Fixes**
 - A single dropped reading from the EV charger no longer re-plans the night. The overnight charge plan now treats the car as unplugged only after the charger has read unplugged for 10 minutes. Plugging in still counts at once. Before, a one-minute dropout moved the charge target, and a few of them used up the three re-plans allowed a night, so the target could stay lower than planned. Nothing needs changing on upgrade.
 

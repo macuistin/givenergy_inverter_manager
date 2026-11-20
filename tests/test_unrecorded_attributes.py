@@ -44,6 +44,7 @@ UNRECORDED: dict[str, set[str]] = {
     "summary_table": {"previous_bill_audit"},
     "period": {"previous_bill_audit"},
     "recent_writes": {"register_write_count"},
+    "recent_commands": {"ev_protection_reason"},
     "session_energy_kwh": {"ev_session_cost"},
     "recent_sessions": {"ev_session_cost"},
     "recent_table": {"ev_session_cost"},
