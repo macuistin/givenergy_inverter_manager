@@ -67,6 +67,7 @@ from ..const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     EV_CHARGER_MIN_POWER_W,
+    IMMERSION_CHARGE_LEAD_MINUTES,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
     INVERTER_TEMP_STATUS_CRITICAL,
@@ -1346,6 +1347,32 @@ def _max_run_hours(raw: RawSensorValues) -> float | None:
     return raw.immersion_max_run_minutes / 60 if raw.immersion_max_run_minutes > 0 else None
 
 
+def _charge_about_to_run(data: CoordinatorData, cycle: _Cycle) -> bool:
+    """True when tonight's charge is planned, the battery is below its target and the charge
+    window is open or about to open, so the battery is about to take power from the grid."""
+    decision, window = data.charge_decision, data.charge_window
+    if decision is None or window is None or decision.skip_charge:
+        return False
+    if cycle.raw.battery_soc >= decision.target_soc:
+        return False
+    soon = cycle.now + timedelta(minutes=IMMERSION_CHARGE_LEAD_MINUTES)
+    return in_clock_window(soon, window.start, window.end)
+
+
+def _grid_loads_charging(data: CoordinatorData, cycle: _Cycle) -> bool:
+    """True while the car draws power and the house battery charges from the grid, or is about to.
+
+    Scheduled immersion heating waits for one of them to stop.
+    """
+    raw = cycle.raw
+    if raw.ev_power_w < EV_CHARGER_MIN_POWER_W:
+        return False
+    charging = (
+        raw.battery_power_w > POWER_DIRECTION_BAND_W and raw.grid_power_w > POWER_DIRECTION_BAND_W
+    )
+    return charging or _charge_about_to_run(data, cycle)
+
+
 def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
     raw = cycle.raw
     return ImmersionInputs(
@@ -1356,6 +1383,7 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
             currently_on=raw.immersion_on,
             unavailable_for_s=raw.unavailable_for_s,
             switch_configured=raw.immersion_switch_configured,
+            grid_loads_charging=_grid_loads_charging(data, cycle),
         ),
         window=_cheap_window(cycle),
         ready=_ready_plan(cycle),
