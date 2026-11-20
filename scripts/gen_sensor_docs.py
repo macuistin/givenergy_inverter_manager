@@ -708,7 +708,10 @@ DESCRIPTIONS: dict[str, str] = {
     "ev_draining_battery": (
         "yes while the charger is charging, drawing power, and the battery discharges over 200 W."
     ),
-    "ev_protection_reason": "Reason for the latest EV charge mode decision.",
+    "ev_protection_reason": (
+        "Reason for the latest EV charge mode decision. The `recent_commands` attribute lists the "
+        "last 50 commands sent to the charger and the mode changes it made itself."
+    ),
     "ev_charging_window": "The hours the car charges from the grid: your start and end times.",
     "ev_charging_plan": (
         "What the car will do and when, such as the hours it charges in. With a car set "

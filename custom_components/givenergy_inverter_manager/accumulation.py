@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from utility_tariffs_lib.tariff.bill_days import day_row, tariff_in_effect, with_day
 
-from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
+from .const import EV_COMMAND_LOG_MAX_ENTRIES, REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
 from .core.entity_refs import clean_remembered
 from .core.ev_session import EVSessionLog
@@ -286,6 +286,8 @@ class AccumulationState:
     register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
     # Newest-last log of recent writes and outside changes, see core/write_log.py.
     register_write_log: list[dict[str, Any]] = field(default_factory=list)
+    # Newest-last log of the commands sent to the EV charger and outside changes to its mode.
+    ev_command_log: list[dict[str, Any]] = field(default_factory=list)
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list[Any] = field(default_factory=list)  # last 7 days
 
@@ -878,6 +880,7 @@ def _serialize_state(state: AccumulationState) -> dict[str, Any]:
         "battery_tracking_start_cycles": state.battery_tracking_start_cycles,
         "register_write_count": state.register_write_count,
         "register_write_log": [dict(e) for e in state.register_write_log],
+        "ev_command_log": [dict(e) for e in state.ev_command_log],
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
@@ -925,6 +928,7 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict[str, Any]
     state.register_write_log = restore_entries(
         data.get("register_write_log"), REGISTER_WRITE_LOG_MAX_ENTRIES
     )
+    state.ev_command_log = restore_entries(data.get("ev_command_log"), EV_COMMAND_LOG_MAX_ENTRIES)
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))

@@ -607,6 +607,11 @@ def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
     return {"recent_writes": newest_first(data.register_write_log)}
 
 
+def ev_command_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The recent commands sent to the EV charger and outside changes to its mode, newest first."""
+    return {"recent_commands": newest_first(data.ev_command_log)}
+
+
 # ── Savings ──────────────────────────────────────────────────────────────────
 
 

@@ -495,6 +495,7 @@ class CoordinatorData:
     forecast_accuracy: ForecastAccuracy | None = None
     register_write_count: int = 0
     register_write_log: list[dict[str, Any]] = field(default_factory=list)  # oldest first
+    ev_command_log: list[dict[str, Any]] = field(default_factory=list)  # oldest first
     # Whether something else is changing the charge target, read from the write log.
     charge_target_conflict: ConflictStatus = field(default_factory=ConflictStatus)
     carbon_intensity_gco2: float | None = None

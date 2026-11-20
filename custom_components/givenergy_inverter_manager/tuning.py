@@ -176,6 +176,7 @@ REPLAN_MIN_CHANGE_PTS = 5
 REPLAN_MAX_WRITES = 3
 CONFLICT_MIN_CHANGES = 2
 CONFLICT_WINDOW_DAYS = 3
+EV_COMMAND_LOG_MAX_ENTRIES = 50  # recent Zappi commands and outside mode changes kept
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 
 # ── Sensor state text ─────────────────────────────────────────────────────────
