@@ -10,6 +10,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 **Changed**
 - Scheduled immersion heating now waits while the car and the house battery are both charging from the grid, or the battery charge is about to start, and starts again when either stops. Before, the 3 kW element came on at 02:00 as the battery charge started, on top of the car, and the car stopped charging when the supply voltage fell. A running heater is turned off for the wait, within the usual 10 minute switch hold. Solar surplus heating and the minimum temperature rule are not held back, and nothing changes when no car is charging. Nothing needs changing on upgrade. See [Scheduled immersion heating](docs/concepts.md#scheduled-immersion-heating).
 
+**Fixes**
+- A single dropped reading from the EV charger no longer re-plans the night. The overnight charge plan now treats the car as unplugged only after the charger has read unplugged for 10 minutes. Plugging in still counts at once. Before, a one-minute dropout moved the charge target, and a few of them used up the three re-plans allowed a night, so the target could stay lower than planned. Nothing needs changing on upgrade.
+
 ## v0.24.0
 
 This release adds a live ranking of the cheapest plans for your usage, shadow tariffs, car sensors, a redesigned Bill & tariff tab and a start and end time for the EV charge window. Check the EV charger settings after upgrading: the charge window is now a start and end time, and **Hold Battery While EV Charges** is on by default.

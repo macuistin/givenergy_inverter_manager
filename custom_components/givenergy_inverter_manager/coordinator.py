@@ -119,6 +119,7 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     EV_COMMAND_LOG_MAX_ENTRIES,
+    EV_UNPLUG_CONFIRM_S,
     FORECAST_P10_ATTRIBUTE,
     FORECAST_PERIOD_ATTRIBUTES,
     SHADOW_PRICING_INTERVAL_SECONDS,
@@ -169,6 +170,7 @@ from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
 from .core.limits import capacity_kwh, inverter_output_kw
+from .core.plug_debounce import PlugDebounce
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.replan import (
     NightState,
@@ -398,6 +400,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # read the current CONF_VERBOSE_LOGGING flag without a restart.
         GivLogger.register(self._effective_cfg)
         self._init_cycle_state()
+        self._init_ev()
         self._init_slot_history()
         self._init_battery_hold()
         self._init_system_watch()
@@ -570,7 +573,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_note: str = ""
         self._replan_pending: bool = False
         self._window_guard = GuardState()
-        self._ev_charger: EVCharger | None = None
         # The grid mode was set by a cheaper rate period, so the end of that period undoes it.
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
@@ -586,6 +588,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # EMA-smoothed solar power (α=0.5) for surplus divert decisions, so they do not
         # chase transient cloud gaps. The raw value is used for accumulation.
         self._smoothed_solar_w: float = 0.0
+
+    def _init_ev(self) -> None:
+        """The charger found at setup, and the plug state the charge plan sees."""
+        self._ev_charger: EVCharger | None = None
+        self._plug_debounce = PlugDebounce(EV_UNPLUG_CONFIRM_S)
 
     def _init_manual_overrides(self) -> None:
         """Overrides set by switches and numbers, read by the engine."""
@@ -1625,7 +1632,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._ev_charger is not None:
             raw.ev_charger_present = True
             raw.ev_power_w = self._ev_charger.power_w
-            raw.ev_plugged_in = self._ev_charger.is_plugged_in
+            raw.ev_plugged_in = self._plug_debounce.update(
+                self._ev_charger.is_plugged_in, self._now()
+            )
 
     def _track_input_outage(self, raw: RawSensorValues, now: datetime) -> None:
         """Record how long the required inputs have been continuously unavailable."""
