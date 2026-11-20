@@ -42,6 +42,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_SHADOW_TARIFFS,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
+    EV_UNPLUG_CONFIRM_S,
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import HeldTriggers
@@ -55,6 +56,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import (
     RunTracker,
     keep_day_rate,
 )
+from custom_components.givenergy_inverter_manager.core.plug_debounce import PlugDebounce
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
 from custom_components.givenergy_inverter_manager.core.slot_sampler import SlotSampler
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
@@ -350,6 +352,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
+        self._plug_debounce = PlugDebounce(EV_UNPLUG_CONFIRM_S)
         self._ev_grid_held = False
         self.override_ev_charge_now = False
         self.override_ev_pause = False
@@ -588,6 +591,22 @@ class TestCollectRaw:
         assert not (coord._collect_raw(coord._effective_cfg()).ev_charger_present)
         coord._ev_charger = TestApplyEvAction()._charger()
         assert coord._collect_raw(coord._effective_cfg()).ev_charger_present
+
+    def test_a_short_unplugged_reading_does_not_unplug_the_car_for_the_charge_plan(self):
+        from custom_components.givenergy_inverter_manager.discovery import EVChargerState
+
+        coord = FakeCoordinator(cfg=_cfg())
+        charger = TestApplyEvAction()._charger()
+        coord._ev_charger = charger
+        start = datetime(2031, 3, 4, 2, 34, tzinfo=timezone.utc)
+        coord._now = lambda: start
+        charger.state = EVChargerState.CONNECTED
+        assert coord._collect_raw(coord._effective_cfg()).ev_plugged_in
+        charger.state = EVChargerState.DISCONNECTED
+        coord._now = lambda: start + timedelta(minutes=1)
+        assert coord._collect_raw(coord._effective_cfg()).ev_plugged_in
+        coord._now = lambda: start + timedelta(minutes=11)
+        assert not coord._collect_raw(coord._effective_cfg()).ev_plugged_in
 
     def test_no_forecast_when_entity_not_configured(self):
         coord = FakeCoordinator(cfg=_cfg())
