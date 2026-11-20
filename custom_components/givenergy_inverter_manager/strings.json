@@ -954,12 +954,6 @@
       "forecast_conservatism": {
         "name": "Forecast conservatism"
       },
-      "ev_hours_before_cheap": {
-        "name": "Charge Hours Before Cheap Rate"
-      },
-      "ev_hours_after_cheap": {
-        "name": "Charge Hours After Cheap Rate"
-      },
       "charge_target_override": {
         "name": "Overnight Charge Target Override"
       },
@@ -1565,6 +1559,14 @@
       },
       "immersion_schedule": {
         "name": "Scheduled Heating"
+      }
+    },
+    "time": {
+      "ev_start_time": {
+        "name": "Charge Start Time"
+      },
+      "ev_end_time": {
+        "name": "Charge End Time"
       }
     }
   },

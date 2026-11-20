@@ -334,12 +334,13 @@ async def test_an_ev_mode_request_is_one_select_write_to_the_zappi(hass_in_scena
     assert mock.sequence() == [("select.select_option", ZAPPI_MODE, "Eco+")]
 
 
-async def test_an_unplugged_zappi_in_fast_is_stopped(hass_in_scenario, mock, surplus):
+async def test_an_unplugged_zappi_in_fast_is_left_alone(hass_in_scenario, mock, surplus):
     hass = hass_in_scenario
     mock.add_zappi(plugged_in=False, mode="Fast")
     entry = await _set_up(hass, mock, keep_setup_writes=True)
     await cycle(hass, entry)
-    assert mock.sequence() == [("select.select_option", ZAPPI_MODE, "Stopped")]
+    assert mock.sequence() == []
+    assert hass.states.get(ZAPPI_MODE).state == "Fast"
 
 
 async def test_no_ev_request_when_the_car_is_not_plugged_in_and_the_zappi_is_stopped(

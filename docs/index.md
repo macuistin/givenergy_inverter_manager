@@ -2,7 +2,7 @@
 
 Home Assistant integration for GivEnergy inverters. It reads inverter data from GivTCP over MQTT, sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. Nothing leaves your network: the integration only reads and writes Home Assistant entities.
 
-This documentation matches version 0.24.0b10.
+This documentation matches version 0.24.0.
 
 ## Start here
 
@@ -56,7 +56,7 @@ Mermaid sources. GitHub renders them, or paste one into the [Mermaid live editor
 | [30-second update cycle](update-cycle.mermaid) | One coordinator cycle and the nightly charge target write |
 | [Tariff rate precedence](tariff-precedence.mermaid) | How the current rate is chosen |
 | [Immersion decision](immersion-logic.mermaid) | The divert rules, the cooldown and manual overrides |
-| [EV charger decision](ev-charger-logic.mermaid) | When the integration selects Eco+ |
+| [EV charger decision](ev-charger-logic.mermaid) | When the integration selects Fast, Stopped, Eco+ or Solar |
 
 The charge target rules are in [Concepts](concepts.md#overnight-charge-target). A flowchart of them would only duplicate that list.
 

@@ -129,8 +129,8 @@ class TestAdminsPresent:
                 "ev_charge_now",
                 "ev_pause",
                 "ev_hold_battery",
-                "ev_hours_before_cheap",
-                "ev_hours_after_cheap",
+                "ev_start_time",
+                "ev_end_time",
                 "charge_replan",
                 "cheap_rate_floor_soc",
                 "skip_charge_soc_threshold_pct",
@@ -144,6 +144,8 @@ class TestAdminsPresent:
         for tile in tiles:
             if tile["entity"].startswith("number."):
                 assert tile["features"] == [{"type": "numeric-input", "style": "buttons"}]
+            elif tile["entity"].startswith("time."):
+                assert "features" not in tile
             else:
                 assert tile["tap_action"] == tile["icon_tap_action"] == {"action": "toggle"}
 

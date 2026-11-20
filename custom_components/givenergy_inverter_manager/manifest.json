@@ -20,7 +20,7 @@
   "issue_tracker": "https://github.com/macuistin/givenergy_inverter_manager/issues",
   "quality_scale": "platinum",
   "requirements": [
-    "utility-tariffs-lib==0.1.0"
+    "utility-tariffs-lib==0.3.1"
   ],
-  "version": "0.24.0b10"
+  "version": "0.24.0"
 }

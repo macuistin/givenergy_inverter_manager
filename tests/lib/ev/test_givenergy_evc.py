@@ -198,8 +198,8 @@ class TestTheDecision:
     def test_a_hybrid_charger_is_moved_to_solar_not_left_drawing_6_amps_from_the_grid(self):
         assert decide_ev_charger_action(self._charger("Hybrid"), 60.0, 3000.0)[0] == "Solar"
 
-    def test_without_surplus_a_charger_in_grid_is_taken_out_of_it(self):
-        assert decide_ev_charger_action(self._charger("Grid"), 60.0, 200.0)[0] == "Solar"
+    def test_without_surplus_a_charger_in_grid_is_left_alone(self):
+        assert decide_ev_charger_action(self._charger("Grid"), 60.0, 200.0)[0] is None
 
     def test_without_surplus_a_charger_not_in_grid_is_left_alone(self):
         assert decide_ev_charger_action(self._charger("Hybrid"), 60.0, 200.0)[0] is None

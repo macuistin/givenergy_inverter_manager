@@ -346,7 +346,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
-        self._ev_mode_held = False
+        self._ev_grid_held = False
         self.override_ev_charge_now = False
         self.override_ev_pause = False
         self._ev_base_rate = WatchState()
@@ -1571,6 +1571,57 @@ class TestApplyEvAction:
         coord._apply_ev_action("Stopped")
         assert len(coord.tasks_created) == 0
         assert "Stopped" in coord.data.dry_run_last_skipped
+
+
+class TestNoteEvGridHeld:
+    """The coordinator notes that it set Fast, so the end of the charge window takes it out."""
+
+    def _coord(self, mode, *, now_hour):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._ev_charger = TestApplyEvAction()._charger(mode=mode)
+        coord.data = MagicMock()
+        return coord, datetime(2026, 6, 15, now_hour, 0, tzinfo=timezone.utc)
+
+    def test_fast_inside_the_window_is_noted_also_after_a_restart(self):
+        coord, now = self._coord("Fast", now_hour=2)
+        coord._note_ev_grid_held(now)
+        assert coord._ev_grid_held
+
+    def test_fast_outside_the_window_that_nothing_here_set_is_not_noted(self):
+        coord, now = self._coord("Fast", now_hour=14)
+        coord._note_ev_grid_held(now)
+        assert not coord._ev_grid_held
+
+    def test_a_note_stays_while_the_window_is_over_and_the_charger_is_still_in_fast(self):
+        coord, now = self._coord("Fast", now_hour=14)
+        coord._ev_grid_held = True
+        coord._note_ev_grid_held(now)
+        assert coord._ev_grid_held
+
+    def test_the_note_goes_when_the_charger_leaves_fast(self):
+        coord, now = self._coord("Eco+", now_hour=2)
+        coord._ev_grid_held = True
+        coord._note_ev_grid_held(now)
+        assert not coord._ev_grid_held
+
+    def test_the_window_times_are_the_owner_options(self):
+        coord = FakeCoordinator(cfg=_cfg(ev_start_time="22:00", ev_end_time="07:00"))
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        coord._note_ev_grid_held(datetime(2026, 6, 15, 8, 0, tzinfo=timezone.utc))
+        assert not coord._ev_grid_held
+        coord._note_ev_grid_held(datetime(2026, 6, 15, 22, 30, tzinfo=timezone.utc))
+        assert coord._ev_grid_held
+
+    @pytest.mark.asyncio
+    async def test_sending_fast_notes_it_and_sending_eco_plus_clears_it(self):
+        coord, _ = self._coord("Eco+", now_hour=2)
+        coord._apply_ev_action("Fast")
+        await coord.tasks_created[0]
+        assert coord._ev_grid_held
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        coord._apply_ev_action("Eco+")
+        await coord.tasks_created[1]
+        assert not coord._ev_grid_held
 
 
 # ── TestDryRunLastSkippedSurvivesCycles ───────────────────────────────────────

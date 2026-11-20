@@ -108,8 +108,8 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "cheap_rate_floor_soc": (40, 45, LIVE),
     "skip_charge_soc_threshold_pct": (75, 80, LIVE),
     "forecast_conservatism": (0.35, 0.4, LIVE),
-    "ev_hours_before_cheap": (0.0, 1.5, LIVE),
-    "ev_hours_after_cheap": (0.0, 1.5, LIVE),
+    "ev_start_time": ("23:00", "22:00", LIVE),
+    "ev_end_time": ("09:00", "10:00", LIVE),
     "ev_hold_battery": (False, True, LIVE),
     # The URL path of the dashboard setup found. It is written once, before the update listener
     # exists, and no cycle reads it.

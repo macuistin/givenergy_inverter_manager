@@ -148,6 +148,7 @@ from .core.charge_retry import (
     needs_catch_up,
     next_retry,
 )
+from .core.charge_window import ev_schedule, in_clock_window
 from .core.controller_conflict import detect_conflict
 from .core.engine import (
     Accumulators,
@@ -372,10 +373,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # Ranks the store plans against the active tariff. None on a bare test double.
     ranker: ShadowRanker | None = None
     # The owner's Charge Now and Pause switches, and whether this integration put the charger in
-    # its grid or stop mode. None of them survives a restart.
+    # its grid mode. None of them survives a restart.
     override_ev_charge_now: bool = False
     override_ev_pause: bool = False
-    _ev_mode_held: bool = False
+    _ev_grid_held: bool = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
@@ -516,11 +517,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     async def _maybe_hold_battery(
         self, data: CoordinatorData, cfg: dict[str, Any], now: datetime
     ) -> None:
-        """Hold the house battery back while the car draws from it, when the switch is on."""
+        """Hold the house battery back while the car draws from it.
+
+        It runs when the switch is on, and always while Charge now is on, so a charge asked for
+        on demand never runs on the house battery.
+        """
         charger = self._ev_charger
         await self._battery_hold.run(
             enabled=charger is not None
-            and bool(cfg.get(CONF_EV_HOLD_BATTERY, DEFAULT_EV_HOLD_BATTERY)),
+            and (
+                bool(cfg.get(CONF_EV_HOLD_BATTERY, DEFAULT_EV_HOLD_BATTERY))
+                or self.override_ev_charge_now
+            ),
             car_charging=charger is not None and charger.is_active,
             car_draining=data.ev_draining_battery,
             now=now,
@@ -1655,6 +1663,22 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 self._update_cycle,
             )
 
+    def _note_ev_grid_held(self, now: datetime) -> None:
+        """Note that the charger is in its grid mode inside the charge window, or has left it.
+
+        Inside the window a charger in the grid mode is this integration's doing, also after a
+        restart, so it is taken out of the mode when the window ends. A charger in that mode
+        outside the window, which nothing here put there, is left alone.
+        """
+        charger = self._ev_charger
+        grid_mode = charger.cheap_rate_mode() if charger else None
+        if charger is None or grid_mode is None or self.is_dry_run:
+            return
+        if (charger.charge_mode or "").strip().lower() != grid_mode.lower():
+            self._ev_grid_held = False
+        elif in_clock_window(now, *ev_schedule(self._effective_cfg())):
+            self._ev_grid_held = True
+
     def _apply_ev_action(self, target_mode: str | None) -> None:
         """Apply an EV charger mode change via HA service call.
 
@@ -1666,7 +1690,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         current = (charger.charge_mode or "").strip()
         if not self.is_dry_run:
-            self._ev_mode_held = target_mode in (charger.cheap_rate_mode(), charger.stop_mode())
+            self._ev_grid_held = target_mode == charger.cheap_rate_mode()
         if current == target_mode:
             return
         if self.is_dry_run:
@@ -1844,7 +1868,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 cfg=cfg,
                 now=now,
                 ev_charger=self._ev_charger,
-                ev_mode_held=self._ev_mode_held,
+                ev_grid_held=self._ev_grid_held,
                 overrides=ManualOverrides(
                     charge_target=self.override_charge_target,
                     immersion=self.override_immersion,
@@ -2464,6 +2488,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self, data: CoordinatorData, ev_target_mode: str | None, now: datetime
     ) -> None:
         """Send the EV and immersion commands the engine asked for."""
+        self._note_ev_grid_held(now)
         self._apply_ev_action(ev_target_mode)
         if self.data is not None:
             # The first cycle only observes. At startup the real switch may not be up yet.

@@ -709,9 +709,9 @@ DESCRIPTIONS: dict[str, str] = {
         "yes while the charger is charging, drawing power, and the battery discharges over 200 W."
     ),
     "ev_protection_reason": "Reason for the latest EV charge mode decision.",
-    "ev_charging_window": "The hours the car may charge from the grid, with your extra hours.",
+    "ev_charging_window": "The hours the car charges from the grid: your start and end times.",
     "ev_charging_plan": (
-        "What the car will do and when, such as the cheaper rate it charges at. With a car set "
+        "What the car will do and when, such as the hours it charges in. With a car set "
         "up it also says the car's charge and, with its battery size set, the energy it needs."
     ),
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
