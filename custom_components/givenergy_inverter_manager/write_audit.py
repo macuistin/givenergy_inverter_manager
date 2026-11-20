@@ -1,9 +1,10 @@
 """
-write_audit.py: who changed the charge target and the charge window.
+write_audit.py: who changed the charge target and the charge window, and the EV charger mode.
 
 The manager reports each write it sends, and watches the entities it manages for
 changes it did not send. Both go into one bounded log that is saved with the
-accumulation store and shown as an attribute of the register write count sensor.
+accumulation store and shown as an attribute of the register write count sensor. A second audit
+keeps the same kind of log for the EV charger mode (the EV command log).
 
 The audit never reverts a change and never raises a repair. It only records.
 """
@@ -41,9 +42,18 @@ _LOG = get_logger(__name__)
 class WriteAudit:
     """Keeps the write log and tells the manager's own writes from outside changes."""
 
-    def __init__(self, acc: AccumulationStore, now: Callable[[], datetime]) -> None:
+    def __init__(
+        self,
+        acc: AccumulationStore,
+        now: Callable[[], datetime],
+        *,
+        log: str = "register_write_log",
+        limit: int = REGISTER_WRITE_LOG_MAX_ENTRIES,
+    ) -> None:
         self._acc = acc
         self._now = now
+        self._log = log
+        self._limit = limit
         self._memory = ManagerWriteMemory(GIVTCP_MIN_WRITE_INTERVAL_S)
 
     def before_write(self, record: WriteRecord) -> None:
@@ -98,7 +108,5 @@ class WriteAudit:
 
     def _append(self, entry: WriteLogEntry) -> None:
         state = self._acc.state
-        state.register_write_log = append_bounded(
-            state.register_write_log, entry, REGISTER_WRITE_LOG_MAX_ENTRIES
-        )
+        setattr(state, self._log, append_bounded(getattr(state, self._log), entry, self._limit))
         self._acc.schedule_save()
