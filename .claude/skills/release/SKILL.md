@@ -32,8 +32,8 @@ and the six version strings. Commit title: `chore(release): bump version to X.Y.
    and that the three requirements files carry the same line.
 7. Commit, then open the PR with `.github/PULL_REQUEST_TEMPLATE.md`. The PR body says what the
    release contains, taken from the changelog.
-8. After the PR merges, the maintainer runs Actions > Release > Run workflow on `main` with
-   `X.Y.Z`, or pushes the tag `vX.Y.Z`. `.github/workflows/release.yml` checks the six places,
+8. After the PR merges, the maintainer runs Actions > Release > Run workflow on `main`, leaving
+   the version box empty (it reads the version from the files), or pushes the tag `vX.Y.Z`. `.github/workflows/release.yml` checks the six places,
    tags the commit and publishes the GitHub release with the changelog section as notes. HACS lists
    GitHub releases as versions. A beta (`X.Y.ZbN`) needs no changelog section of its own: it
    uses `## Unreleased`, and the workflow can run from any branch for it. Do not run the workflow,
