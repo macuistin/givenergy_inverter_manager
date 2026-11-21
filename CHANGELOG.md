@@ -2,6 +2,14 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## v0.25.1
+
+This release moves the tariff data to a new public repository and updates the tariff library. Nothing needs changing on upgrade.
+
+**Changed**
+- The default tariff store is now read from the `utility-tariff-data` repository instead of the `utility-tariffs` one. The folder layout and the plans are the same, so your tariff, bill and entities do not change.
+- The tariff library `utility-tariffs-lib` is updated from 0.3.1 to 0.4.0. Home Assistant installs it when it restarts, so it needs internet access once.
+
 ## v0.25.0
 
 This release stops scheduled immersion heating from running on top of a car and house battery charge, which could stop the car charging, and adds a log of every command sent to the EV charger. Nothing needs changing on upgrade.
