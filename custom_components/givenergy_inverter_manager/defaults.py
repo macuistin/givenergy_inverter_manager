@@ -31,7 +31,7 @@ DEFAULT_EV_HOLD_BATTERY = True
 DEFAULT_VAT_RATE = 9.0  # % (Irish domestic electricity)
 # Where the open tariff store is read from: the raw files of its main branch, over https.
 DEFAULT_TARIFF_STORE_URL = (
-    "https://raw.githubusercontent.com/macuistin/utility-tariffs/main/tariffs/electricity"
+    "https://raw.githubusercontent.com/macuistin/utility-tariff-data/main/tariffs/electricity"
 )
 DEFAULT_VAT_INCLUDED = False  # prices are entered without VAT
 DEFAULT_DISCOUNT_RATE = 5.5  # % (DD + online billing, Electric Ireland)
