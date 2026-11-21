@@ -1,8 +1,9 @@
 name: Release
 
 # Publishes a GitHub release, which HACS offers as an update. Start it either way:
-# - Actions > Release > Run workflow, entering a version such as 0.20.0. A final version
-#   must be run from main. The run tags that commit as v0.20.0, then publishes the release.
+# - Actions > Release > Run workflow. It reads the version from the files (the six places
+#   set_version.py writes), so leave the version box empty. A final version must be run from
+#   main. The run tags that commit, for example v0.20.0, then publishes the release.
 # - Push a version tag such as v0.20.0.
 # A version with a, b or rc in it (0.20.0b1) publishes a pre-release, which HACS offers under
 # "Show beta versions", and can be run from any branch. The notes are the version's section
@@ -18,8 +19,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, for example 0.20.0 or 0.20.0b1. It must match the six places set_version.py writes."
-        required: true
+        description: "Leave empty to release the version in the files. Only to re-release an existing tag, for example 0.20.0 or 0.20.0b1. It must match the six places set_version.py writes."
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -49,6 +51,10 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ -z "${VERSION}" ]]; then
+              # Fails when the six places disagree, so a half bumped tree is never released
+              VERSION="$(python scripts/set_version.py --tag)"
+            fi
             tag="v${VERSION#v}"
             if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
               echo "::error::${VERSION} is not a version. Use 0.20.0, 0.20.0b1 or 0.20.0rc1."

@@ -56,7 +56,7 @@ inside it.
   key reloads until it is placed in `LIVE_KEYS`, and `tests/core/test_reload_policy.py` fails until it
   has a row.
 - `.github/workflows/release.yml` publishes the GitHub release. The maintainer runs it from
-  Actions > Release > Run workflow with a version, or pushes a `vX.Y.Z` tag. It tags the commit,
+  Actions > Release > Run workflow (the version comes from the files), or pushes a `vX.Y.Z` tag. It tags the commit,
   uses the changelog section as notes, and marks an `a`, `b` or `rc` version a pre-release. A final
   release runs from `main`. Never run it, push a tag or create a release yourself.
   `scripts/set_version.py` sets and checks the version and prints the notes.

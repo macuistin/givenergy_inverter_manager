@@ -468,7 +468,11 @@ def test_the_release_workflow_starts_from_a_version_tag_or_by_hand():
     # One pattern for every release line, so it never needs moving at a release
     assert triggers["push"]["tags"] == ["v[0-9]+.[0-9]+.[0-9]+*"]
     assert "branches" not in triggers["push"]
-    assert triggers["workflow_dispatch"]["inputs"]["version"]["required"] is True
+    # The version comes from the files unless one is typed to re-release a tag
+    version = triggers["workflow_dispatch"]["inputs"]["version"]
+    assert version["required"] is False
+    assert version["default"] == ""
+    assert "set_version.py --tag" in "\n".join(_release_runs())
 
 
 def test_the_release_workflow_checks_the_version_and_the_notes_before_it_tags_or_publishes():
