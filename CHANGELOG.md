@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.25.0
+
+This release stops scheduled immersion heating from running on top of a car and house battery charge, which could stop the car charging, and adds a log of every command sent to the EV charger. Nothing needs changing on upgrade.
 
 **Added**
 - An **EV command log**. Every command the integration sends to the EV charger's charge mode is now logged with its time, the mode set, the reason and the result: sent, failed, held back by the write cooldown, or skipped in dry run. A mode change it did not send, such as one made by the charger or its app, is logged too, with the Home Assistant user or automation when there is one. The last 50 entries are the `recent_commands` attribute of the EV charger **Mode Decision** sensor, newest first, and are saved across restarts. Nothing needs changing on upgrade. See [Find out what was sent to the EV charger](docs/troubleshooting.md#find-out-what-was-sent-to-the-ev-charger).
