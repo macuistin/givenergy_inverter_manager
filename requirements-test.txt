@@ -18,4 +18,4 @@ bandit>=1.9.4,<2
 ruff>=0.17.5,<0.18
 mypy>=2.4.1,<3
 # The tariff libraries, at the commit the manifest pins.
-utility-tariffs-lib==0.3.1
+utility-tariffs-lib==0.4.0
