@@ -91,8 +91,8 @@ To run the floor locally, install that file into a Python 3.14.2 or newer virtua
 | `Home Assistant end-to-end (2026.5.0)` and `Home Assistant end-to-end (latest)` | The real Home Assistant suite at the minimum and at the release pinned in `requirements-test-e2e.txt` |
 | `Home Assistant end-to-end (beta, not blocking)` | The real Home Assistant suite against the newest pre-release plugin |
 
-The two beta jobs use `continue-on-error`, so a failure there does not fail the workflow. They are not required checks.
+The two beta jobs use `continue-on-error`, so a failure there does not fail the workflow. They are not required checks. They run only on the nightly schedule, not on pull requests or pushes to `main`. The other jobs run on pull requests, pushes to `main` and manual runs, not on the nightly schedule. Only the `latest` legs measure coverage, because only they keep it.
 
-Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). All four workflows also run nightly or weekly, so a change in Home Assistant, HACS or a dependency shows up without a pull request.
+Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). Hassfest, HACS and CodeQL also run nightly or weekly, and the two beta jobs run nightly, so a change in Home Assistant, HACS or a dependency shows up without a pull request.
 
 Every workflow has read-only `contents` permission at the top, and a new push to a pull request cancels the run it supersedes. One workflow gives one job more: Release. Dependabot opens a weekly pull request for GitHub Actions and one for the Python test dependencies. It does not touch `homeassistant`, whose floor is set by `hacs.json`.
