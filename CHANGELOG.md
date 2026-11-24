@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- The tariff library `utility-tariffs-lib` is updated from 0.4.0 to 0.5.0. Home Assistant has one copy of each Python package, and the Utility Tariffs integration needs 0.5.0 to read gas tariffs. With both integrations installed, the older pin could leave Utility Tariffs on 0.4.0, so adding a gas tariff failed with "The tariff store could not be read". Restart Home Assistant after the upgrade so it installs 0.5.0. It needs internet access once.
+
 ## v0.25.1
 
 This release moves the tariff data to a new public repository and updates the tariff library. Nothing needs changing on upgrade.
