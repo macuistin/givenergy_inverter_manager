@@ -37,7 +37,11 @@ async def save(hass, result):
     """Back to the main menu from the shadow tariffs menu, then Save changes."""
     result = await choose(manager(hass), result, "init")
     result = await choose(manager(hass), result, "confirm")
-    return await manager(hass).async_configure(result["flow_id"], user_input={})
+    result = await manager(hass).async_configure(result["flow_id"], user_input={})
+    # Saving reloads the entry in the background. Wait for it, or the reload can still be
+    # running at teardown and leave coordinator timers behind, which fails the test.
+    await hass.async_block_till_done()
+    return result
 
 
 async def test_a_shadow_tariff_is_added_and_saved_in_the_options(hass, loaded_entry):
